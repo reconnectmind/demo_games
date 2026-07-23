@@ -12,11 +12,23 @@
     --shadow: 0 8px 30px rgba(0,0,0,0.45);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
   body { background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  .wrap { max-width: 1360px; margin: 0 auto; padding: 24px; }
+  .app-shell { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); transition: grid-template-columns .22s ease; }
+  .app-shell.catalog-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  .catalog-panel { min-width: 0; overflow: hidden; background: var(--bg); border-right: 1px solid var(--border); transition: opacity .16s ease; }
+  .catalog-collapsed .catalog-panel { opacity: 0; pointer-events: none; }
+  .catalog-scroll { width: min(420px, 100vw); height: 100%; overflow-y: auto; }
+  .wrap { padding: 24px; }
+  .sidebar-toggle { position: fixed; z-index: 30; top: 15px; left: min(374px, calc(100vw - 46px)); width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; transition: left .22s ease, background .12s; }
+  .sidebar-toggle:hover { background: var(--accent); }
+  .catalog-collapsed .sidebar-toggle { left: 14px; }
+  .workspace { min-width: 0; height: 100%; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 15%, rgba(91,157,255,.06), transparent 38%), var(--bg); }
+  .details-view { height: 100%; overflow-y: auto; padding: clamp(28px, 5vw, 72px); }
+  .details-card { max-width: 780px; margin: 0 auto; padding: clamp(24px, 4vw, 44px); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .details-empty { height: 100%; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 30px; }
   header h1 { font-size: 22px; margin: 0 0 4px; }
   header p { color: var(--muted); margin: 0 0 18px; }
 
@@ -41,9 +53,10 @@
   .cat h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
   .cat h2 .dot { width: 10px; height: 10px; border-radius: 50%; }
   .cat h2 .cnt { color: var(--muted); font-weight: 400; font-size: 12px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: border-color 0.12s, transform 0.12s; position: relative; }
   .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card.active { border-color: var(--accent); background: rgba(91,157,255,.1); }
   .card h3 { margin: 0 0 3px; font-size: 15px; }
   .card .gid { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); margin-bottom: 8px; word-break: break-all; }
   .card .mech { font-size: 13px; color: var(--text); }
@@ -53,14 +66,9 @@
   .badge.play { background: rgba(163,113,247,0.16); border-color: var(--purple); color: var(--purple); }
   .badge.cap { background: rgba(210,153,34,0.13); border-color: var(--amber); color: var(--amber); }
 
-  /* Drawer */
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 10; }
-  .overlay.open { opacity: 1; pointer-events: auto; }
-  .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(620px, 94vw); background: var(--panel); border-left: 1px solid var(--border); box-shadow: var(--shadow); transform: translateX(100%); transition: transform 0.2s ease; z-index: 11; overflow-y: auto; }
-  .drawer.open { transform: translateX(0); }
-  .drawer-inner { padding: 24px; }
-  .drawer h2 { margin: 0 0 4px; font-size: 19px; }
-  .drawer .sub { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; margin-bottom: 16px; }
+  /* Details port */
+  .details-inner h2 { margin: 0 0 4px; font-size: 22px; }
+  .details-inner .sub { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; margin-bottom: 20px; }
   .close { position: absolute; top: 14px; right: 18px; font-size: 24px; color: var(--muted); cursor: pointer; background: none; border: none; }
   .field { margin-bottom: 14px; }
   .field .flabel { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 4px; }
@@ -73,13 +81,14 @@
   .btn:hover { filter: brightness(1.1); }
   .btn.ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
 
-  /* Play modal */
-  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 20; }
-  .modal.open { display: flex; }
-  .stage { width: min(820px, 96vw); height: min(680px, 94vh); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+  /* Fixed game port */
+  .game-port { position: absolute; inset: 0; display: none; background: var(--bg); }
+  .game-port.open { display: flex; }
+  .stage { width: 100%; height: 100%; background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
   .stage:focus { outline: none; }
-  .stage:focus-visible { box-shadow: var(--shadow), 0 0 0 2px var(--accent); }
-  .stage-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .stage:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+  .stage-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); transition: padding-left .22s ease; }
+  .catalog-collapsed .stage-head { padding-left: 60px; }
   .stage-head h3 { margin: 0; font-size: 15px; }
   .stage-meta { padding: 9px 16px 11px; border-bottom: 1px solid var(--border); background: var(--panel-2); max-height: 180px; overflow: auto; }
   .stage-meta-title { display:flex; justify-content:space-between; gap:12px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 7px; }
@@ -101,7 +110,13 @@
   button.param-option { cursor:pointer; }
   button.param-option:disabled { cursor:not-allowed; opacity:.7; }
   .param-option.active { border-color:var(--accent); color:var(--text); background:rgba(91,157,255,.16); }
-  @media (max-width: 620px) { .stage-params { grid-template-columns:1fr; } .stage-meta { max-height:150px; } }
+  @media (max-width: 820px) {
+    .app-shell { grid-template-columns: min(340px, 88vw) minmax(0, 1fr); }
+    .app-shell.catalog-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+    .sidebar-toggle { left: min(calc(88vw - 46px), 294px); }
+    .catalog-collapsed .sidebar-toggle { left: 10px; }
+  }
+  @media (max-width: 620px) { .stage-params { grid-template-columns:1fr; } .stage-meta { max-height:150px; } .details-view { padding: 16px; } .details-card { padding: 22px; } }
   .stage-task { display:flex; gap:10px; align-items:baseline; padding:9px 16px; border-bottom:1px solid var(--border); background:rgba(91,157,255,.08); font-size:13px; line-height:1.35; }
   .stage-task-label { flex:none; color:var(--accent); font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
   .stage-task-text { color:var(--text); }
@@ -153,59 +168,66 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Gamespace — каталог микроигр</h1>
-    <p>Примеры игр из <code>games-catalog.md</code>. Карточки — по когнитивным доменам; у многих есть играбельная версия (бейдж <b>▶ демо</b>) с адаптивным ростом сложности (2-up/1-down) и сбором метрик. Ось «Рост сложности» — в панели игры.</p>
-  </header>
+<div class="app-shell" id="appShell">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Скрыть каталог" aria-expanded="true">☰</button>
+  <aside class="catalog-panel" id="catalogPanel" aria-label="Каталог игр">
+    <div class="catalog-scroll">
+      <div class="wrap">
+        <header>
+          <h1>Gamespace</h1>
+          <p>Каталог когнитивных микроигр с адаптивным ростом сложности и сбором метрик.</p>
+        </header>
 
-  <div class="stats" id="stats"></div>
+        <div class="stats" id="stats"></div>
 
-  <div class="controls">
-    <input type="search" id="search" placeholder="Поиск по названию, механизму, id…" />
-    <select id="catSel"><option value="">Все домены</option></select>
-    <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="playOnly" checked="true"/> только играбельные
-    </label>
-  </div>
+        <div class="controls">
+          <input type="search" id="search" placeholder="Поиск по названию, механизму, id…" />
+          <select id="catSel"><option value="">Все домены</option></select>
+          <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="playOnly" checked="true"/> только играбельные
+          </label>
+        </div>
 
-  <div id="cats"></div>
-  <p class="muted" id="resultCount"></p>
+        <div id="cats"></div>
+        <p class="muted" id="resultCount"></p>
 
-  <footer>
-    Играбельные версии иллюстрируют механику и сбор метрик, а не финальные параметры/тайминги. Полные требования — в <code>requirements.md</code>.
-  </footer>
-</div>
-
-<div class="overlay" id="overlay"></div>
-<aside class="drawer" id="drawer">
-  <button class="close" id="closeBtn" aria-label="Закрыть">×</button>
-  <div class="drawer-inner" id="drawerBody"></div>
-</aside>
-
-<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="stageTitle">
-  <div class="stage" id="gameStage" tabindex="-1" role="application" aria-label="Игровой viewport">
-    <div class="stage-head">
-      <h3 id="stageTitle">Игра</h3>
-      <button class="close" id="stageClose" style="position:static;font-size:22px">×</button>
-    </div>
-    <div class="stage-meta">
-      <div class="stage-meta-title">
-        <span>Пространство сложности</span>
-        <span class="stage-mode">
-          <label class="mode-pill"><input type="radio" name="difficultyMode" value="adaptive" checked>адаптивно</label>
-          <label class="mode-pill"><input type="radio" name="difficultyMode" value="manual">ручной</label>
-        </span>
+        <footer>
+          Играбельные версии иллюстрируют механику и сбор метрик. Полные требования — в <code>requirements.md</code>.
+        </footer>
       </div>
-      <div class="stage-params" id="stageParams"></div>
     </div>
-    <div class="stage-task" id="stageTask">
-      <span class="stage-task-label" id="stageTaskLabel">Задание</span>
-      <span class="stage-task-text" id="stageTaskText"></span>
-    </div>
-    <div class="stage-body" id="stageBody"></div>
-    <div class="stage-foot" id="stageFoot"></div>
-  </div>
+  </aside>
+
+  <main class="workspace" id="workspace">
+    <section class="details-view" id="detailsView" aria-live="polite">
+      <div class="details-empty">Выберите игру в каталоге слева.</div>
+    </section>
+
+    <section class="game-port" id="gamePort" aria-labelledby="stageTitle" hidden>
+      <div class="stage" id="gameStage" tabindex="-1" role="application" aria-label="Игровой viewport">
+        <div class="stage-head">
+          <h3 id="stageTitle">Игра</h3>
+          <button class="btn ghost" id="stageClose">← К описанию</button>
+        </div>
+        <div class="stage-meta">
+          <div class="stage-meta-title">
+            <span>Пространство сложности</span>
+            <span class="stage-mode">
+              <label class="mode-pill"><input type="radio" name="difficultyMode" value="adaptive" checked>адаптивно</label>
+              <label class="mode-pill"><input type="radio" name="difficultyMode" value="manual">ручной</label>
+            </span>
+          </div>
+          <div class="stage-params" id="stageParams"></div>
+        </div>
+        <div class="stage-task" id="stageTask">
+          <span class="stage-task-label" id="stageTaskLabel">Задание</span>
+          <span class="stage-task-text" id="stageTaskText"></span>
+        </div>
+        <div class="stage-body" id="stageBody"></div>
+        <div class="stage-foot" id="stageFoot"></div>
+      </div>
+    </section>
+  </main>
 </div>
 
 <script>
@@ -371,7 +393,7 @@ const IMPL_IDS = new Set([
 ]);
 GAMES.forEach(g => { const sid = g.id.replace("org.reconnect.", ""); if (IMPL_IDS.has(sid)) g.demo = sid; });
 
-// Difficulty-growth design per playable game (shown in the drawer as «Рост сложности»).
+// Difficulty-growth design per playable game (shown in the details port as «Рост сложности»).
 // All adaptive games use a 2-up / 1-down staircase (≈71% target accuracy): 2 верных подряд повышают уровень, 1 ошибка снижает.
 const PROGRESSION = {
   "spatial-span": "span 3→12; сетка 3×3→4×4→5×5; короче показ; с span 6 — воспроизведение в ОБРАТНОМ порядке. Правильно — span +1, ошибка — span −1.",
@@ -469,7 +491,7 @@ const TASK_INSTRUCTIONS = {
 };
 
 // ---------- state + rendering ----------
-const state = { search: "", cat: "", playOnly: true };
+const state = { search: "", cat: "", playOnly: true, selectedId: null };
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])); }
 
@@ -511,7 +533,7 @@ function render() {
       <div class="grid">${cards}</div>
     </div>`;
   }).join("");
-  host.querySelectorAll(".card").forEach(el => el.onclick = () => openDrawer(el.dataset.id));
+  host.querySelectorAll(".card").forEach(el => el.onclick = () => openDetails(el.dataset.id));
   document.getElementById("resultCount").textContent = `Показано ${rows.length} из ${GAMES.length} игр.`;
 }
 
@@ -519,7 +541,7 @@ function cardHtml(g) {
   const badges = [];
   if (g.demo) badges.push(`<span class="badge play">▶ демо</span>`);
   (g.caps || []).forEach(c => badges.push(`<span class="badge cap">${esc(c)}</span>`));
-  return `<div class="card" data-id="${esc(g.id)}">
+  return `<div class="card ${state.selectedId === g.id ? "active" : ""}" data-id="${esc(g.id)}">
     <h3>${esc(g.name)}</h3>
     <div class="gid">${esc(g.id)}</div>
     <div class="mech">${esc(g.mech)}</div>
@@ -527,31 +549,33 @@ function cardHtml(g) {
   </div>`;
 }
 
-function openDrawer(id) {
+function openDetails(id) {
   const g = GAMES.find(x => x.id === id);
   if (!g) return;
+  if (activeGameId) closeGame(false);
+  state.selectedId = id;
   const shortId = g.id.replace("org.reconnect.", "");
   const caps = (g.caps || []).map(c => `<span class="badge cap">${esc(c)}</span>`).join(" ");
-  document.getElementById("drawerBody").innerHTML = `
-    <h2>${esc(g.name)}</h2>
-    <div class="sub">${esc(g.id)} · ${esc(CAT_TITLE[g.cat])}</div>
-    ${g.demo ? `<div style="margin-bottom:16px"><button class="btn" id="playBtn">▶ Играть в демо</button></div>` : ""}
-    <div class="field"><div class="flabel">Основной механизм</div>${esc(g.mech)}</div>
-    <div class="field"><div class="flabel">Параметры сложности</div>${esc(g.difficulty)}</div>
-    ${PROGRESSION[shortId] ? `<div class="field"><div class="flabel">Рост сложности</div>${esc(PROGRESSION[shortId])}</div>` : ""}
-    <details class="schema"><summary>JSON Schema параметров сложности</summary><pre>${esc(JSON.stringify(DIFFICULTY_SCHEMAS[shortId], null, 2))}</pre></details>
-    <div class="field"><div class="flabel">Интерфейс / ответ</div>${esc(g.interfaces)}</div>
-    <div class="field"><div class="flabel">Метрики</div>${esc(g.metrics)}</div>
-    ${caps ? `<div class="field"><div class="flabel">Capabilities</div>${caps}</div>` : ""}
-    ${g.note ? `<div class="field"><div class="flabel">Примечание</div>${esc(g.note)}</div>` : ""}
-  `;
+  const details = document.getElementById("detailsView");
+  const gamePort = document.getElementById("gamePort");
+  details.hidden = false;
+  gamePort.classList.remove("open");
+  gamePort.hidden = true;
+  details.innerHTML = `<div class="details-card"><div class="details-inner">
+      <h2>${esc(g.name)}</h2>
+      <div class="sub">${esc(g.id)} · ${esc(CAT_TITLE[g.cat])}</div>
+      ${g.demo ? `<div style="margin-bottom:20px"><button class="btn" id="playBtn">▶ Играть</button></div>` : ""}
+      <div class="field"><div class="flabel">Основной механизм</div>${esc(g.mech)}</div>
+      <div class="field"><div class="flabel">Параметры сложности</div>${esc(g.difficulty)}</div>
+      ${PROGRESSION[shortId] ? `<div class="field"><div class="flabel">Рост сложности</div>${esc(PROGRESSION[shortId])}</div>` : ""}
+      <details class="schema"><summary>JSON Schema параметров сложности</summary><pre>${esc(JSON.stringify(DIFFICULTY_SCHEMAS[shortId], null, 2))}</pre></details>
+      <div class="field"><div class="flabel">Интерфейс / ответ</div>${esc(g.interfaces)}</div>
+      <div class="field"><div class="flabel">Метрики</div>${esc(g.metrics)}</div>
+      ${caps ? `<div class="field"><div class="flabel">Capabilities</div>${caps}</div>` : ""}
+      ${g.note ? `<div class="field"><div class="flabel">Примечание</div>${esc(g.note)}</div>` : ""}
+    </div></div>`;
   if (g.demo) document.getElementById("playBtn").onclick = () => startDemo(g.demo, g.name);
-  document.getElementById("overlay").classList.add("open");
-  document.getElementById("drawer").classList.add("open");
-}
-function closeDrawer() {
-  document.getElementById("overlay").classList.remove("open");
-  document.getElementById("drawer").classList.remove("open");
+  document.querySelectorAll(".card").forEach(card => card.classList.toggle("active", card.dataset.id === id));
 }
 
 // ---------- playable games ----------
@@ -561,7 +585,7 @@ let activeGameId = null;
 let activeGameTitle = "";
 let difficultyMode = "adaptive";
 const manualDifficulty = {};
-let focusBeforeModal = null;
+let focusBeforeGame = null;
 const gameKeyWrappers = new WeakMap();
 const keyboardPressTimers = new WeakMap();
 
@@ -766,12 +790,15 @@ function showDifficultyParams(params) {
 }
 
 function startDemo(kind, title) {
-  focusBeforeModal = document.activeElement;
+  focusBeforeGame = document.activeElement;
   activeGameId = kind;
   activeGameTitle = title;
   document.getElementById("stageTitle").textContent = title;
   document.querySelectorAll("input[name=difficultyMode]").forEach(input => { input.checked = input.value === difficultyMode; });
-  document.getElementById("modal").classList.add("open");
+  document.getElementById("detailsView").hidden = true;
+  const gamePort = document.getElementById("gamePort");
+  gamePort.hidden = false;
+  gamePort.classList.add("open");
   if (demoCleanup) { demoCleanup(); demoCleanup = null; }
   const body = document.getElementById("stageBody");
   const foot = document.getElementById("stageFoot");
@@ -783,16 +810,19 @@ function startDemo(kind, title) {
   else { body.innerHTML = `<div class="muted">Демо для этой игры ещё не реализовано.</div>`; }
   focusGameStage();
 }
-function closeModal() {
+function closeGame(restoreFocus = true) {
   activeGameId = null;
   activeGameTitle = "";
   setTaskInstruction("");
-  document.getElementById("modal").classList.remove("open");
+  const gamePort = document.getElementById("gamePort");
+  gamePort.classList.remove("open");
+  gamePort.hidden = true;
+  document.getElementById("detailsView").hidden = false;
   if (demoCleanup) { demoCleanup(); demoCleanup = null; }
   document.getElementById("stageBody").innerHTML = "";
   document.getElementById("stageFoot").innerHTML = "";
-  if (focusBeforeModal?.isConnected) focusBeforeModal.focus({ preventScroll: true });
-  focusBeforeModal = null;
+  if (restoreFocus && focusBeforeGame?.isConnected) focusBeforeGame.focus({ preventScroll: true });
+  focusBeforeGame = null;
 }
 
 // shared helpers
@@ -2041,9 +2071,18 @@ function wire() {
   document.getElementById("search").oninput = e => { state.search = e.target.value; render(); };
   document.getElementById("catSel").onchange = e => { state.cat = e.target.value; render(); };
   document.getElementById("playOnly").onchange = e => { state.playOnly = e.target.checked; render(); };
-  document.getElementById("closeBtn").onclick = closeDrawer;
-  document.getElementById("overlay").onclick = closeDrawer;
-  document.getElementById("stageClose").onclick = closeModal;
+  document.getElementById("stageClose").onclick = closeGame;
+  document.getElementById("sidebarToggle").onclick = () => {
+    const shell = document.getElementById("appShell");
+    const collapsed = shell.classList.toggle("catalog-collapsed");
+    const toggle = document.getElementById("sidebarToggle");
+    const catalog = document.getElementById("catalogPanel");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label", collapsed ? "Показать каталог" : "Скрыть каталог");
+    catalog.toggleAttribute("inert", collapsed);
+    catalog.setAttribute("aria-hidden", String(collapsed));
+    if (activeGameId) focusGameStage();
+  };
   document.querySelectorAll("input[name=difficultyMode]").forEach(input => {
     input.onchange = () => {
       if (!input.checked) return;
@@ -2059,7 +2098,9 @@ function wire() {
     const main = e.target.closest("#stageBody #go, #stageBody #startBtn");
     if (!main) return;
     queueMicrotask(() => {
-      if (main.isConnected && main.getClientRects().length && document.getElementById("modal").classList.contains("open")) main.disabled = true;
+      if (!document.getElementById("gamePort").classList.contains("open")) return;
+      if (main.isConnected && main.getClientRects().length) main.disabled = true;
+      if (!isEditableTarget(document.activeElement)) focusGameStage();
     });
   });
   stage.addEventListener("keydown", e => {
@@ -2086,8 +2127,7 @@ function wire() {
   });
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
-    if (document.getElementById("modal").classList.contains("open")) closeModal();
-    else closeDrawer();
+    if (document.getElementById("gamePort").classList.contains("open")) closeGame();
   });
 }
 
@@ -2095,6 +2135,8 @@ renderStats();
 buildCatSelect();
 wire();
 render();
+const initialGame = filtered()[0] || GAMES[0];
+if (initialGame) openDetails(initialGame.id);
 </script>
 </body>
 </html>
