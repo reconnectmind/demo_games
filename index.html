@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gamespace — каталог микроигр</title>
+<style>
+  :root {
+    --bg: #0f1116; --panel: #171a21; --panel-2: #1e222b; --border: #2a2f3a;
+    --text: #e6e8ec; --muted: #97a0ad; --accent: #5b9dff;
+    --green: #3fb950; --amber: #d29922; --red: #f85149; --purple: #a371f7;
+    --shadow: 0 8px 30px rgba(0,0,0,0.45);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 24px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { color: var(--muted); margin: 0 0 18px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat .num { font-size: 26px; font-weight: 700; }
+  .stat .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .controls input[type="search"], .controls select {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none;
+  }
+  .controls input[type="search"] { min-width: 240px; flex: 1; }
+  .controls input:focus, .controls select:focus { border-color: var(--accent); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .chip { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; user-select: none; }
+  .chip.on { background: rgba(91,157,255,0.15); border-color: var(--accent); color: var(--text); }
+  .muted { color: var(--muted); }
+
+  .cat { margin-bottom: 26px; }
+  .cat h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .cat h2 .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cat h2 .cnt { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: border-color 0.12s, transform 0.12s; position: relative; }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card h3 { margin: 0 0 3px; font-size: 15px; }
+  .card .gid { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); margin-bottom: 8px; word-break: break-all; }
+  .card .mech { font-size: 13px; color: var(--text); }
+  .card .badges { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
+  .badge.mvp { background: rgba(63,185,80,0.15); border-color: var(--green); color: var(--green); }
+  .badge.play { background: rgba(163,113,247,0.16); border-color: var(--purple); color: var(--purple); }
+  .badge.cap { background: rgba(210,153,34,0.13); border-color: var(--amber); color: var(--amber); }
+
+  /* Drawer */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 10; }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(620px, 94vw); background: var(--panel); border-left: 1px solid var(--border); box-shadow: var(--shadow); transform: translateX(100%); transition: transform 0.2s ease; z-index: 11; overflow-y: auto; }
+  .drawer.open { transform: translateX(0); }
+  .drawer-inner { padding: 24px; }
+  .drawer h2 { margin: 0 0 4px; font-size: 19px; }
+  .drawer .sub { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; margin-bottom: 16px; }
+  .close { position: absolute; top: 14px; right: 18px; font-size: 24px; color: var(--muted); cursor: pointer; background: none; border: none; }
+  .field { margin-bottom: 14px; }
+  .field .flabel { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 4px; }
+  .field ul { margin: 4px 0; padding-left: 18px; }
+  .field li { margin-bottom: 2px; }
+  details.schema { margin: 14px 0; }
+  details.schema summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+  details.schema pre { max-height: 300px; overflow: auto; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 10px; white-space: pre-wrap; }
+  .btn { display: inline-block; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+
+  /* Play modal */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 20; }
+  .modal.open { display: flex; }
+  .stage { width: min(760px, 94vw); height: min(600px, 90vh); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+  .stage-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .stage-head h3 { margin: 0; font-size: 15px; }
+  .stage-meta { padding: 9px 16px; border-bottom: 1px solid var(--border); background: var(--panel-2); }
+  .stage-meta-title { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+  .stage-params { display: flex; flex-wrap: wrap; gap: 5px; }
+  .param { padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); font: 11px ui-monospace, Menlo, monospace; }
+  .param b { color: var(--accent); font-weight: 600; }
+  .stage-body { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+  .stage-foot { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 18px; font-variant-numeric: tabular-nums; }
+
+  /* grid game */
+  .cellgrid { display: grid; gap: 10px; }
+  .cell { width: 74px; height: 74px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--border); cursor: pointer; transition: background 0.08s, transform 0.08s; }
+  .cell.flash { background: var(--accent); }
+  .cell.good { background: var(--green); }
+  .cell.bad { background: var(--red); }
+  .cell:active { transform: scale(0.94); }
+  .gng-stim { width: 190px; height: 190px; display: flex; align-items: center; justify-content: center; }
+  .big { font-size: 20px; }
+
+  /* shared game widgets */
+  .opts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
+  .opt { min-width: 96px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 16px; cursor: pointer; transition: border-color .1s, background .1s; }
+  .opt:hover { border-color: var(--accent); }
+  .opt.correct { background: var(--green); border-color: var(--green); color: #fff; }
+  .opt.wrong { background: var(--red); border-color: var(--red); color: #fff; }
+  .stim-big { font-size: 60px; font-weight: 700; min-height: 72px; line-height: 1; }
+  .padgrid { display: grid; grid-template-columns: repeat(2, 116px); gap: 12px; }
+  .pad { width: 116px; height: 116px; border-radius: 14px; cursor: pointer; opacity: .5; transition: opacity .09s, transform .08s; }
+  .pad.lit { opacity: 1; box-shadow: 0 0 24px rgba(255,255,255,0.25); }
+  .pad:active { transform: scale(.96); }
+  .keypad { display: grid; grid-template-columns: repeat(3, 62px); gap: 8px; margin: 14px auto 0; width: max-content; }
+  .key { height: 54px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 18px; cursor: pointer; }
+  .key:hover { border-color: var(--accent); }
+  .arrows { font-size: 46px; letter-spacing: 8px; font-weight: 700; }
+  .hint { margin-top: 14px; color: var(--muted); font-size: 13px; }
+  .tap-target { position: absolute; width: 58px; height: 58px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 18px rgba(91,157,255,0.5); }
+  footer { color: var(--muted); font-size: 12px; margin-top: 20px; }
+  kbd { background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-family: ui-monospace, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Gamespace — каталог микроигр</h1>
+    <p>Примеры игр из <code>games-catalog.md</code>. Карточки — по когнитивным доменам; у многих есть играбельная версия (бейдж <b>▶ демо</b>) с адаптивным ростом сложности (2-up/1-down) и сбором метрик. Ось «Рост сложности» — в панели игры.</p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <input type="search" id="search" placeholder="Поиск по названию, механизму, id…" />
+    <select id="catSel"><option value="">Все домены</option></select>
+    <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="mvpOnly" /> только MVP
+    </label>
+    <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="playOnly" /> только играбельные
+    </label>
+  </div>
+
+  <div id="cats"></div>
+  <p class="muted" id="resultCount"></p>
+
+  <footer>
+    Играбельные версии иллюстрируют механику и сбор метрик, а не финальные параметры/тайминги. Полные требования — в <code>requirements.md</code>.
+  </footer>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <button class="close" id="closeBtn" aria-label="Закрыть">×</button>
+  <div class="drawer-inner" id="drawerBody"></div>
+</aside>
+
+<div class="modal" id="modal">
+  <div class="stage">
+    <div class="stage-head">
+      <h3 id="stageTitle">Игра</h3>
+      <button class="close" id="stageClose" style="position:static;font-size:22px">×</button>
+    </div>
+    <div class="stage-meta">
+      <div class="stage-meta-title">Текущие параметры сложности</div>
+      <div class="stage-params" id="stageParams"></div>
+    </div>
+    <div class="stage-body" id="stageBody"></div>
+    <div class="stage-foot" id="stageFoot"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const CATS = [
+  { key: "wm", title: "Рабочая память и последовательности", color: "#5b9dff" },
+  { key: "assoc", title: "Ассоциативная и эпизодическая память", color: "#a371f7" },
+  { key: "attn", title: "Внимание", color: "#3fb950" },
+  { key: "exec", title: "Исполнительные функции и контроль", color: "#f85149" },
+  { key: "spatial", title: "Пространственное мышление", color: "#56d4dd" },
+  { key: "num", title: "Числа, логика и символы", color: "#d29922" },
+  { key: "lang", title: "Язык и семантика", color: "#db61a2" },
+  { key: "motor", title: "Моторика и координация", color: "#e3b341" },
+  { key: "mixed", title: "Смешанные задачи", color: "#8b949e" },
+  { key: "bio", title: "Игры с опциональным биофидбеком", color: "#2ea043" },
+];
+const CAT_TITLE = Object.fromEntries(CATS.map(c => [c.key, c.title]));
+const CAT_COLOR = Object.fromEntries(CATS.map(c => [c.key, c.color]));
+
+const G = (id, cat, name, mech, difficulty, interfaces, metrics, extra = {}) =>
+  ({ id: "org.reconnect." + id, cat, name, mech, difficulty, interfaces, metrics, ...extra });
+
+const GAMES = [
+  // Working memory
+  G("visual-sequence", "wm", "Visual Sequence Recall", "Визуальная последовательная память", "длина, distractors, скорость, задержка, сходство", "перестановка элементов или самостоятельный ввод последовательности", "полное совпадение, длина префикса, ошибки порядка, пропуски"),
+  G("auditory-sequence", "wm", "Auditory Sequence Recall", "Аудиальная рабочая память", "длина, темп, число классов звука, сходство, delay", "кнопки или ввод услышанной последовательности", "accuracy по позициям, transposition errors, latency", { caps: ["audio-output"] }),
+  G("spatial-span", "wm", "Spatial Span", "Зрительно-пространственная рабочая память", "размер сетки, длина маршрута, скорость, прямой/обратный порядок", "выбор клеток в нужном порядке", "максимальный span, точность позиции и порядка, время", { mvp: true, demo: "spatial-span" }),
+  G("n-back", "wm", "N-Back", "Обновление рабочей памяти", "N, темп, доля targets, сходство distractors", "target / non-target", "hit rate, false alarms, d′, reaction time", { mvp: true }),
+  G("dual-n-back", "wm", "Dual N-Back", "Рабочая память и распределённое внимание", "N, темп, вероятности targets, overlap", "две независимые команды", "accuracy и d′ по модальностям, dual-task cost", { caps: ["audio-output"] }),
+  G("running-memory", "wm", "Running Memory", "Непрерывное обновление содержимого памяти", "K, длина потока, скорость, число элементов", "выбор или ввод последних K элементов", "точность последних позиций, intrusions, ошибки порядка"),
+  // Associative
+  G("pair-association", "assoc", "Pair Association", "Associative recall", "число пар, семантическая близость, варианты, задержка", "выбор связанного элемента, текст или свободное воспроизведение", "accuracy, confidence, reaction time, learning curve"),
+  G("relation-map", "assoc", "Relation Map", "Память отношений и relational inference", "число сущностей, длина цепочки, транзитивный вывод", "выбор, текст или построение relation graph", "прямые/выводимые ответы, accuracy по длине цепочки"),
+  G("scene-change", "assoc", "Scene Change", "Визуальная эпизодическая память", "число объектов, размер изменения, насыщенность, delay", "выбор области и типа изменения", "detection accuracy, localization error, reaction time"),
+  G("temporal-order", "assoc", "Temporal Order", "Память временного порядка", "длина эпизода, сходство событий, расстояние позиций", "перестановка карточек, текст или pairwise comparison", "rank correlation, pairwise accuracy, distance effect"),
+  G("context-binding", "assoc", "Context Binding", "Binding признаков и source memory", "число контекстов, похожесть объектов, повторения", "выбор, текст или размещение объекта в контексте", "item memory, context memory, binding errors"),
+  // Attention
+  G("visual-search", "attn", "Visual Search", "Селективное визуальное внимание", "set size, target prevalence, сходство distractors, экспозиция", "указание позиции цели или отсутствие цели", "RT slope по set size, accuracy, misses, false alarms", { mvp: true }),
+  G("spatial-cueing", "attn", "Spatial Cueing", "Ориентирование пространственного внимания", "cue validity, cue-target interval, eccentricity, contrast", "быстрый ответ по цели", "validity effect, accuracy, RT distribution"),
+  G("continuous-performance", "attn", "Continuous Performance", "Sustained attention", "длительность, target rate, темп, similarity", "реакция на редкую цель/последовательность", "omissions, commissions, RT variability, drift"),
+  G("multiple-object-tracking", "attn", "Multiple Object Tracking", "Распределённое пространственное внимание", "число целей, скорость, число объектов, траектории", "выбор отслеживаемых целей после движения", "число верных целей, swaps, accuracy по скорости", { mvp: true }),
+  G("peripheral-monitor", "attn", "Peripheral Monitor", "Внимание центр/периферия", "eccentricity, частота сигналов, нагрузка центра", "центральная задача + реакция на периферию", "central accuracy, peripheral detection, dual-task cost"),
+  G("av-monitor", "attn", "Audio-Visual Monitor", "Межмодальное распределённое внимание", "темп потоков, target overlap, различимость", "реакция на target-паттерны в каждом потоке", "modality-specific accuracy, RT, cross-modal interference", { caps: ["audio-output"] }),
+  // Executive
+  G("go-no-go", "exec", "Go / No-Go", "Response inhibition", "No-Go rate, темп, сходство, response deadline", "быстрый ответ на Go, удержание на No-Go", "commission errors, omissions, Go RT, post-error slowing", { mvp: true, demo: "go-no-go" }),
+  G("stroop", "exec", "Stroop", "Подавление интерференции", "доля incongruent, deadline, число цветов", "указание цвета, игнорируя слово", "Stroop interference по accuracy и RT"),
+  G("flanker", "exec", "Flanker", "Selective control и conflict monitoring", "расстояние, congruency rate, экспозиция, noise", "ответ по центральному стимулу", "flanker effect, accuracy, RT, post-conflict adaptation"),
+  G("rule-switch", "exec", "Rule Switch", "Cognitive flexibility и task switching", "число правил, switch rate, cue interval, overlap", "классификация по текущему правилу", "switch cost, mixing cost, perseveration errors"),
+  G("stop-signal", "exec", "Stop Signal", "Action cancellation", "адаптивный stop-signal delay, темп, mapping", "ответ на Go с отменой по stop-сигналу", "inhibition rate, Go RT, оценка SSRT", { note: "требует строгой timing-валидации" }),
+  G("planning-paths", "exec", "Planning Paths", "Планирование и удержание подцелей", "мин. длина решения, ограничения ходов, число элементов", "преобразование конфигурации за ходы", "excess moves, planning time, invalid actions"),
+  // Spatial
+  G("mental-rotation", "spatial", "Mental Rotation", "Пространственная трансформация", "угол, сложность фигуры, 2D/3D, зеркальные distractors", "same / mirror после вращения", "accuracy и RT как функция угла"),
+  G("grid-navigation", "spatial", "Grid Navigation", "Пространственная память и навигация", "размер карты, длина пути, скрытие карты, повороты", "проход маршрута по памяти", "ошибки маршрута, лишние шаги, время"),
+  G("spatial-updating", "spatial", "Spatial Updating", "Обновление пространственных представлений", "число объектов, число шагов, направления", "отслеживание позиций после команд", "localization error, accuracy по объектам, interference"),
+  G("perspective-taking", "spatial", "Perspective Taking", "Смена пространственной перспективы", "угол перспективы, число объектов, сложность", "расположение с точки зрения наблюдателя", "angular error, accuracy, reaction time"),
+  // Numbers
+  G("arithmetic-sprint", "num", "Arithmetic Sprint", "Вычислительная беглость и рабочая память", "операции, диапазон, перенос разряда, шаги, deadline", "выбор результата или числовой ввод", "accuracy, reaction time, типы ошибок, throughput", { mvp: true }),
+  G("equation-verification", "num", "Equation Verification", "Проверка вычисления и быстрый выбор", "операции, размер ошибки, число операндов, темп", "бинарная проверка равенства", "sensitivity к ошибкам, accuracy, reaction time"),
+  G("number-switching", "num", "Number Switching", "Переключение правил на числах", "число правил, switch probability, response overlap", "классификация числа по cue", "switch cost, congruency effect, errors by rule"),
+  G("symbol-coding", "num", "Symbol Coding", "Скорость обработки и обучение соответствий", "размер ключа, видимость, темп, similarity", "mapped controls или числовой ввод по ключу", "correct per minute, errors, learning curve"),
+  G("logic-matrix", "num", "Logic Matrix", "Индуктивное рассуждение", "число правил, distractor quality, размер матрицы", "выбор недостающего элемента", "accuracy по типам правил, RT, confidence"),
+  // Language
+  G("semantic-match", "lang", "Semantic Match", "Semantic association", "близость distractors, абстрактность, частотность, время", "выбор или самостоятельная ассоциация", "accuracy, RT, category errors; для текста — нормированный answer set", { caps: ["locale-stimuli"] }),
+  G("category-selection", "lang", "Category Fluency Selection", "Семантическая категоризация и sustained attention", "ширина категории, темп, similarity, target rate", "отметка элементов категории в потоке", "hits, false inclusions, reaction time"),
+  G("category-generation", "lang", "Category Fluency Generation", "Генеративное семантическое извлечение", "категория, длительность, повторы/подкатегории", "свободный последовательный ввод ответов", "число уникальных ответов, intrusions, latency, clustering", { caps: ["text-input"] }),
+  G("word-picture-interference", "lang", "Word-Picture Interference", "Семантическая интерференция", "relatedness, congruency rate, экспозиция", "категоризация изображения; вариант с именованием", "interference effect, accuracy, reaction time"),
+  G("sentence-update", "lang", "Sentence Update", "Verbal working memory при обработке", "число предложений, длина, темп, сложность", "перестановка слов или свободное воспроизведение", "processing accuracy, recall span, order accuracy"),
+  // Motor
+  G("reaction-choice", "motor", "Reaction Choice", "Скорость сенсомоторного решения", "число вариантов, S-R compatibility, foreperiod", "разные команды на разные стимулы", "RT distribution, errors, anticipations, lapses", { mvp: false }),
+  G("target-tapping", "motor", "Target Tapping", "Скорость и точность наведения", "размер целей, расстояние, направление, deadline", "нажатие появляющихся целей", "movement time, miss distance, throughput, Fitts fit"),
+  G("bimanual-rhythm", "motor", "Bimanual Rhythm", "Timing и бимануальная координация", "tempo, полиритм, длина паттерна, cue", "воспроизведение ритма двумя командами", "timing error, variability, phase drift, missed taps", { caps: ["gamepad?", "bluetooth-buttons?"] }),
+  G("motion-path", "motor", "Motion Path", "Visuomotor tracking", "скорость, ширина пути, delay, perturbations", "ведение объекта по траектории", "path error, correction rate, smoothness, time", { caps: ["touch|pointer|motion"] }),
+  // Mixed
+  G("dual-load", "mixed", "Dual Load", "Рабочая память и распределённое внимание", "нагрузка подзадач, target rate, синхронность", "центральная задача + вторичная реакция", "single/dual performance, dual-task cost, trade-off"),
+  G("adaptive-battery", "mixed", "Adaptive Task Battery", "Несколько доменов (мониторинг)", "состав blocks, длительность, transition cost, policy", "чередование коротких blocks", "результаты blocks, устойчивость, fatigue trend", { note: "composition protocol, не одиночный construct" }),
+  G("interrupt-resume", "mixed", "Interrupt and Resume", "Prospective memory и task context", "длина primary, длительность interruption, similarity", "primary task с прерываниями и возвратом", "resumption lag, post-interruption errors, accuracy"),
+  // Biofeedback
+  G("paced-breathing", "bio", "Paced Breathing", "Interoceptive pacing (не когнитивный тест)", "частота, длительность фаз, плавность", "синхронизация дыхания с pacer", "adherence; при устройстве — derived respiration/HR", { caps: ["respiration?", "PPG?", "HR?"] }),
+  G("focus-garden", "bio", "Focus Garden", "Sustained engagement с биофидбеком", "длительность, чувствительность feedback, task load", "устойчивая простая задача + среда-обратная связь", "task accuracy, feedback exposure, stability", { caps: ["derived-neurofeedback?"] }),
+  G("calm-tracking", "bio", "Calm Tracking", "Моторное слежение и саморегуляция", "динамика цели, ширина зоны, вес feedback", "удержание объекта в зоне + медленный физио-канал", "tracking error отдельно от physiological feature", { caps: ["derived-arousal?", "derived-respiration?"] }),
+];
+
+// JSON Schema (draft 2020-12) contracts for every catalog game.
+// They describe valid protocol parameters; runtime values are rendered in #stageParams.
+const JN = (minimum, maximum, defaultValue, unit, description) => ({
+  type: "number", minimum, maximum, default: defaultValue, ...(unit ? { unit } : {}), description,
+});
+const JI = (minimum, maximum, defaultValue, unit, description) => ({
+  type: "integer", minimum, maximum, default: defaultValue, ...(unit ? { unit } : {}), description,
+});
+const JB = (defaultValue, description) => ({ type: "boolean", default: defaultValue, description });
+const JE = (values, defaultValue, description) => ({ type: "string", enum: values, default: defaultValue, description });
+const difficultyObject = (properties) => ({
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  additionalProperties: false,
+  properties,
+  required: Object.keys(properties),
+});
+
+const DIFFICULTY_SCHEMAS = {
+  "visual-sequence": difficultyObject({ sequenceLength: JI(2, 16, 3, "items", "Длина последовательности"), padCount: JI(4, 12, 4, "pads", "Количество возможных позиций"), presentationMs: JI(180, 1000, 620, "ms", "Интервал предъявления") }),
+  "auditory-sequence": difficultyObject({ sequenceLength: JI(2, 16, 3, "sounds", "Длина последовательности"), soundClasses: JI(3, 10, 4, "classes", "Число звуков"), presentationMs: JI(220, 1200, 750, "ms", "Интервал"), reverseRecall: JB(false, "Обратное воспроизведение") }),
+  "spatial-span": difficultyObject({ span: JI(2, 14, 3, "cells", "Длина маршрута"), gridSide: JI(3, 6, 3, "cells", "Сторона сетки"), presentationMs: JI(180, 1000, 680, "ms", "Интервал"), reverseRecall: JB(false, "Обратный порядок") }),
+  "n-back": difficultyObject({ n: JI(1, 6, 1, "steps", "Глубина N"), stimulusMs: JI(300, 2000, 1520, "ms", "Экспозиция"), isiMs: JI(100, 800, 420, "ms", "ISI"), targetRate: JN(0.1, 0.5, 0.3, "ratio", "Доля targets"), blockLength: JI(12, 80, 22, "trials", "Длина блока") }),
+  "dual-n-back": difficultyObject({ n: JI(1, 6, 1, "steps", "Глубина N"), presentationMs: JI(400, 2200, 1800, "ms", "Темп"), targetRate: JN(0.1, 0.5, 0.3, "ratio", "Доля targets"), overlapRate: JN(0, 0.5, 0.15, "ratio", "Одновременные targets") }),
+  "running-memory": difficultyObject({ recallCount: JI(2, 10, 3, "items", "Сколько последних элементов вспомнить"), streamLength: JI(6, 50, 9, "items", "Длина потока"), presentationMs: JI(250, 1600, 900, "ms", "Темп"), symbolCount: JI(4, 20, 6, "symbols", "Алфавит") }),
+  "pair-association": difficultyObject({ pairCount: JI(3, 20, 4, "pairs", "Число пар"), exposureMs: JI(500, 5000, 2600, "ms", "Экспозиция пары"), distractorCount: JI(2, 8, 3, "options", "Число вариантов"), recallMode: JE(["recognition", "text"], "recognition", "Тип ответа") }),
+  "relation-map": difficultyObject({ entityCount: JI(3, 12, 4, "entities", "Число сущностей"), chainLength: JI(1, 8, 2, "edges", "Длина вывода"), relationTypes: JI(1, 5, 1, "types", "Типы отношений") }),
+  "scene-change": difficultyObject({ objectCount: JI(4, 30, 8, "objects", "Объекты сцены"), changeCount: JI(1, 6, 1, "changes", "Число изменений"), changeMagnitude: JN(0.05, 1, 0.5, "ratio", "Заметность изменения"), delayMs: JI(0, 10000, 700, "ms", "Задержка") }),
+  "temporal-order": difficultyObject({ itemCount: JI(3, 14, 4, "items", "Длина эпизода"), presentationMs: JI(250, 1800, 900, "ms", "Темп"), similarity: JN(0, 1, 0.2, "ratio", "Сходство элементов"), responseMode: JE(["full-order", "pairwise"], "full-order", "Формат ответа") }),
+  "context-binding": difficultyObject({ contextCount: JI(2, 8, 2, "contexts", "Контексты"), itemCount: JI(4, 24, 6, "items", "Объекты"), similarity: JN(0, 1, 0.2, "ratio", "Сходство"), repetitions: JI(1, 5, 1, "passes", "Повторы") }),
+  "visual-search": difficultyObject({ gridSide: JI(3, 12, 5, "cells", "Сторона поля"), searchType: JE(["feature", "conjunction"], "feature", "Тип поиска"), targetPrevalence: JN(0.1, 0.9, 0.65, "ratio", "Вероятность цели"), deadlineMs: JI(500, 8000, 3800, "ms", "Дедлайн") }),
+  "spatial-cueing": difficultyObject({ cueValidity: JN(0.25, 0.95, 0.8, "ratio", "Валидность подсказки"), cueTargetMs: JI(50, 1500, 650, "ms", "Cue-target interval"), eccentricityPx: JI(40, 320, 100, "px", "Удалённость цели"), deadlineMs: JI(300, 3000, 1500, "ms", "Дедлайн") }),
+  "continuous-performance": difficultyObject({ stimulusMs: JI(200, 1800, 840, "ms", "Экспозиция"), isiMs: JI(50, 600, 305, "ms", "ISI"), noGoRate: JN(0.03, 0.4, 0.22, "ratio", "Редкость No-Go"), confusableStimuli: JB(false, "Перцептивно похожие стимулы") }),
+  "multiple-object-tracking": difficultyObject({ objectCount: JI(4, 20, 7, "objects", "Все объекты"), targetCount: JI(1, 8, 2, "targets", "Отслеживаемые цели"), speedPxS: JI(20, 260, 55, "px/s", "Скорость"), trackingMs: JI(1500, 12000, 4000, "ms", "Длительность движения") }),
+  "peripheral-monitor": difficultyObject({ centralRateMs: JI(250, 1600, 900, "ms", "Темп центральной задачи"), peripheralRate: JN(0.03, 0.4, 0.16, "ratio", "Частота периферических сигналов"), eccentricityPx: JI(80, 360, 160, "px", "Эксцентриситет"), signalMs: JI(120, 1200, 650, "ms", "Длительность сигнала") }),
+  "av-monitor": difficultyObject({ visualRateMs: JI(250, 1800, 1000, "ms", "Визуальный темп"), auditoryRateMs: JI(250, 1800, 1200, "ms", "Аудиальный темп"), targetRate: JN(0.05, 0.45, 0.2, "ratio", "Доля targets"), overlapRate: JN(0, 0.7, 0.1, "ratio", "Перекрытие targets") }),
+  "go-no-go": difficultyObject({ deadlineMs: JI(250, 2500, 930, "ms", "Окно ответа"), noGoRate: JN(0.1, 0.7, 0.29, "ratio", "Доля No-Go"), itiMs: JI(150, 1500, 710, "ms", "ITI"), perceptualSimilarity: JB(false, "Сходство Go/No-Go") }),
+  "stroop": difficultyObject({ colorCount: JI(2, 8, 3, "colors", "Число цветов"), incongruentRate: JN(0, 1, 0.55, "ratio", "Доля конфликтных проб"), deadlineMs: JI(400, 5000, 2420, "ms", "Дедлайн") }),
+  "flanker": difficultyObject({ incongruentRate: JN(0, 1, 0.45, "ratio", "Конфликтные пробы"), flankersPerSide: JI(1, 6, 2, "arrows", "Флангов с каждой стороны"), deadlineMs: JI(300, 4000, 1670, "ms", "Дедлайн"), spacingPx: JI(0, 80, 18, "px", "Расстояние") }),
+  "rule-switch": difficultyObject({ ruleCount: JI(2, 5, 2, "rules", "Число правил"), switchRate: JN(0, 1, 0.45, "ratio", "Вероятность переключения"), deadlineMs: JI(400, 5000, 2430, "ms", "Дедлайн"), cueTargetMs: JI(0, 1500, 500, "ms", "Cue-target interval") }),
+  "stop-signal": difficultyObject({ goDeadlineMs: JI(300, 2500, 1200, "ms", "Go deadline"), stopSignalDelayMs: JI(50, 900, 250, "ms", "Stop-signal delay"), stopRate: JN(0.1, 0.5, 0.25, "ratio", "Доля stop-проб") }),
+  "planning-paths": difficultyObject({ optimalMoves: JI(2, 20, 3, "moves", "Оптимальная длина"), elementCount: JI(3, 12, 4, "elements", "Элементы"), moveConstraints: JI(1, 6, 1, "rules", "Ограничения") }),
+  "mental-rotation": difficultyObject({ maxAngleDeg: JI(0, 180, 45, "deg", "Максимальный угол"), glyphCount: JI(1, 12, 3, "glyphs", "Классы фигур"), deadlineMs: JI(500, 8000, 3500, "ms", "Дедлайн"), dimensionality: JE(["2d", "3d"], "2d", "Тип фигур") }),
+  "grid-navigation": difficultyObject({ gridSide: JI(3, 15, 5, "cells", "Размер карты"), pathLength: JI(2, 30, 4, "steps", "Длина маршрута"), mapVisible: JB(true, "Карта видима"), rotationCount: JI(0, 8, 0, "turns", "Повороты карты") }),
+  "spatial-updating": difficultyObject({ objectCount: JI(1, 10, 2, "objects", "Объекты"), updateCount: JI(1, 30, 4, "commands", "Команды"), directionCount: JI(2, 8, 4, "directions", "Направления") }),
+  "perspective-taking": difficultyObject({ perspectiveAngleDeg: JI(0, 180, 45, "deg", "Смена перспективы"), objectCount: JI(2, 12, 4, "objects", "Объекты"), deadlineMs: JI(500, 8000, 4000, "ms", "Дедлайн") }),
+  "arithmetic-sprint": difficultyObject({ operandMax: JI(5, 200, 12, "value", "Максимум операнда"), operations: JI(1, 4, 2, "types", "Число операций"), operationSteps: JI(1, 3, 1, "steps", "Длина выражения"), distractorDistance: JI(1, 20, 5, "value", "Разброс дистракторов") }),
+  "equation-verification": difficultyObject({ operandMax: JI(5, 200, 12, "value", "Максимум операнда"), operationSteps: JI(1, 3, 1, "steps", "Длина выражения"), errorMagnitude: JI(1, 20, 4, "value", "Ошибка в неверном равенстве") }),
+  "number-switching": difficultyObject({ ruleCount: JI(2, 5, 2, "rules", "Правила"), switchRate: JN(0, 1, 0.4, "ratio", "Вероятность смены"), numberMax: JI(9, 999, 9, "value", "Диапазон"), deadlineMs: JI(400, 5000, 2500, "ms", "Дедлайн") }),
+  "symbol-coding": difficultyObject({ keySize: JI(3, 12, 6, "pairs", "Размер ключа"), legendVisible: JB(true, "Ключ видим"), deadlineMs: JI(300, 5000, 2000, "ms", "Окно ответа") }),
+  "logic-matrix": difficultyObject({ matrixSide: JI(2, 5, 3, "cells", "Размер матрицы"), ruleCount: JI(1, 5, 1, "rules", "Число правил"), distractorCount: JI(2, 10, 4, "options", "Варианты"), deadlineMs: JI(1000, 30000, 12000, "ms", "Дедлайн") }),
+  "semantic-match": difficultyObject({ distractorCount: JI(1, 8, 3, "options", "Дистракторы"), semanticDistance: JN(0, 1, 0.7, "ratio", "Близость дистракторов"), abstractness: JN(0, 1, 0.2, "ratio", "Абстрактность"), responseMode: JE(["selection", "text"], "selection", "Тип ответа") }),
+  "category-selection": difficultyObject({ streamRateMs: JI(200, 2000, 1000, "ms", "Темп"), targetRate: JN(0.05, 0.5, 0.25, "ratio", "Доля целей"), categoryBreadth: JN(0, 1, 0.3, "ratio", "Ширина категории"), similarity: JN(0, 1, 0.2, "ratio", "Сходство distractors") }),
+  "category-generation": difficultyObject({ durationS: JI(15, 180, 60, "s", "Длительность"), categoryBreadth: JN(0, 1, 0.5, "ratio", "Ширина категории"), minUnique: JI(1, 40, 5, "words", "Цель уникальных слов"), subcategorySwitches: JI(0, 10, 0, "switches", "Требуемые переключения") }),
+  "word-picture-interference": difficultyObject({ relatedRate: JN(0, 1, 0.5, "ratio", "Связанные слова"), incongruentRate: JN(0, 1, 0.5, "ratio", "Конфликтные пробы"), exposureMs: JI(200, 3000, 1200, "ms", "Экспозиция"), responseMode: JE(["classification", "naming"], "classification", "Ответ") }),
+  "sentence-update": difficultyObject({ sentenceCount: JI(2, 12, 3, "sentences", "Число предложений"), sentenceWords: JI(3, 30, 7, "words", "Длина"), presentationMs: JI(800, 10000, 3500, "ms", "Темп"), recallCount: JI(1, 10, 3, "items", "Что вспомнить") }),
+  "reaction-choice": difficultyObject({ choiceCount: JI(2, 10, 3, "choices", "Число вариантов"), deadlineMs: JI(250, 4000, 1840, "ms", "Окно ответа"), foreperiodMinMs: JI(100, 2000, 500, "ms", "Минимальный foreperiod"), foreperiodMaxMs: JI(300, 5000, 1700, "ms", "Максимальный foreperiod") }),
+  "target-tapping": difficultyObject({ targetPx: JI(12, 100, 56, "px", "Размер цели"), minDistancePx: JI(0, 600, 55, "px", "Минимальная дистанция"), deadlineMs: JI(250, 4000, 1650, "ms", "Дедлайн цели"), moving: JB(false, "Цель движется"), speedPxS: JI(0, 300, 0, "px/s", "Скорость") }),
+  "bimanual-rhythm": difficultyObject({ bpm: JI(30, 240, 70, "bpm", "Темп"), patternLength: JI(2, 32, 4, "beats", "Длина паттерна"), ratio: JE(["1:1", "2:1", "3:2", "4:3"], "1:1", "Полиритм"), cueVisible: JB(true, "Подсказка видима") }),
+  "motion-path": difficultyObject({ speedPxS: JI(10, 400, 50, "px/s", "Скорость"), pathWidthPx: JI(5, 120, 60, "px", "Ширина коридора"), inputDelayMs: JI(0, 500, 0, "ms", "Задержка"), perturbationRate: JN(0, 1, 0, "ratio", "Возмущения") }),
+  "dual-load": difficultyObject({ primaryLevel: JI(1, 10, 2, "level", "Нагрузка primary"), secondaryRate: JN(0.02, 0.6, 0.15, "ratio", "Частота secondary"), synchrony: JN(0, 1, 0.2, "ratio", "Совпадение событий") }),
+  "adaptive-battery": difficultyObject({ blockCount: JI(2, 20, 4, "blocks", "Число блоков"), blockDurationS: JI(15, 600, 60, "s", "Длительность блока"), transitionMs: JI(0, 10000, 2000, "ms", "Переход"), adaptationAggressiveness: JN(0, 1, 0.5, "ratio", "Скорость адаптации") }),
+  "interrupt-resume": difficultyObject({ primaryLength: JI(3, 50, 8, "steps", "Длина primary"), interruptionDurationS: JI(1, 120, 10, "s", "Прерывание"), interruptionSimilarity: JN(0, 1, 0.2, "ratio", "Сходство задач"), interruptionCount: JI(1, 10, 2, "interruptions", "Число прерываний") }),
+  "paced-breathing": difficultyObject({ breathsPerMin: JN(2, 20, 6, "bpm", "Частота дыхания"), inhaleRatio: JN(0.2, 0.8, 0.45, "ratio", "Доля вдоха"), holdS: JN(0, 10, 0, "s", "Задержка"), sessionS: JI(30, 1800, 180, "s", "Сессия") }),
+  "focus-garden": difficultyObject({ taskLoad: JI(1, 10, 2, "level", "Нагрузка"), feedbackGain: JN(0, 3, 1, "gain", "Чувствительность"), smoothingS: JN(0.1, 30, 3, "s", "Сглаживание"), sessionS: JI(30, 1800, 300, "s", "Сессия") }),
+  "calm-tracking": difficultyObject({ targetSpeed: JI(5, 300, 35, "px/s", "Скорость цели"), zoneWidthPx: JI(8, 160, 70, "px", "Ширина зоны"), feedbackWeight: JN(0, 1, 0.4, "ratio", "Вес физиологии"), sessionS: JI(30, 1800, 300, "s", "Сессия") }),
+};
+
+// Games with a real playable implementation (see GAME_IMPL below).
+const IMPL_IDS = new Set([
+  "spatial-span", "visual-sequence", "auditory-sequence", "n-back", "running-memory",
+  "pair-association", "temporal-order",
+  "visual-search", "spatial-cueing", "continuous-performance", "multiple-object-tracking", "peripheral-monitor", "av-monitor",
+  "go-no-go", "stroop", "flanker", "rule-switch",
+  "mental-rotation",
+  "arithmetic-sprint", "equation-verification", "number-switching", "symbol-coding",
+  "category-generation",
+  "reaction-choice", "target-tapping",
+]);
+GAMES.forEach(g => { const sid = g.id.replace("org.reconnect.", ""); if (IMPL_IDS.has(sid)) g.demo = sid; });
+
+// Difficulty-growth design per playable game (shown in the drawer as «Рост сложности»).
+// All adaptive games use a 2-up / 1-down staircase (≈71% target accuracy): 2 верных подряд повышают уровень, 1 ошибка снижает.
+const PROGRESSION = {
+  "spatial-span": "span 3→12; сетка 3×3→4×4→5×5; короче показ; с span 6 — воспроизведение в ОБРАТНОМ порядке. Правильно — span +1, ошибка — span −1.",
+  "visual-sequence": "длина 3→12; число пэдов 4→6→9; интервал предъявления сокращается. Верно — длиннее, ошибка — короче.",
+  "auditory-sequence": "длина 3→12; 4→8 звуковых классов; темп ускоряется; с уровня 6 — обратное воспроизведение.",
+  "running-memory": "вспомнить последние K: 2→8; поток 7→28 элементов; темп 1000→400 мс; алфавит 5→12 символов.",
+  "pair-association": "пар 3→12; экспозиция короче; вариантов 3→7; с уровня 6 recognition сменяется самостоятельным текстовым recall.",
+  "temporal-order": "эпизод 3→10 элементов; быстрее предъявление; после уровня 5 — похожие элементы и pairwise-проверка.",
+  "n-back": "N 1→6 по блокам: точный блок (≥80% hits и ≤2 false alarms) повышает N, слабый — снижает. С ростом N короче ISI и длиннее блок.",
+  "visual-search": "set size 5×5→10×10; feature-поиск → conjunction (красная T среди красных L и синих T); дедлайн ответа 4.2→1.4 c.",
+  "spatial-cueing": "валидность cue снижается 0.85→0.5; cue-target interval 700→120 мс; цель дальше от центра; дедлайн короче.",
+  "continuous-performance": "темп 900→380 мс, короче ISI; цель X всё реже (0.24→0.08 — труднее удерживать внимание); на высоких уровнях буквы-конфузоры.",
+  "multiple-object-tracking": "объектов 6→14; целей 2→6; скорость 45→180 px/s; движение 3→7 c.",
+  "peripheral-monitor": "центральная задача ускоряется; периферические сигналы короче и дальше от центра; target rate снижается.",
+  "av-monitor": "оба потока ускоряются; targets реже; растёт их перекрытие; нужно независимо отвечать на визуальный и аудиальный targets.",
+  "go-no-go": "дедлайн 1000→450 мс; доля No-Go 0.25→0.55; короче ITI; на высоких уровнях Go и No-Go похожи по виду.",
+  "stroop": "число цветов 4→6; доля конфликтных проб 0.5→0.9; дедлайн ответа 2.6→0.9 c.",
+  "flanker": "доля incongruent 0.4→0.85; флангов с каждой стороны 2→4; дедлайн 1.8→0.6 c.",
+  "rule-switch": "switch rate 0.4→0.85; c уровня 5 добавляется третье правило (простое/составное); короче окно ответа 2.6→0.9 c.",
+  "mental-rotation": "углы смещаются к 180°; больше классов символов (R,F,G,P,L,Я); дедлайн 3.8→1.1 c.",
+  "arithmetic-sprint": "диапазон операндов растёт; +/− → добавляется ×  → двухшаговые (a×b+c); дистракторы всё ближе к правильному ответу.",
+  "equation-verification": "шире числа и двухшаговые выражения; величина подставленной ошибки 4→1 (всё труднее заметить неверное равенство).",
+  "number-switching": "2→3 правил; switch rate 0.35→0.85; числа 1-digit→3-digit; дедлайн 2.6→0.9 c.",
+  "symbol-coding": "ключ 6→9 символов; c уровня 5 легенда периодически прячется (нагрузка на память); темп.",
+  "category-generation": "время 45→25 c; категории становятся уже; цель уникальных слов растёт; с уровня 5 нужны переключения между подкатегориями.",
+  "reaction-choice": "число вариантов 2→8; окно ответа 2.0→0.6 c; переменный foreperiod.",
+  "target-tapping": "размер цели 60→26 px; больше минимальная дистанция; дедлайн на цель 1.8→0.6 c; c уровня 5 цель движется.",
+};
+
+// ---------- state + rendering ----------
+const state = { search: "", cat: "", mvpOnly: false, playOnly: false };
+
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])); }
+
+function renderStats() {
+  const total = GAMES.length;
+  const cats = CATS.length;
+  const mvp = GAMES.filter(g => g.mvp).length;
+  const playable = GAMES.filter(g => g.demo).length;
+  const cards = [["Игр", total], ["Доменов", cats], ["Кандидатов MVP", mvp], ["Играбельных демо", playable]];
+  document.getElementById("stats").innerHTML = cards.map(c => `<div class="stat"><div class="num">${c[1]}</div><div class="lbl">${esc(c[0])}</div></div>`).join("");
+}
+
+function buildCatSelect() {
+  const sel = document.getElementById("catSel");
+  CATS.forEach(c => { const o = document.createElement("option"); o.value = c.key; o.textContent = c.title; sel.appendChild(o); });
+}
+
+function filtered() {
+  const q = state.search.toLowerCase();
+  return GAMES.filter(g => {
+    if (state.cat && g.cat !== state.cat) return false;
+    if (state.mvpOnly && !g.mvp) return false;
+    if (state.playOnly && !g.demo) return false;
+    if (q) {
+      const hay = (g.name + " " + g.mech + " " + g.id + " " + g.difficulty + " " + CAT_TITLE[g.cat]).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function render() {
+  const rows = filtered();
+  const byCat = {};
+  rows.forEach(g => (byCat[g.cat] = byCat[g.cat] || []).push(g));
+  const host = document.getElementById("cats");
+  host.innerHTML = CATS.filter(c => byCat[c.key]).map(c => {
+    const cards = byCat[c.key].map(g => cardHtml(g)).join("");
+    return `<div class="cat">
+      <h2><span class="dot" style="background:${c.color}"></span>${esc(c.title)} <span class="cnt">· ${byCat[c.key].length}</span></h2>
+      <div class="grid">${cards}</div>
+    </div>`;
+  }).join("");
+  host.querySelectorAll(".card").forEach(el => el.onclick = () => openDrawer(el.dataset.id));
+  document.getElementById("resultCount").textContent = `Показано ${rows.length} из ${GAMES.length} игр.`;
+}
+
+function cardHtml(g) {
+  const badges = [];
+  if (g.mvp) badges.push(`<span class="badge mvp">MVP</span>`);
+  if (g.demo) badges.push(`<span class="badge play">▶ демо</span>`);
+  (g.caps || []).forEach(c => badges.push(`<span class="badge cap">${esc(c)}</span>`));
+  return `<div class="card" data-id="${esc(g.id)}">
+    <h3>${esc(g.name)}</h3>
+    <div class="gid">${esc(g.id)}</div>
+    <div class="mech">${esc(g.mech)}</div>
+    <div class="badges">${badges.join("")}</div>
+  </div>`;
+}
+
+function openDrawer(id) {
+  const g = GAMES.find(x => x.id === id);
+  if (!g) return;
+  const shortId = g.id.replace("org.reconnect.", "");
+  const caps = (g.caps || []).map(c => `<span class="badge cap">${esc(c)}</span>`).join(" ");
+  document.getElementById("drawerBody").innerHTML = `
+    <h2>${esc(g.name)}</h2>
+    <div class="sub">${esc(g.id)} · ${esc(CAT_TITLE[g.cat])}</div>
+    ${g.demo ? `<div style="margin-bottom:16px"><button class="btn" id="playBtn">▶ Играть в демо</button></div>` : ""}
+    <div class="field"><div class="flabel">Основной механизм</div>${esc(g.mech)}</div>
+    <div class="field"><div class="flabel">Параметры сложности</div>${esc(g.difficulty)}</div>
+    ${PROGRESSION[shortId] ? `<div class="field"><div class="flabel">Рост сложности</div>${esc(PROGRESSION[shortId])}</div>` : ""}
+    <details class="schema"><summary>JSON Schema параметров сложности</summary><pre>${esc(JSON.stringify(DIFFICULTY_SCHEMAS[shortId], null, 2))}</pre></details>
+    <div class="field"><div class="flabel">Интерфейс / ответ</div>${esc(g.interfaces)}</div>
+    <div class="field"><div class="flabel">Метрики</div>${esc(g.metrics)}</div>
+    ${caps ? `<div class="field"><div class="flabel">Capabilities</div>${caps}</div>` : ""}
+    ${g.note ? `<div class="field"><div class="flabel">Примечание</div>${esc(g.note)}</div>` : ""}
+    ${g.mvp ? `<div class="field"><span class="badge mvp">кандидат в MVP</span></div>` : ""}
+  `;
+  if (g.demo) document.getElementById("playBtn").onclick = () => startDemo(g.demo, g.name);
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("drawer").classList.add("open");
+}
+function closeDrawer() {
+  document.getElementById("overlay").classList.remove("open");
+  document.getElementById("drawer").classList.remove("open");
+}
+
+// ---------- playable games ----------
+let demoCleanup = null;
+const GAME_IMPL = {};
+let activeGameId = null;
+
+function showDifficultyParams(params) {
+  const host = document.getElementById("stageParams");
+  if (!host) return params;
+  host.innerHTML = Object.entries(params).map(([key, value]) =>
+    `<span class="param">${esc(key)}=<b>${esc(typeof value === "number" && !Number.isInteger(value) ? value.toFixed(2) : value)}</b></span>`
+  ).join("");
+  return params;
+}
+
+function startDemo(kind, title) {
+  activeGameId = kind;
+  document.getElementById("stageTitle").textContent = title;
+  document.getElementById("modal").classList.add("open");
+  if (demoCleanup) { demoCleanup(); demoCleanup = null; }
+  const body = document.getElementById("stageBody");
+  const foot = document.getElementById("stageFoot");
+  document.getElementById("stageParams").innerHTML = "";
+  body.innerHTML = ""; foot.innerHTML = "";
+  const fn = GAME_IMPL[kind];
+  if (fn) { demoCleanup = fn(body, foot); }
+  else { body.innerHTML = `<div class="muted">Демо для этой игры ещё не реализовано.</div>`; }
+}
+function closeModal() {
+  activeGameId = null;
+  document.getElementById("modal").classList.remove("open");
+  if (demoCleanup) { demoCleanup(); demoCleanup = null; }
+  document.getElementById("stageBody").innerHTML = "";
+  document.getElementById("stageFoot").innerHTML = "";
+}
+
+// shared helpers
+const $s = (l, v) => `<span>${l}: <b>${v}</b></span>`;
+const ri = n => Math.floor(Math.random() * n);
+const rint = (a, b) => a + ri(b - a + 1);
+const pick = a => a[ri(a.length)];
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const mean = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+// Adaptive staircase: 2-up / 1-down (converges to ~71% correct). record(ok) → new level.
+function ladder({ start = 1, min = 1, max = 12, upAfter = 2, downAfter = 1 } = {}) {
+  let level = start, ups = 0, downs = 0;
+  return {
+    get level() { return level; },
+    record(ok) {
+      if (ok) { downs = 0; if (++ups >= upAfter) { level = Math.min(max, level + 1); ups = 0; } }
+      else { ups = 0; if (++downs >= downAfter) { level = Math.max(min, level - 1); downs = 0; } }
+      return level;
+    },
+  };
+}
+
+GAME_IMPL["spatial-span"] = function (body, foot) {
+  let span = 3, best = 0, rounds = 0, seq = [], input = [], showing = true, timers = [], cells = [];
+  const clr = () => { timers.forEach(clearTimeout); timers = []; };
+  const wrap = document.createElement("div"); body.appendChild(wrap);
+  const isReverse = () => span >= 6;
+  const P = () => { const side = span <= 4 ? 3 : span <= 7 ? 4 : 5; const gap = Math.max(300, 720 - 42 * span); showDifficultyParams({ span, gridSide: side, presentationMs: gap, reverseRecall: isReverse() }); return { side, N: side * side, gap }; };
+  const setFoot = (m) => foot.innerHTML = $s("Уровень", "span " + span + (isReverse() ? " ↺" : "")) + $s("Рекорд", best) + `<span>${m || ""}</span>`;
+
+  function prepare() {
+    const { side, N } = P(); const sz = side >= 5 ? 54 : side >= 4 ? 64 : 74;
+    wrap.innerHTML = `<div class="cellgrid" id="cg" style="grid-template-columns:repeat(${side}, ${sz}px)"></div>
+      <div style="margin-top:16px"><button class="btn" id="startBtn">${rounds ? "Следующая последовательность" : "Показать последовательность"}</button></div>`;
+    const cg = wrap.querySelector("#cg"); cells = [];
+    for (let i = 0; i < N; i++) { const d = document.createElement("div"); d.className = "cell"; d.style.width = d.style.height = sz + "px"; d.dataset.i = i; cg.appendChild(d); cells.push(d); }
+    cells.forEach(c => c.addEventListener("click", onCell));
+    wrap.querySelector("#startBtn").onclick = play;
+  }
+  function play() {
+    prepare(); const { N, gap } = P();
+    seq = []; for (let k = 0; k < span; k++) seq.push(ri(N)); input = []; showing = true; setFoot("Смотри…"); clr();
+    seq.forEach((idx, k) => {
+      timers.push(setTimeout(() => cells[idx].classList.add("flash"), gap * k + 300));
+      timers.push(setTimeout(() => cells[idx].classList.remove("flash"), gap * k + 300 + Math.min(450, gap - 80)));
+    });
+    timers.push(setTimeout(() => { showing = false; setFoot(isReverse() ? "Повтори в ОБРАТНОМ порядке" : "Повтори порядок"); }, gap * seq.length + 320));
+  }
+  function onCell(e) {
+    if (showing) return;
+    const i = +e.currentTarget.dataset.i; input.push(i);
+    const el = e.currentTarget;
+    const expected = isReverse() ? seq[seq.length - input.length] : seq[input.length - 1];
+    const ok = expected === i;
+    el.classList.add(ok ? "good" : "bad"); setTimeout(() => el.classList.remove("good", "bad"), 240);
+    if (!ok) { showing = true; rounds++; span = Math.max(3, span - 1); setFoot(`Ошибка. Уровень ↓ (span ${span})`); return; }
+    if (input.length === seq.length) { showing = true; rounds++; best = Math.max(best, span); span = Math.min(12, span + 1); setFoot(`Верно! Уровень ↑ → span ${span}`); }
+  }
+  prepare(); setFoot("Нажми «Показать последовательность»");
+  return () => clr();
+};
+
+GAME_IMPL["go-no-go"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  let running = false, isGo = false, awaiting = false, onset = 0, hits = 0, comm = 0, omis = 0, rts = [], trials = 0, t1 = null, t2 = null;
+  const P = () => { const L = lad.level, dl = Math.max(450, 1000 - 70 * L), nogo = Math.min(0.55, 0.25 + 0.04 * L), iti = Math.max(350, 750 - 40 * L), similar = L >= 4; showDifficultyParams({ deadlineMs: dl, noGoRate: nogo, itiMs: iti, perceptualSimilarity: similar }); return { L, dl, nogo, iti, similar }; };
+  body.innerHTML = `<div><div class="gng-stim" id="stim"></div>
+    <div id="hint" class="muted">Зелёный круг — жми <kbd>Пробел</kbd>/тап. Красный квадрат — не жми. Дедлайн и доля No-Go растут.</div>
+    <div style="margin-top:14px"><button class="btn" id="go">Старт</button></div></div>`;
+  const stim = body.querySelector("#stim");
+  const setFoot = () => foot.innerHTML = $s("Уровень", P().L) + $s("Trials", trials) + $s("Hits", hits) + $s("Commission", comm) + $s("Omission", omis) + $s("Mean RT", mean(rts) + " ms");
+  setFoot();
+  function nextTrial() {
+    const { dl, nogo, iti, similar } = P(); stim.innerHTML = ""; awaiting = false;
+    t1 = setTimeout(() => {
+      trials++; isGo = Math.random() >= nogo; awaiting = true; onset = performance.now();
+      const go = `<div style="width:150px;height:150px;border-radius:50%;background:var(--green)"></div>`;
+      const no = similar ? `<div style="width:150px;height:150px;border-radius:42%;background:#4bbf5a"></div>` : `<div style="width:150px;height:150px;border-radius:14px;background:var(--red)"></div>`;
+      stim.innerHTML = isGo ? go : no; setFoot();
+      t2 = setTimeout(() => { if (awaiting) { if (isGo) { omis++; lad.record(false); } else lad.record(true); awaiting = false; stim.innerHTML = ""; setFoot(); nextTrial(); } }, dl);
+    }, iti);
+  }
+  function respond() {
+    if (!running || !awaiting) return;
+    awaiting = false; clearTimeout(t2);
+    if (isGo) { hits++; rts.push(Math.round(performance.now() - onset)); lad.record(true); }
+    else { comm++; lad.record(false); stim.innerHTML = `<div style="width:150px;height:150px;border-radius:14px;background:var(--red);opacity:.4"></div>`; }
+    setFoot(); nextTrial();
+  }
+  function start() { running = true; hits = comm = omis = trials = 0; rts = []; nextTrial(); }
+  const key = (e) => { if (e.code === "Space") { e.preventDefault(); respond(); } };
+  document.addEventListener("keydown", key);
+  stim.addEventListener("click", respond);
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(t1); clearTimeout(t2); document.removeEventListener("keydown", key); running = false; };
+};
+
+// --- Visual Sequence Recall (Simon-style) ---
+GAME_IMPL["visual-sequence"] = function (body, foot) {
+  const palette = ["#f85149", "#3fb950", "#5b9dff", "#d29922", "#a371f7", "#56d4dd", "#db61a2", "#e3b341", "#8b949e"];
+  let L = 3, best = 0, rounds = 0, seq = [], input = [], showing = true, timers = [], pads = [];
+  const clr = () => { timers.forEach(clearTimeout); timers = []; };
+  const wrap = document.createElement("div"); body.appendChild(wrap);
+  const P = () => { const np = L < 4 ? 4 : L < 7 ? 6 : 9, gap = Math.max(320, 650 - 28 * L); showDifficultyParams({ sequenceLength: L, padCount: np, presentationMs: gap }); return { np, gap }; };
+  const setF = m => foot.innerHTML = $s("Уровень", "длина " + L) + $s("Пэдов", P().np) + $s("Рекорд", best) + `<span>${m || ""}</span>`;
+  function prepare() {
+    const { np } = P(); const cols = np <= 4 ? 2 : 3; const sz = np > 4 ? 92 : 116;
+    wrap.innerHTML = `<div class="padgrid" id="pg" style="grid-template-columns:repeat(${cols},${sz}px)"></div><div style="margin-top:16px"><button class="btn" id="go">${rounds ? "Дальше" : "Старт"}</button></div>`;
+    const pg = wrap.querySelector("#pg"); pads = [];
+    for (let i = 0; i < np; i++) { const d = document.createElement("div"); d.className = "pad"; d.style.background = palette[i]; d.style.width = d.style.height = sz + "px"; d.dataset.i = i; pg.appendChild(d); pads.push(d); }
+    pads.forEach(p => p.addEventListener("click", onPad));
+    wrap.querySelector("#go").onclick = play;
+  }
+  function flash(i) { if (!pads[i]) return; pads[i].classList.add("lit"); timers.push(setTimeout(() => pads[i] && pads[i].classList.remove("lit"), Math.min(340, P().gap - 80))); }
+  function play() {
+    prepare(); const { np, gap } = P();
+    seq = []; for (let k = 0; k < L; k++) seq.push(ri(np)); input = []; showing = true; setF("Смотри…"); clr();
+    seq.forEach((i, k) => timers.push(setTimeout(() => flash(i), gap * k + 300)));
+    timers.push(setTimeout(() => { showing = false; setF("Твой ход"); }, gap * seq.length + 350));
+  }
+  function onPad(e) {
+    if (showing) return;
+    const i = +e.currentTarget.dataset.i; flash(i); input.push(i);
+    if (seq[input.length - 1] !== i) { showing = true; rounds++; L = Math.max(3, L - 1); setF(`Ошибка. Уровень ↓ (длина ${L})`); return; }
+    if (input.length === seq.length) { showing = true; rounds++; best = Math.max(best, L); L = Math.min(12, L + 1); setF(`Верно! Уровень ↑ → длина ${L}`); }
+  }
+  prepare(); setF("Повтори растущую последовательность");
+  return () => clr();
+};
+
+// --- N-Back (adaptive N by block) ---
+GAME_IMPL["n-back"] = function (body, foot) {
+  const letters = "CHKLQRST".split("");
+  let N = 1, block = 0, running = false, t = null;
+  let stream = [], idx = -1, hits = 0, fa = 0, miss = 0, targets = 0, responded = false;
+  const P = () => { const isi = Math.max(700, 1600 - 80 * N), rate = 0.3, len = 20 + 2 * N; showDifficultyParams({ n: N, stimulusMs: isi, isiMs: Math.max(250, isi * 0.28), targetRate: rate, blockLength: len }); return { isi, rate, len }; };
+  body.innerHTML = `<div><div class="stim-big" id="stim">•</div><div class="hint" id="hint">Жми «Совпадение»/<kbd>Пробел</kbd>, если буква = той, что была <b>N</b> шагов назад. N растёт при точной игре.</div><div class="opts"><button class="opt" id="match">Совпадение</button></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div></div>`;
+  const stim = body.querySelector("#stim"), hint = body.querySelector("#hint");
+  const setF = () => foot.innerHTML = $s("Уровень", "N = " + N) + $s("Блок", block) + $s("Hits", hits + "/" + targets) + $s("FA", fa) + $s("Miss", miss);
+  setF();
+  function build() { const { rate, len } = P(); stream = []; targets = 0; for (let i = 0; i < len; i++) { if (i >= N && Math.random() < rate) stream.push(stream[i - N]); else { let c = pick(letters); if (i >= N && c === stream[i - N]) c = pick(letters.filter(x => x !== stream[i - N])); stream.push(c); } if (i >= N && stream[i] === stream[i - N]) targets++; } }
+  function step() {
+    const { isi, len } = P(); idx++; if (idx >= len) { endBlock(); return; }
+    responded = false; stim.textContent = stream[idx]; setF();
+    t = setTimeout(() => { if (idx >= N && stream[idx] === stream[idx - N] && !responded) { miss++; setF(); } stim.textContent = ""; t = setTimeout(step, Math.max(250, isi * 0.28)); }, isi);
+  }
+  function respond() { if (!running || responded || idx < 0) return; responded = true; if (idx >= N && stream[idx] === stream[idx - N]) hits++; else fa++; setF(); }
+  function endBlock() {
+    running = false; block++;
+    const acc = targets ? hits / targets : 1; const up = acc >= 0.8 && fa <= 2; const down = acc < 0.5 || fa > 4;
+    if (up) N = Math.min(6, N + 1); else if (down) N = Math.max(1, N - 1);
+    stim.textContent = "✓"; hint.innerHTML = `Блок ${block}: hits ${hits}/${targets}, FA ${fa}. ${up ? "N ↑" : down ? "N ↓" : "N ="} → <b>N = ${N}</b>`;
+    body.querySelector("#go").textContent = "Следующий блок"; setF();
+  }
+  function start() { running = true; hits = fa = miss = 0; idx = -1; build(); hint.innerHTML = `N = ${N}. Поехали.`; step(); }
+  const key = e => { if (e.code === "Space") { e.preventDefault(); respond(); } };
+  document.addEventListener("keydown", key);
+  body.querySelector("#match").onclick = respond;
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(t); document.removeEventListener("keydown", key); running = false; };
+};
+
+// --- Visual Search (adaptive set size / conjunction / deadline) ---
+GAME_IMPL["visual-search"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 6 });
+  const RED = "#f85149", BLUE = "#5b9dff";
+  let round = 0, correct = 0, rt = [], onset = 0, hasTarget = false, running = false, dT = null;
+  const P = () => { const L = lad.level, side = 4 + Math.min(6, L), conj = L >= 4, deadline = Math.max(1400, 4200 - 400 * L); showDifficultyParams({ gridSide: side, searchType: conj ? "conjunction" : "feature", targetPrevalence: 0.65, deadlineMs: deadline }); return { L, side, conj, deadline }; };
+  body.innerHTML = `<div><div id="grid" style="display:grid;gap:5px;justify-content:center"></div><div class="opts"><button class="opt" id="none">Цели нет</button></div><div style="margin-top:10px"><button class="btn" id="go">Старт</button></div><div class="hint" id="hint"></div></div>`;
+  const gridEl = body.querySelector("#grid"), hint = body.querySelector("#hint");
+  const setF = (m) => foot.innerHTML = $s("Уровень", P().L) + $s("Раунд", round) + $s("Верно", correct) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function next() {
+    clearTimeout(dT); const { side, conj, deadline } = P(); round++; const n = side * side;
+    gridEl.style.gridTemplateColumns = `repeat(${side},30px)`; gridEl.innerHTML = "";
+    hasTarget = Math.random() < 0.65; const tpos = hasTarget ? ri(n) : -1;
+    for (let k = 0; k < n; k++) {
+      const c = document.createElement("div"); c.style.cssText = "width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;font-weight:700;";
+      const isT = k === tpos;
+      if (conj) { if (isT) { c.textContent = "T"; c.style.color = RED; } else if (ri(2)) { c.textContent = "L"; c.style.color = RED; } else { c.textContent = "T"; c.style.color = BLUE; } }
+      else { c.textContent = isT ? "T" : "L"; c.style.color = "#cdd3db"; c.style.transform = `rotate(${[0, 90, 180, 270][ri(4)]}deg)`; }
+      c.onclick = () => hit(isT); gridEl.appendChild(c);
+    }
+    hint.innerHTML = conj ? "Найди <b>красную T</b> (среди красных L и синих T)" : "Найди <b>T</b> среди L";
+    onset = performance.now(); setF();
+    dT = setTimeout(() => { if (running) { lad.record(false); setF("⏱ просрочено"); next(); } }, deadline);
+  }
+  function hit(isTarget) { if (!running) return; clearTimeout(dT); if (isTarget) { correct++; rt.push(Math.round(performance.now() - onset)); } lad.record(isTarget); next(); }
+  function none() { if (!running) return; clearTimeout(dT); const ok = !hasTarget; if (ok) correct++; lad.record(ok); next(); }
+  function start() { round = 0; correct = 0; rt = []; running = true; next(); }
+  body.querySelector("#none").onclick = none;
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(dT); running = false; };
+};
+
+// --- Continuous Performance (adaptive tempo / rarity) ---
+GAME_IMPL["continuous-performance"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  const base = "ABEFGHJMNPRSUVWZ".split("");
+  let i = 0, hits = 0, om = 0, com = 0, cur = null, awaiting = false, running = false, t = null;
+  const P = () => { const L = lad.level, dur = Math.max(380, 900 - 60 * L), isi = Math.max(180, 320 - 15 * L), xrate = Math.max(0.08, 0.24 - 0.02 * L), confus = L >= 4; showDifficultyParams({ stimulusMs: dur, isiMs: isi, noGoRate: xrate, confusableStimuli: confus }); return { L, dur, isi, xrate, confus }; };
+  body.innerHTML = `<div><div class="stim-big" id="stim">•</div><div class="hint">Жми <kbd>Пробел</kbd>/тап на КАЖДУЮ букву, кроме <b>X</b>. Темп растёт, X встречается реже.</div><div class="opts"><button class="opt" id="resp">Ответ</button></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div></div>`;
+  const stim = body.querySelector("#stim");
+  const setF = () => foot.innerHTML = $s("Уровень", P().L) + $s("Ход", i) + $s("Hits", hits) + $s("Omission", om) + $s("Commission", com);
+  setF();
+  function step() {
+    const { dur, isi, xrate, confus } = P(); i++; const isX = Math.random() < xrate;
+    cur = isX ? "X" : pick(base); awaiting = true;
+    stim.textContent = cur; stim.style.color = confus ? "#cdd3db" : (isX ? "#cdd3db" : "#e6e8ec"); setF();
+    t = setTimeout(() => { if (awaiting) { if (cur !== "X") { om++; lad.record(false); } else lad.record(true); awaiting = false; stim.textContent = ""; setF(); t = setTimeout(step, isi); } }, dur);
+  }
+  function respond() { if (!running || !awaiting) return; awaiting = false; clearTimeout(t); if (cur === "X") { com++; lad.record(false); } else { hits++; lad.record(true); } setF(); stim.textContent = ""; t = setTimeout(step, P().isi); }
+  function start() { i = 0; hits = om = com = 0; running = true; step(); }
+  const key = e => { if (e.code === "Space") { e.preventDefault(); respond(); } };
+  document.addEventListener("keydown", key);
+  body.querySelector("#resp").onclick = respond;
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(t); document.removeEventListener("keydown", key); running = false; };
+};
+
+// --- Stroop (adaptive colors / conflict / deadline) ---
+GAME_IMPL["stroop"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  const all = [["КРАСНЫЙ", "#f85149"], ["СИНИЙ", "#5b9dff"], ["ЗЕЛЁНЫЙ", "#3fb950"], ["ЖЁЛТЫЙ", "#d29922"], ["ФИОЛЕТ", "#a371f7"], ["ГОЛУБОЙ", "#56d4dd"]];
+  let correct = 0, total = 0, rt = [], onset = 0, cur = null, running = false, dT = null;
+  const P = () => { const L = lad.level, nc = Math.min(6, 3 + Math.floor(L / 2)), incong = Math.min(0.9, 0.5 + 0.05 * L), deadline = Math.max(900, 2600 - 180 * L); showDifficultyParams({ colorCount: nc, incongruentRate: incong, deadlineMs: deadline }); return { L, nc, incong, deadline }; };
+  body.innerHTML = `<div><div class="stim-big" id="word">—</div><div class="opts" id="opts"></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div><div class="hint">Выбери ЦВЕТ текста. С уровнем: больше цветов, больше конфликтных проб, короче дедлайн.</div></div>`;
+  const word = body.querySelector("#word"), opts = body.querySelector("#opts");
+  const setF = (m) => foot.innerHTML = $s("Уровень", P().L) + $s("Проб", total) + $s("Верно", correct) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function renderOpts() { const { nc } = P(); opts.innerHTML = ""; for (let k = 0; k < nc; k++) { const b = document.createElement("button"); b.className = "opt"; b.textContent = all[k][0].toLowerCase(); b.onclick = () => answer(k, b); opts.appendChild(b); } }
+  function next() {
+    clearTimeout(dT); const { nc, incong, deadline } = P(); renderOpts();
+    const ci = ri(nc); let wi = ci; if (Math.random() < incong) { do { wi = ri(nc); } while (wi === ci); }
+    cur = ci; word.textContent = all[wi][0]; word.style.color = all[ci][1]; onset = performance.now(); total++; setF();
+    dT = setTimeout(() => { if (running) { lad.record(false); setF("⏱"); next(); } }, deadline);
+  }
+  function answer(k, btn) { if (!running || cur == null) return; clearTimeout(dT); const ok = k === cur; if (ok) { correct++; rt.push(Math.round(performance.now() - onset)); btn.classList.add("correct"); } else btn.classList.add("wrong"); lad.record(ok); cur = null; setTimeout(next, 240); }
+  function start() { correct = 0; total = 0; rt = []; running = true; next(); }
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(dT); running = false; };
+};
+
+// --- Flanker (adaptive conflict / flankers / deadline) ---
+GAME_IMPL["flanker"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  let correct = 0, total = 0, rt = [], onset = 0, cur = null, running = false, dT = null;
+  const P = () => { const L = lad.level, incong = Math.min(0.85, 0.4 + 0.05 * L), flanks = Math.min(4, 2 + Math.floor(L / 3)), deadline = Math.max(600, 1800 - 130 * L); showDifficultyParams({ incongruentRate: incong, flankersPerSide: flanks, deadlineMs: deadline, spacingPx: 18 }); return { L, incong, flanks, deadline }; };
+  body.innerHTML = `<div><div class="arrows" id="ar">— — —</div><div class="opts"><button class="opt" id="L">◀ влево</button><button class="opt" id="R">вправо ▶</button></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div><div class="hint">Направление ЦЕНТРАЛЬНОЙ стрелки (←/→). С уровнем — больше конфликта, флангов и короче дедлайн.</div></div>`;
+  const ar = body.querySelector("#ar");
+  const setF = (m) => foot.innerHTML = $s("Уровень", P().L) + $s("Проб", total) + $s("Верно", correct) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function next() {
+    clearTimeout(dT); const { incong, flanks, deadline } = P();
+    const center = pick(["L", "R"]); const cong = Math.random() >= incong; const flank = cong ? center : (center === "L" ? "R" : "L");
+    const fa = (flank === "L" ? "◀" : "▶"), c = (center === "L" ? "◀" : "▶");
+    const wing = Array(flanks).fill(fa).join(" ");
+    ar.textContent = `${wing} ${c} ${wing}`; cur = center; onset = performance.now(); total++; setF();
+    dT = setTimeout(() => { if (running) { lad.record(false); setF("⏱"); next(); } }, deadline);
+  }
+  function answer(dir) { if (!running || cur == null) return; clearTimeout(dT); const ok = dir === cur; if (ok) { correct++; rt.push(Math.round(performance.now() - onset)); } lad.record(ok); cur = null; setTimeout(next, 170); }
+  function start() { correct = 0; total = 0; rt = []; running = true; next(); }
+  body.querySelector("#L").onclick = () => answer("L"); body.querySelector("#R").onclick = () => answer("R");
+  const key = e => { if (e.key === "ArrowLeft") answer("L"); if (e.key === "ArrowRight") answer("R"); };
+  document.addEventListener("keydown", key);
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(dT); document.removeEventListener("keydown", key); running = false; };
+};
+
+// --- Rule Switch (adaptive switch rate / rules / deadline) ---
+GAME_IMPL["rule-switch"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  let correct = 0, total = 0, rt = [], onset = 0, running = false, prevRule = null, dT = null;
+  const P = () => { const L = lad.level, switchRate = Math.min(0.85, 0.4 + 0.05 * L), rules = L >= 5 ? 3 : 2, deadline = Math.max(900, 2600 - 170 * L); showDifficultyParams({ ruleCount: rules, switchRate, deadlineMs: deadline, cueTargetMs: 0 }); return { L, switchRate, rules, deadline }; };
+  body.innerHTML = `<div><div id="cue" class="hint" style="font-size:15px">—</div><div class="stim-big" id="num">•</div><div class="opts" id="opts"></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div><div class="hint">Классифицируй число по ТЕКУЩЕМУ правилу. С уровнем — чаще смена, третье правило, короче окно.</div></div>`;
+  const cue = body.querySelector("#cue"), numEl = body.querySelector("#num"), opts = body.querySelector("#opts");
+  const setF = (m) => foot.innerHTML = $s("Уровень", P().L) + $s("Проб", total) + $s("Верно", correct) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function next() {
+    clearTimeout(dT); const { switchRate, rules, deadline } = P();
+    const pool = rules >= 3 ? ["parity", "magnitude", "prime"] : ["parity", "magnitude"];
+    let rule; if (prevRule && Math.random() >= switchRate && pool.includes(prevRule)) rule = prevRule; else rule = pick(pool.filter(r => r !== prevRule));
+    prevRule = rule; let num = ri(9) + 1; while (num === 5) num = ri(9) + 1;
+    let labels, correctIdx;
+    if (rule === "parity") { cue.textContent = "Правило: ЧЁТ / НЕЧЁТ"; labels = ["Чётное", "Нечётное"]; correctIdx = num % 2 === 0 ? 0 : 1; }
+    else if (rule === "magnitude") { cue.textContent = "Правило: <5 / ≥5"; labels = ["Меньше 5", "5 и больше"]; correctIdx = num < 5 ? 0 : 1; }
+    else { cue.textContent = "Правило: ПРОСТОЕ / СОСТАВНОЕ"; labels = ["Простое", "Составное"]; correctIdx = [2, 3, 7].includes(num) ? 0 : 1; }
+    numEl.textContent = num; opts.innerHTML = "";
+    labels.forEach((l, k) => { const b = document.createElement("button"); b.className = "opt"; b.textContent = l; b.onclick = () => answer(k === correctIdx); opts.appendChild(b); });
+    onset = performance.now(); total++; setF();
+    dT = setTimeout(() => { if (running) { lad.record(false); setF("⏱"); next(); } }, deadline);
+  }
+  function answer(ok) { if (!running) return; clearTimeout(dT); if (ok) { correct++; rt.push(Math.round(performance.now() - onset)); } lad.record(ok); next(); }
+  function start() { correct = 0; total = 0; rt = []; prevRule = null; running = true; next(); }
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(dT); running = false; };
+};
+
+// --- Mental Rotation (adaptive angle / glyph set / deadline) ---
+GAME_IMPL["mental-rotation"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  const glyphs = ["R", "F", "G", "P", "L", "Я"];
+  let correct = 0, total = 0, rt = [], onset = 0, mirrored = false, running = false, dT = null;
+  const P = () => { const L = lad.level, nglyph = Math.min(glyphs.length, 2 + L), bigAngle = L >= 3, deadline = Math.max(1100, 3800 - 300 * L); showDifficultyParams({ maxAngleDeg: bigAngle ? 180 : 90, glyphCount: nglyph, deadlineMs: deadline, dimensionality: "2d" }); return { L, nglyph, bigAngle, deadline }; };
+  body.innerHTML = `<div><div style="display:flex;gap:36px;align-items:center;justify-content:center"><div class="stim-big" id="ref">R</div><div class="stim-big" id="cmp" style="color:var(--accent)">R</div></div><div class="opts"><button class="opt" id="same">Такая же</button><button class="opt" id="mir">Зеркальная</button></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div><div class="hint">Та же буква или зеркальная? С уровнем — больше углы, сложнее символы, короче дедлайн.</div></div>`;
+  const refEl = body.querySelector("#ref"), cmp = body.querySelector("#cmp");
+  const setF = (m) => foot.innerHTML = $s("Уровень", P().L) + $s("Проб", total) + $s("Верно", correct) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function next() {
+    clearTimeout(dT); const { nglyph, bigAngle, deadline } = P();
+    const gl = glyphs[ri(nglyph)]; refEl.textContent = gl; refEl.style.transform = "none"; cmp.textContent = gl;
+    const ang = pick(bigAngle ? [90, 135, 180, 225, 270] : [0, 45, 90, 315]);
+    mirrored = Math.random() < 0.5; cmp.style.transform = `rotate(${ang}deg) scaleX(${mirrored ? -1 : 1})`;
+    onset = performance.now(); total++; setF();
+    dT = setTimeout(() => { if (running) { lad.record(false); setF("⏱"); next(); } }, deadline);
+  }
+  function answer(saysMirror) { if (!running) return; clearTimeout(dT); const ok = saysMirror === mirrored; if (ok) { correct++; rt.push(Math.round(performance.now() - onset)); } lad.record(ok); next(); }
+  function start() { correct = 0; total = 0; rt = []; running = true; next(); }
+  body.querySelector("#same").onclick = () => answer(false); body.querySelector("#mir").onclick = () => answer(true);
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(dT); running = false; };
+};
+
+// --- Arithmetic Sprint (60s, difficulty ramps with a streak) ---
+GAME_IMPL["arithmetic-sprint"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 10 });
+  let correct = 0, wrong = 0, cur = 0, running = false, timeLeft = 60, tick = null;
+  const P = () => { const L = lad.level, range = 8 + 4 * L, twoStep = L >= 6, useMul = L >= 3, spread = Math.max(1, 6 - Math.floor(L / 2)); showDifficultyParams({ operandMax: range, operations: useMul ? 3 : 2, operationSteps: twoStep ? 2 : 1, distractorDistance: spread }); return { L, range, twoStep, useMul, spread }; };
+  body.innerHTML = `<div><div class="stim-big" id="prob">…</div><div class="opts" id="opts"></div><div style="margin-top:12px"><button class="btn" id="go">Старт (60 c)</button></div><div class="hint">Серия верных повышает уровень: шире диапазон, ×, затем два действия; дистракторы ближе.</div></div>`;
+  const prob = body.querySelector("#prob"), opts = body.querySelector("#opts");
+  const setF = () => foot.innerHTML = $s("Уровень", P().L) + $s("Время", timeLeft + " c") + $s("Верно", correct) + $s("Ошибок", wrong);
+  setF();
+  function make() {
+    const { range, twoStep, useMul, spread } = P(); let val, expr;
+    if (twoStep) { const a = rint(2, range), b = rint(2, 9), c = rint(1, range); val = a * b + c; expr = `${a} × ${b} + ${c}`; }
+    else { const s = pick(useMul ? ["+", "−", "×"] : ["+", "−"]); let a = rint(1, range), b = rint(1, s === "×" ? 9 : range); if (s === "−" && b > a) [a, b] = [b, a]; val = s === "+" ? a + b : s === "−" ? a - b : a * b; expr = `${a} ${s} ${b}`; }
+    cur = val; prob.textContent = expr;
+    const set = new Set([val]); while (set.size < 4) { const d = val + (ri(2 * spread + 1) - spread); if (d !== val) set.add(d); }
+    opts.innerHTML = ""; shuffle([...set]).forEach(v => { const btn = document.createElement("button"); btn.className = "opt"; btn.textContent = v; btn.onclick = () => answer(v, btn); opts.appendChild(btn); });
+  }
+  function answer(v, btn) { if (!running) return; if (v === cur) { correct++; lad.record(true); make(); } else { wrong++; lad.record(false); btn.classList.add("wrong"); setTimeout(() => btn.classList.remove("wrong"), 220); } setF(); }
+  function finish() { running = false; clearInterval(tick); prob.textContent = "✓"; opts.innerHTML = ""; foot.innerHTML = $s("Уровень", P().L) + $s("Верно", correct) + $s("Ошибок", wrong) + $s("Throughput", (correct / 60).toFixed(2) + "/c"); body.querySelector("#go").textContent = "Ещё раз"; }
+  function start() { correct = 0; wrong = 0; timeLeft = 60; running = true; make(); setF(); clearInterval(tick); tick = setInterval(() => { timeLeft--; setF(); if (timeLeft <= 0) finish(); }, 1000); }
+  body.querySelector("#go").onclick = start;
+  return () => { clearInterval(tick); running = false; };
+};
+
+// --- Equation Verification (60s, difficulty ramps) ---
+GAME_IMPL["equation-verification"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 10 });
+  let correct = 0, wrong = 0, truth = false, running = false, timeLeft = 60, tick = null;
+  const P = () => { const L = lad.level, range = 8 + 4 * L, twoStep = L >= 5, err = Math.max(1, 4 - Math.floor(L / 3)), useMul = L >= 3; showDifficultyParams({ operandMax: range, operationSteps: twoStep ? 2 : 1, errorMagnitude: err }); return { L, range, twoStep, err, useMul }; };
+  body.innerHTML = `<div><div class="stim-big" id="eq">…</div><div class="opts"><button class="opt" id="t">Верно</button><button class="opt" id="f">Неверно</button></div><div style="margin-top:12px"><button class="btn" id="go">Старт (60 c)</button></div><div class="hint">С уровнем: шире числа, два действия, всё меньше ошибка (труднее заметить неверное).</div></div>`;
+  const eq = body.querySelector("#eq");
+  const setF = () => foot.innerHTML = $s("Уровень", P().L) + $s("Время", timeLeft + " c") + $s("Верно", correct) + $s("Ошибок", wrong);
+  setF();
+  function make() {
+    const { range, twoStep, err, useMul } = P(); let real, expr;
+    if (twoStep) { const a = rint(2, range), b = rint(2, 9), c = rint(1, range); real = a * b + c; expr = `${a} × ${b} + ${c}`; }
+    else { const s = pick(useMul ? ["+", "−", "×"] : ["+", "−"]); let a = rint(1, range), b = rint(1, s === "×" ? 9 : range); if (s === "−" && b > a) [a, b] = [b, a]; real = s === "+" ? a + b : s === "−" ? a - b : a * b; expr = `${a} ${s} ${b}`; }
+    truth = Math.random() < 0.5; const delta = (ri(err) + 1) * (Math.random() < 0.5 ? -1 : 1); eq.textContent = `${expr} = ${truth ? real : real + delta}`;
+  }
+  function answer(ans) { if (!running) return; const ok = ans === truth; if (ok) correct++; else wrong++; lad.record(ok); setF(); make(); }
+  function finish() { running = false; clearInterval(tick); eq.textContent = "✓"; foot.innerHTML = $s("Уровень", P().L) + $s("Верно", correct) + $s("Ошибок", wrong); body.querySelector("#go").textContent = "Ещё раз"; }
+  function start() { correct = 0; wrong = 0; timeLeft = 60; running = true; make(); setF(); clearInterval(tick); tick = setInterval(() => { timeLeft--; setF(); if (timeLeft <= 0) finish(); }, 1000); }
+  body.querySelector("#t").onclick = () => answer(true); body.querySelector("#f").onclick = () => answer(false);
+  body.querySelector("#go").onclick = start;
+  return () => { clearInterval(tick); running = false; };
+};
+
+// --- Symbol Coding (60s, key grows / hides with level) ---
+GAME_IMPL["symbol-coding"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  const allSyms = ["◆", "▲", "●", "■", "★", "✚", "✦", "⬟", "❖"];
+  let map = [], correct = 0, wrong = 0, cur = null, running = false, timeLeft = 60, tick = null, sinceHide = 0;
+  const P = () => { const L = lad.level, keySize = Math.min(9, 5 + L), hide = L >= 5; showDifficultyParams({ keySize, legendVisible: !hide, deadlineMs: 2000 }); return { L, keySize, hide }; };
+  body.innerHTML = `<div><div id="legend" style="margin-bottom:10px"></div><div class="stim-big" id="sym">…</div><div class="keypad" id="kp"></div><div style="margin-top:12px"><button class="btn" id="go">Старт (60 c)</button></div><div class="hint">С уровнем ключ растёт (до 9) и периодически прячется — приходится помнить.</div></div>`;
+  const legend = body.querySelector("#legend"), sym = body.querySelector("#sym"), kp = body.querySelector("#kp");
+  const setF = () => foot.innerHTML = $s("Уровень", P().L) + $s("Время", timeLeft + " c") + $s("Верно", correct) + $s("Ошибок", wrong);
+  function rebuild() {
+    const { keySize } = P(); map = shuffle(allSyms.slice(0, keySize).map((s, i) => ({ s, d: i + 1 })));
+    legend.innerHTML = map.map(m => `<span style="display:inline-flex;flex-direction:column;align-items:center;margin:0 6px"><span style="font-size:22px">${m.s}</span><b>${m.d}</b></span>`).join("");
+    kp.innerHTML = ""; for (let d = 1; d <= keySize; d++) { const b = document.createElement("button"); b.className = "key"; b.textContent = d; b.onclick = () => answer(d); kp.appendChild(b); }
+    kp.style.gridTemplateColumns = `repeat(${Math.min(5, keySize)},62px)`;
+  }
+  function make() {
+    if (map.length !== P().keySize) rebuild();
+    cur = pick(map); sym.textContent = cur.s; sinceHide++;
+    legend.style.visibility = (P().hide && Math.floor(sinceHide / 4) % 2 === 1) ? "hidden" : "visible";
+  }
+  function answer(d) { if (!running) return; if (cur && d === cur.d) { correct++; lad.record(true); } else { wrong++; lad.record(false); } setF(); make(); }
+  function finish() { running = false; clearInterval(tick); sym.textContent = "✓"; legend.style.visibility = "visible"; foot.innerHTML = $s("Уровень", P().L) + $s("Верно", correct) + $s("Ошибок", wrong); body.querySelector("#go").textContent = "Ещё раз"; }
+  function start() { correct = 0; wrong = 0; timeLeft = 60; sinceHide = 0; running = true; rebuild(); make(); setF(); clearInterval(tick); tick = setInterval(() => { timeLeft--; setF(); if (timeLeft <= 0) finish(); }, 1000); }
+  const key = e => { if (/^[1-9]$/.test(e.key)) answer(+e.key); };
+  document.addEventListener("keydown", key);
+  body.querySelector("#go").onclick = start;
+  return () => { clearInterval(tick); document.removeEventListener("keydown", key); running = false; };
+};
+
+// --- Reaction Choice (adaptive #choices / response window) ---
+GAME_IMPL["reaction-choice"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 7 });
+  const palette = [["Красный", "#f85149"], ["Синий", "#5b9dff"], ["Зелёный", "#3fb950"], ["Жёлтый", "#d29922"], ["Фиолет", "#a371f7"], ["Голубой", "#56d4dd"], ["Оранж", "#e3934b"], ["Розовый", "#db61a2"]];
+  let i = 0, rt = [], err = 0, cur = null, onset = 0, running = false, t = null, winT = null;
+  const P = () => { const L = lad.level, nopt = Math.min(8, 2 + L), win = Math.max(600, 2000 - 160 * L); showDifficultyParams({ choiceCount: nopt, deadlineMs: win, foreperiodMinMs: 500, foreperiodMaxMs: 1700 }); return { L, nopt, win }; };
+  body.innerHTML = `<div><div id="box" style="width:150px;height:150px;border-radius:16px;margin:0 auto;background:var(--panel-2)"></div><div class="opts" id="opts"></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div><div class="hint">Выбери загоревшийся цвет как можно быстрее. С уровнем — больше вариантов и уже окно ответа.</div></div>`;
+  const box = body.querySelector("#box"), opts = body.querySelector("#opts");
+  const setF = (m) => foot.innerHTML = $s("Уровень", P().L) + $s("Проб", i) + $s("Ошибок", err) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function renderOpts() { const { nopt } = P(); opts.innerHTML = ""; for (let k = 0; k < nopt; k++) { const b = document.createElement("button"); b.className = "opt"; b.textContent = palette[k][0]; b.onclick = () => answer(k); opts.appendChild(b); } }
+  function next() {
+    clearTimeout(t); clearTimeout(winT); renderOpts(); const { nopt, win } = P();
+    box.style.background = "var(--panel-2)"; cur = null; i++; setF();
+    t = setTimeout(() => { cur = ri(nopt); box.style.background = palette[cur][1]; onset = performance.now(); winT = setTimeout(() => { if (running && cur != null) { err++; lad.record(false); setF("⏱"); next(); } }, win); }, 500 + ri(1200));
+  }
+  function answer(k) { if (!running || cur == null) return; clearTimeout(winT); const ok = k === cur; if (ok) rt.push(Math.round(performance.now() - onset)); else err++; lad.record(ok); setF(); next(); }
+  function start() { i = 0; rt = []; err = 0; running = true; next(); }
+  body.querySelector("#go").onclick = start;
+  return () => { clearTimeout(t); clearTimeout(winT); running = false; };
+};
+
+// --- Target Tapping (30s, adaptive size / distance / deadline / motion) ---
+GAME_IMPL["target-tapping"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 });
+  let taps = 0, misses = 0, mt = [], last = 0, running = false, timeLeft = 30, tick = null, target = null, expireT = null, lastPos = null, moveRAF = null;
+  const P = () => { const L = lad.level, size = Math.max(26, 60 - 4 * L), deadline = Math.max(600, 1800 - 150 * L), move = L >= 5, minDist = 40 + 15 * L; showDifficultyParams({ targetPx: size, minDistancePx: minDist, deadlineMs: deadline, moving: move, speedPxS: move ? Math.round((0.7 + 0.2 * L) * 60) : 0 }); return { L, size, deadline, move, minDist }; };
+  body.innerHTML = `<div id="area" style="position:absolute;inset:0"></div><div id="hint" class="hint" style="position:absolute;top:10px;left:0;right:0;text-align:center;pointer-events:none"></div><div style="position:absolute;bottom:14px;left:0;right:0;text-align:center"><button class="btn" id="go">Старт (30 c)</button></div>`;
+  const area = body.querySelector("#area"), hint = body.querySelector("#hint");
+  const setF = () => foot.innerHTML = $s("Уровень", P().L) + $s("Время", timeLeft + " c") + $s("Тапов", taps) + $s("Промахов", misses) + $s("Mean MT", mean(mt) + " ms");
+  function place() { const { size, minDist } = P(); const w = Math.max(1, area.clientWidth - size), h = Math.max(1, area.clientHeight - size); let x, y, tries = 0; do { x = ri(w); y = ri(h); tries++; } while (lastPos && tries < 20 && Math.hypot(x - lastPos.x, y - lastPos.y) < minDist); lastPos = { x, y }; return { x, y }; }
+  function spawn() {
+    clearTimeout(expireT); if (moveRAF) cancelAnimationFrame(moveRAF); if (target) target.remove();
+    const { size, deadline, move, L } = P(); const p = place();
+    target = document.createElement("div"); target.className = "tap-target"; target.style.width = target.style.height = size + "px"; target.style.left = p.x + "px"; target.style.top = p.y + "px";
+    target.onclick = () => { if (!running) return; taps++; if (last) mt.push(Math.round(performance.now() - last)); last = performance.now(); lad.record(true); setF(); spawn(); };
+    area.appendChild(target);
+    if (move) { let vx = (Math.random() < 0.5 ? -1 : 1) * (0.7 + 0.2 * L), vy = (Math.random() < 0.5 ? -1 : 1) * (0.7 + 0.2 * L); const stepFn = () => { if (!target) return; const w = area.clientWidth - size, h = area.clientHeight - size; let x = parseFloat(target.style.left) + vx, y = parseFloat(target.style.top) + vy; if (x < 0 || x > w) vx *= -1; if (y < 0 || y > h) vy *= -1; target.style.left = clamp(x, 0, w) + "px"; target.style.top = clamp(y, 0, h) + "px"; moveRAF = requestAnimationFrame(stepFn); }; moveRAF = requestAnimationFrame(stepFn); }
+    expireT = setTimeout(() => { if (running) { misses++; lad.record(false); setF(); spawn(); } }, deadline);
+  }
+  function finish() { running = false; clearInterval(tick); clearTimeout(expireT); if (moveRAF) cancelAnimationFrame(moveRAF); if (target) target.remove(); hint.textContent = `Тапов ${taps}, промахов ${misses}, mean MT ${mean(mt)} ms.`; body.querySelector("#go").textContent = "Ещё раз"; }
+  function start() { taps = 0; misses = 0; mt = []; last = performance.now(); timeLeft = 30; running = true; lastPos = null; hint.textContent = ""; spawn(); setF(); clearInterval(tick); tick = setInterval(() => { timeLeft--; setF(); if (timeLeft <= 0) finish(); }, 1000); }
+  body.querySelector("#go").onclick = start;
+  return () => { clearInterval(tick); clearTimeout(expireT); if (moveRAF) cancelAnimationFrame(moveRAF); if (target) target.remove(); running = false; };
+};
+
+// --- Auditory Sequence Recall ---
+GAME_IMPL["auditory-sequence"] = function (body, foot) {
+  const tones = [261.6, 329.6, 392, 493.9, 587.3, 698.5, 784, 987.8];
+  let level = 3, best = 0, seq = [], input = [], showing = false, timers = [], ctx = null;
+  const P = () => {
+    const soundClasses = Math.min(8, 3 + Math.floor(level / 2)), presentationMs = Math.max(300, 820 - level * 38), reverseRecall = level >= 6;
+    showDifficultyParams({ sequenceLength: level, soundClasses, presentationMs, reverseRecall });
+    return { soundClasses, presentationMs, reverseRecall };
+  };
+  body.innerHTML = `<div><div class="stim-big" id="note">♪</div><div class="opts" id="tones"></div><div style="margin-top:12px"><button class="btn" id="go">Прослушать</button></div><div class="hint" id="hint">Запомни мелодию и повтори её кнопками.</div></div>`;
+  const note = body.querySelector("#note"), toneHost = body.querySelector("#tones"), hint = body.querySelector("#hint");
+  const clear = () => { timers.forEach(clearTimeout); timers = []; };
+  const tone = (i, duration = .22) => {
+    ctx ||= new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = tones[i]; o.type = "sine"; g.gain.setValueAtTime(.16, ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + duration); o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + duration);
+  };
+  const setF = m => foot.innerHTML = $s("Уровень", level) + $s("Рекорд", best) + `<span>${m || ""}</span>`;
+  function renderButtons() {
+    const { soundClasses } = P(); toneHost.innerHTML = "";
+    for (let i = 0; i < soundClasses; i++) { const b = document.createElement("button"); b.className = "opt"; b.textContent = "♪ " + (i + 1); b.onclick = () => respond(i, b); toneHost.appendChild(b); }
+  }
+  function play() {
+    clear(); renderButtons(); const { soundClasses, presentationMs, reverseRecall } = P();
+    seq = Array.from({ length: level }, () => ri(soundClasses)); input = []; showing = true; hint.textContent = "Слушай…";
+    seq.forEach((v, i) => timers.push(setTimeout(() => { note.textContent = "♪ " + (v + 1); tone(v); }, 250 + i * presentationMs)));
+    timers.push(setTimeout(() => { note.textContent = "?"; showing = false; hint.textContent = reverseRecall ? "Повтори в ОБРАТНОМ порядке" : "Повтори порядок"; }, 300 + seq.length * presentationMs));
+  }
+  function respond(v, btn) {
+    if (showing || !seq.length) return; tone(v); input.push(v);
+    const { reverseRecall } = P(), expected = reverseRecall ? seq[seq.length - input.length] : seq[input.length - 1], ok = v === expected;
+    btn.classList.add(ok ? "correct" : "wrong"); setTimeout(() => btn.classList.remove("correct", "wrong"), 220);
+    if (!ok) { showing = true; level = Math.max(3, level - 1); setF("Ошибка — уровень ↓"); }
+    else if (input.length === seq.length) { showing = true; best = Math.max(best, level); level = Math.min(12, level + 1); setF("Верно — уровень ↑"); }
+  }
+  renderButtons(); setF("Нажми «Прослушать»"); body.querySelector("#go").onclick = play;
+  return () => { clear(); if (ctx) ctx.close(); };
+};
+
+// --- Running Memory ---
+GAME_IMPL["running-memory"] = function (body, foot) {
+  const alphabet = "ABCDEFGHJKLMNPQRST".split("");
+  const lad = ladder({ start: 1, max: 8 }); let stream = [], timer = null, index = 0, correct = 0, total = 0;
+  const P = () => {
+    const L = lad.level, recallCount = Math.min(8, 2 + Math.floor(L / 2)), streamLength = 6 + L * 3, presentationMs = Math.max(400, 1050 - L * 80), symbolCount = Math.min(12, 5 + L);
+    showDifficultyParams({ recallCount, streamLength, presentationMs, symbolCount }); return { L, recallCount, streamLength, presentationMs, symbolCount };
+  };
+  body.innerHTML = `<div><div class="stim-big" id="stim">•</div><div id="answer" style="display:none"><input id="recall" autocomplete="off" placeholder="например: A B C" style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:18px;text-align:center"><button class="btn" id="submit" style="margin-left:8px">Ответить</button></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div><div class="hint">После потока введи последние K символов по порядку.</div></div>`;
+  const stim = body.querySelector("#stim"), answer = body.querySelector("#answer"), input = body.querySelector("#recall");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Верно", correct + "/" + total) + (m ? `<span>${m}</span>` : "");
+  function start() {
+    const { streamLength, presentationMs, symbolCount } = P(); stream = Array.from({ length: streamLength }, () => pick(alphabet.slice(0, symbolCount))); index = 0; answer.style.display = "none"; input.value = ""; body.querySelector("#go").style.display = "none";
+    const show = () => { if (index >= stream.length) { stim.textContent = "?"; answer.style.display = ""; input.focus(); return; } stim.textContent = stream[index++]; timer = setTimeout(show, presentationMs); }; show();
+  }
+  function submit() {
+    const { recallCount } = P(); const got = input.value.toUpperCase().replace(/[^A-ZА-Я]/g, "").split(""); const expected = stream.slice(-recallCount); const ok = got.join("") === expected.join("");
+    total++; if (ok) correct++; lad.record(ok); setF(ok ? "Верно ↑" : `Неверно: ${expected.join(" ")}`);
+    answer.style.display = "none"; body.querySelector("#go").style.display = ""; body.querySelector("#go").textContent = "Следующий поток";
+  }
+  body.querySelector("#go").onclick = start; body.querySelector("#submit").onclick = submit; input.onkeydown = e => { if (e.key === "Enter") submit(); }; setF();
+  return () => clearTimeout(timer);
+};
+
+// --- Pair Association ---
+GAME_IMPL["pair-association"] = function (body, foot) {
+  const pairs = [["луна","серебро"],["река","мост"],["лес","сова"],["чай","лимон"],["книга","полка"],["море","якорь"],["окно","свет"],["гора","снег"],["сад","яблоко"],["письмо","марка"],["часы","время"],["звезда","небо"]];
+  const lad = ladder({ start: 1, max: 8 }); let selected = [], showIndex = 0, timer = null, query = null, correct = 0, total = 0;
+  const P = () => {
+    const L = lad.level, pairCount = Math.min(12, 3 + L), exposureMs = Math.max(650, 2700 - 230 * L), distractorCount = Math.min(7, 2 + L), recallMode = L >= 6 ? "text" : "recognition";
+    showDifficultyParams({ pairCount, exposureMs, distractorCount, recallMode }); return { L, pairCount, exposureMs, distractorCount, recallMode };
+  };
+  body.innerHTML = `<div><div class="stim-big" id="pair" style="font-size:38px">—</div><div class="opts" id="opts"></div><div id="textAnswer" style="display:none;margin-top:14px"><input id="assoc" autocomplete="off" style="padding:11px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text)"><button class="btn" id="submit" style="margin-left:8px">Ответить</button></div><div style="margin-top:12px"><button class="btn" id="go">Учить пары</button></div><div class="hint">Запомни связанные пары, затем восстанови второе слово.</div></div>`;
+  const pairEl = body.querySelector("#pair"), opts = body.querySelector("#opts"), textBox = body.querySelector("#textAnswer"), assoc = body.querySelector("#assoc");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Верно", correct + "/" + total) + (m ? `<span>${m}</span>` : "");
+  function learn() {
+    const { pairCount, exposureMs } = P(); selected = shuffle([...pairs]).slice(0, pairCount); showIndex = 0; opts.innerHTML = ""; textBox.style.display = "none"; body.querySelector("#go").style.display = "none";
+    const show = () => { if (showIndex >= selected.length) { ask(); return; } pairEl.textContent = selected[showIndex].join(" — "); showIndex++; timer = setTimeout(show, exposureMs); }; show();
+  }
+  function ask() {
+    const { distractorCount, recallMode } = P(); query = pick(selected); pairEl.textContent = query[0] + " — ?"; opts.innerHTML = ""; assoc.value = "";
+    if (recallMode === "text") { textBox.style.display = ""; assoc.focus(); }
+    else { textBox.style.display = "none"; const choices = shuffle([query[1], ...shuffle(pairs.filter(p => p[1] !== query[1])).slice(0, distractorCount - 1).map(p => p[1])]); choices.forEach(v => { const b = document.createElement("button"); b.className = "opt"; b.textContent = v; b.onclick = () => score(v === query[1]); opts.appendChild(b); }); }
+  }
+  function score(ok) { total++; if (ok) correct++; lad.record(ok); setF(ok ? "Верно ↑" : `Ответ: ${query[1]}`); opts.innerHTML = ""; textBox.style.display = "none"; body.querySelector("#go").style.display = ""; body.querySelector("#go").textContent = "Новый набор"; }
+  body.querySelector("#go").onclick = learn; body.querySelector("#submit").onclick = () => score(assoc.value.trim().toLowerCase() === query[1]); assoc.onkeydown = e => { if (e.key === "Enter") score(assoc.value.trim().toLowerCase() === query[1]); }; setF();
+  return () => clearTimeout(timer);
+};
+
+// --- Temporal Order ---
+GAME_IMPL["temporal-order"] = function (body, foot) {
+  const symbols = ["●","▲","■","◆","★","✚","⬟","☾","☀","♠","♥","♣"]; const lad = ladder({ start: 1, max: 8 });
+  let sequence = [], response = [], timer = null, index = 0, correct = 0, total = 0, showing = false;
+  const P = () => {
+    const L = lad.level, itemCount = Math.min(10, 3 + L), presentationMs = Math.max(320, 1000 - 80 * L), similarity = Math.min(.8, .1 * L), responseMode = L >= 6 ? "pairwise" : "full-order";
+    showDifficultyParams({ itemCount, presentationMs, similarity, responseMode }); return { L, itemCount, presentationMs, similarity, responseMode };
+  };
+  body.innerHTML = `<div><div class="stim-big" id="stim">•</div><div class="opts" id="opts"></div><div style="margin-top:12px"><button class="btn" id="go">Показать эпизод</button></div><div class="hint" id="hint">Восстанови порядок предъявления.</div></div>`;
+  const stim = body.querySelector("#stim"), opts = body.querySelector("#opts"), hint = body.querySelector("#hint");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Верно", correct + "/" + total) + (m ? `<span>${m}</span>` : "");
+  function start() {
+    const { itemCount, presentationMs } = P(); sequence = shuffle([...symbols]).slice(0, itemCount); response = []; index = 0; showing = true; opts.innerHTML = ""; body.querySelector("#go").style.display = "none";
+    const show = () => { if (index >= sequence.length) { showing = false; ask(); return; } stim.textContent = sequence[index++]; timer = setTimeout(show, presentationMs); }; show();
+  }
+  function ask() {
+    const { responseMode } = P(); stim.textContent = "?";
+    if (responseMode === "pairwise") { const a = ri(sequence.length - 1), b = rint(a + 1, sequence.length - 1), first = Math.random() < .5 ? a : b, second = first === a ? b : a; hint.textContent = "Что было РАНЬШЕ?"; [sequence[first], sequence[second]].forEach((v, k) => { const btn = document.createElement("button"); btn.className = "opt"; btn.textContent = v; btn.onclick = () => score((k === 0 ? first : second) === a); opts.appendChild(btn); }); }
+    else { hint.textContent = "Нажми элементы в исходном порядке"; shuffle([...sequence]).forEach(v => { const btn = document.createElement("button"); btn.className = "opt"; btn.textContent = v; btn.onclick = () => { response.push(v); btn.disabled = true; if (response.length === sequence.length) score(response.join("") === sequence.join("")); }; opts.appendChild(btn); }); }
+  }
+  function score(ok) { total++; if (ok) correct++; lad.record(ok); setF(ok ? "Верно ↑" : `Порядок: ${sequence.join(" ")}`); opts.innerHTML = ""; body.querySelector("#go").style.display = ""; body.querySelector("#go").textContent = "Следующий эпизод"; }
+  body.querySelector("#go").onclick = start; setF();
+  return () => clearTimeout(timer);
+};
+
+// --- Spatial Cueing ---
+GAME_IMPL["spatial-cueing"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 }); let trials = 0, correct = 0, rt = [], targetSide = null, running = false, timers = [], onset = 0;
+  const clear = () => { timers.forEach(clearTimeout); timers = []; };
+  const P = () => {
+    const L = lad.level, cueValidity = Math.max(.5, .88 - .045 * L), cueTargetMs = Math.max(120, 760 - 75 * L), eccentricityPx = 70 + 22 * L, deadlineMs = Math.max(600, 1800 - 140 * L);
+    showDifficultyParams({ cueValidity, cueTargetMs, eccentricityPx, deadlineMs }); return { L, cueValidity, cueTargetMs, eccentricityPx, deadlineMs };
+  };
+  body.innerHTML = `<div><div id="field" style="width:600px;max-width:82vw;height:250px;position:relative;display:flex;align-items:center;justify-content:center"><div id="fix" style="font-size:36px">+</div><div id="cue" style="position:absolute;font-size:42px;color:var(--accent)"></div><div id="target" style="position:absolute;width:28px;height:28px;border-radius:50%;background:var(--text);display:none"></div></div><div class="opts"><button class="opt" id="L">← Слева</button><button class="opt" id="R">Справа →</button></div><div style="margin-top:10px"><button class="btn" id="go">Старт</button></div><div class="hint">Подсказка может быть валидной или обманной. Отвечай по положению цели.</div></div>`;
+  const cue = body.querySelector("#cue"), target = body.querySelector("#target");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Проб", trials) + $s("Верно", correct) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function trial() {
+    clear(); const { cueValidity, cueTargetMs, eccentricityPx, deadlineMs } = P(); target.style.display = "none"; targetSide = Math.random() < .5 ? "L" : "R"; const valid = Math.random() < cueValidity; const cueSide = valid ? targetSide : (targetSide === "L" ? "R" : "L"); cue.textContent = cueSide === "L" ? "←" : "→"; cue.style.display = "";
+    timers.push(setTimeout(() => { cue.style.display = "none"; target.style.left = `calc(50% ${targetSide === "L" ? "-" : "+"} ${eccentricityPx}px)`; target.style.transform = "translateX(-50%)"; target.style.display = ""; onset = performance.now(); timers.push(setTimeout(() => { if (running && targetSide) { targetSide = null; lad.record(false); setF("⏱"); trial(); } }, deadlineMs)); }, cueTargetMs));
+  }
+  function answer(side) { if (!running || !targetSide) return; clear(); const ok = side === targetSide; if (ok) { correct++; rt.push(Math.round(performance.now() - onset)); } trials++; lad.record(ok); targetSide = null; setF(); trial(); }
+  function start() { running = true; trials = correct = 0; rt = []; trial(); }
+  body.querySelector("#L").onclick = () => answer("L"); body.querySelector("#R").onclick = () => answer("R"); body.querySelector("#go").onclick = start;
+  const key = e => { if (e.key === "ArrowLeft") answer("L"); if (e.key === "ArrowRight") answer("R"); }; document.addEventListener("keydown", key); setF();
+  return () => { running = false; clear(); document.removeEventListener("keydown", key); };
+};
+
+// --- Multiple Object Tracking ---
+GAME_IMPL["multiple-object-tracking"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 }); let nodes = [], raf = null, phaseT = null, running = false, selected = new Set(), rounds = 0, correctRounds = 0;
+  const P = () => {
+    const L = lad.level, objectCount = Math.min(14, 5 + L), targetCount = Math.min(6, 1 + Math.ceil(L / 2)), speedPxS = 35 + 18 * L, trackingMs = 2800 + 450 * L;
+    showDifficultyParams({ objectCount, targetCount, speedPxS, trackingMs }); return { L, objectCount, targetCount, speedPxS, trackingMs };
+  };
+  body.innerHTML = `<div><div id="arena" style="width:620px;max-width:82vw;height:350px;position:relative;border:1px solid var(--border);border-radius:12px;overflow:hidden"></div><div style="margin-top:12px"><button class="btn" id="go">Старт раунда</button><button class="btn ghost" id="check" style="display:none;margin-left:8px">Проверить</button></div><div class="hint" id="hint">Запомни зелёные цели, следи за ними во время движения, затем выбери.</div></div>`;
+  const arena = body.querySelector("#arena"), hint = body.querySelector("#hint"), check = body.querySelector("#check");
+  const stop = () => { if (raf) cancelAnimationFrame(raf); clearTimeout(phaseT); raf = null; };
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Раунд", rounds) + $s("Точных", correctRounds) + (m ? `<span>${m}</span>` : "");
+  function start() {
+    stop(); arena.innerHTML = ""; selected.clear(); const { objectCount, targetCount, speedPxS, trackingMs } = P(); nodes = [];
+    const targets = new Set(shuffle([...Array(objectCount).keys()]).slice(0, targetCount));
+    for (let i = 0; i < objectCount; i++) {
+      const el = document.createElement("div"); el.style.cssText = `position:absolute;width:28px;height:28px;border-radius:50%;background:${targets.has(i) ? "var(--green)" : "var(--accent)"};border:2px solid rgba(255,255,255,.3);`;
+      const x = ri(Math.max(1, arena.clientWidth - 30)), y = ri(Math.max(1, arena.clientHeight - 30)), a = Math.random() * Math.PI * 2;
+      el.style.transform = `translate(${x}px,${y}px)`;
+      arena.appendChild(el); nodes.push({ el, x, y, vx: Math.cos(a) * speedPxS, vy: Math.sin(a) * speedPxS, target: targets.has(i), i });
+    }
+    hint.textContent = `Запомни ${targetCount} зелёных целей…`; check.style.display = "none"; body.querySelector("#go").style.display = "none"; running = true;
+    phaseT = setTimeout(() => {
+      nodes.forEach(n => n.el.style.background = "var(--accent)"); hint.textContent = "Следи…"; let last = performance.now();
+      const move = now => { const dt = Math.min(.04, (now - last) / 1000); last = now; const w = arena.clientWidth - 30, h = arena.clientHeight - 30; nodes.forEach(n => { n.x += n.vx * dt; n.y += n.vy * dt; if (n.x <= 0 || n.x >= w) n.vx *= -1; if (n.y <= 0 || n.y >= h) n.vy *= -1; n.x = clamp(n.x, 0, w); n.y = clamp(n.y, 0, h); n.el.style.transform = `translate(${n.x}px,${n.y}px)`; }); raf = requestAnimationFrame(move); }; raf = requestAnimationFrame(move);
+      phaseT = setTimeout(() => { if (raf) cancelAnimationFrame(raf); raf = null; hint.textContent = `Выбери ${targetCount} целей`; check.style.display = ""; nodes.forEach(n => n.el.onclick = () => { if (selected.has(n.i)) { selected.delete(n.i); n.el.style.outline = ""; } else if (selected.size < targetCount) { selected.add(n.i); n.el.style.outline = "3px solid white"; } }); }, trackingMs);
+    }, 1200);
+  }
+  function score() { const { targetCount } = P(); if (selected.size !== targetCount) return; const hits = nodes.filter(n => n.target && selected.has(n.i)).length, ok = hits === targetCount; rounds++; if (ok) correctRounds++; lad.record(ok); nodes.forEach(n => n.el.style.background = n.target ? "var(--green)" : "var(--red)"); hint.textContent = `${hits}/${targetCount} целей`; check.style.display = "none"; body.querySelector("#go").style.display = ""; body.querySelector("#go").textContent = "Следующий раунд"; setF(); }
+  body.querySelector("#go").onclick = start; check.onclick = score; setF();
+  return () => { running = false; stop(); };
+};
+
+// --- Peripheral Monitor ---
+GAME_IMPL["peripheral-monitor"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 }); let central = 0, centralCorrect = 0, centralAnswered = false, peripheralHits = 0, peripheralMiss = 0, currentOdd = false, peripheralActive = false, running = false, timer = null, perT = null;
+  const P = () => {
+    const L = lad.level, centralRateMs = Math.max(350, 1000 - 75 * L), peripheralRate = Math.max(.06, .2 - .016 * L), eccentricityPx = 110 + 25 * L, signalMs = Math.max(180, 780 - 65 * L);
+    showDifficultyParams({ centralRateMs, peripheralRate, eccentricityPx, signalMs }); return { L, centralRateMs, peripheralRate, eccentricityPx, signalMs };
+  };
+  body.innerHTML = `<div><div style="width:620px;max-width:82vw;height:300px;position:relative;display:flex;align-items:center;justify-content:center"><div class="stim-big" id="num">•</div><div id="per" style="position:absolute;width:24px;height:24px;border-radius:50%;background:var(--amber);display:none"></div></div><div class="opts"><button class="opt" id="even">Чётное</button><button class="opt" id="odd">Нечётное</button><button class="opt" id="detect">Периферия!</button></div><div style="margin-top:10px"><button class="btn" id="go">Старт</button></div><div class="hint">Классифицируй число и одновременно замечай редкие точки на периферии (<kbd>P</kbd>).</div></div>`;
+  const num = body.querySelector("#num"), per = body.querySelector("#per");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Центр", centralCorrect + "/" + central) + $s("Периферия", peripheralHits) + $s("Miss", peripheralMiss) + (m ? `<span>${m}</span>` : "");
+  function step() {
+    const { centralRateMs, peripheralRate, eccentricityPx, signalMs } = P(); const n = rint(1, 99); currentOdd = n % 2 === 1; centralAnswered = false; num.textContent = n; central++;
+    if (!peripheralActive && Math.random() < peripheralRate) { peripheralActive = true; const a = Math.random() * Math.PI * 2; per.style.left = `calc(50% + ${Math.cos(a) * eccentricityPx}px)`; per.style.top = `calc(50% + ${Math.sin(a) * Math.min(120, eccentricityPx)}px)`; per.style.display = ""; perT = setTimeout(() => { if (peripheralActive) { peripheralMiss++; lad.record(false); peripheralActive = false; per.style.display = "none"; setF(); } }, signalMs); }
+    timer = setTimeout(step, centralRateMs); setF();
+  }
+  function answer(odd) { if (!running || centralAnswered) return; centralAnswered = true; const ok = odd === currentOdd; if (ok) centralCorrect++; lad.record(ok); setF(); }
+  function detect() { if (!running) return; const ok = peripheralActive; if (ok) { peripheralHits++; clearTimeout(perT); peripheralActive = false; per.style.display = "none"; } lad.record(ok); setF(ok ? "" : "False alarm"); }
+  function start() { central = centralCorrect = peripheralHits = peripheralMiss = 0; running = true; step(); }
+  body.querySelector("#even").onclick = () => answer(false); body.querySelector("#odd").onclick = () => answer(true); body.querySelector("#detect").onclick = detect; body.querySelector("#go").onclick = start;
+  const key = e => { if (e.key.toLowerCase() === "p") detect(); }; document.addEventListener("keydown", key); setF();
+  return () => { running = false; clearTimeout(timer); clearTimeout(perT); document.removeEventListener("keydown", key); };
+};
+
+// --- Audio-Visual Monitor ---
+GAME_IMPL["av-monitor"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 }); let running = false, vT = null, aT = null, ctx = null, visualTarget = false, audioTarget = false, vh = 0, ah = 0, miss = 0, fa = 0;
+  const P = () => {
+    const L = lad.level, visualRateMs = Math.max(350, 1100 - 85 * L), auditoryRateMs = Math.max(380, 1250 - 90 * L), targetRate = Math.max(.08, .24 - .018 * L), overlapRate = Math.min(.55, .05 + .06 * L);
+    showDifficultyParams({ visualRateMs, auditoryRateMs, targetRate, overlapRate }); return { L, visualRateMs, auditoryRateMs, targetRate, overlapRate };
+  };
+  body.innerHTML = `<div><div class="stim-big" id="visual">●</div><div class="hint">Визуальная цель <b>★</b> → кнопка V. Высокий тон → кнопка A.</div><div class="opts"><button class="opt" id="V">V — визуальная</button><button class="opt" id="A">A — аудио</button></div><div style="margin-top:10px"><button class="btn" id="go">Старт</button></div></div>`;
+  const visual = body.querySelector("#visual");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("V hits", vh) + $s("A hits", ah) + $s("Miss", miss) + $s("FA", fa) + (m ? `<span>${m}</span>` : "");
+  const beep = high => { ctx ||= new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = high ? 880 : 330; g.gain.setValueAtTime(.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .18); o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + .18); };
+  function visualStep() { const { visualRateMs, targetRate } = P(); if (visualTarget) { miss++; lad.record(false); } visualTarget = Math.random() < targetRate; visual.textContent = visualTarget ? "★" : pick(["●","▲","■","◆"]); vT = setTimeout(visualStep, visualRateMs); setF(); }
+  function audioStep() { const { auditoryRateMs, targetRate, overlapRate } = P(); if (audioTarget) { miss++; lad.record(false); } audioTarget = Math.random() < (visualTarget && Math.random() < overlapRate ? .8 : targetRate); beep(audioTarget); aT = setTimeout(audioStep, auditoryRateMs); setF(); }
+  function respond(mod) { if (!running) return; const target = mod === "v" ? visualTarget : audioTarget; if (target) { if (mod === "v") { vh++; visualTarget = false; } else { ah++; audioTarget = false; } lad.record(true); } else { fa++; lad.record(false); } setF(); }
+  function start() { vh = ah = miss = fa = 0; visualTarget = audioTarget = false; running = true; visualStep(); audioStep(); }
+  body.querySelector("#V").onclick = () => respond("v"); body.querySelector("#A").onclick = () => respond("a"); body.querySelector("#go").onclick = start;
+  const key = e => { if (e.key.toLowerCase() === "v") respond("v"); if (e.key.toLowerCase() === "a") respond("a"); }; document.addEventListener("keydown", key); setF();
+  return () => { running = false; clearTimeout(vT); clearTimeout(aT); document.removeEventListener("keydown", key); if (ctx) ctx.close(); };
+};
+
+// --- Number Switching ---
+GAME_IMPL["number-switching"] = function (body, foot) {
+  const lad = ladder({ start: 1, max: 8 }); let running = false, previousRule = null, correct = 0, total = 0, rt = [], onset = 0, timeout = null;
+  const P = () => {
+    const L = lad.level, ruleCount = L >= 5 ? 3 : 2, switchRate = Math.min(.85, .35 + .065 * L), numberMax = L < 3 ? 9 : L < 6 ? 99 : 999, deadlineMs = Math.max(900, 2700 - 210 * L);
+    showDifficultyParams({ ruleCount, switchRate, numberMax, deadlineMs }); return { L, ruleCount, switchRate, numberMax, deadlineMs };
+  };
+  body.innerHTML = `<div><div id="cue" class="hint" style="font-size:16px">—</div><div class="stim-big" id="num">•</div><div class="opts" id="opts"></div><div style="margin-top:10px"><button class="btn" id="go">Старт</button></div><div class="hint">Правило меняется: чётность, величина или наличие цифры 7.</div></div>`;
+  const cue = body.querySelector("#cue"), num = body.querySelector("#num"), opts = body.querySelector("#opts");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Верно", correct + "/" + total) + $s("Mean RT", mean(rt) + " ms") + (m ? `<span>${m}</span>` : "");
+  function next() {
+    clearTimeout(timeout); const { ruleCount, switchRate, numberMax, deadlineMs } = P(); const rules = ["parity","magnitude","seven"].slice(0, ruleCount);
+    let rule = previousRule && Math.random() > switchRate ? previousRule : pick(rules.filter(r => r !== previousRule)); previousRule = rule;
+    const value = rint(1, numberMax); num.textContent = value; let labels, answer;
+    if (rule === "parity") { cue.textContent = "ЧЁТНОСТЬ"; labels = ["Чётное","Нечётное"]; answer = value % 2 ? 1 : 0; }
+    else if (rule === "magnitude") { const threshold = Math.ceil(numberMax / 2); cue.textContent = `СРАВНЕНИЕ С ${threshold}`; labels = [`< ${threshold}`,`≥ ${threshold}`]; answer = value < threshold ? 0 : 1; }
+    else { cue.textContent = "ЕСТЬ ЦИФРА 7?"; labels = ["Да","Нет"]; answer = String(value).includes("7") ? 0 : 1; }
+    opts.innerHTML = ""; labels.forEach((label, i) => { const b = document.createElement("button"); b.className = "opt"; b.textContent = label; b.onclick = () => respond(i === answer); opts.appendChild(b); }); onset = performance.now(); total++;
+    timeout = setTimeout(() => { if (running) { lad.record(false); setF("⏱"); next(); } }, deadlineMs); setF();
+  }
+  function respond(ok) { if (!running) return; clearTimeout(timeout); if (ok) { correct++; rt.push(Math.round(performance.now() - onset)); } lad.record(ok); next(); }
+  function start() { running = true; correct = total = 0; rt = []; previousRule = null; next(); }
+  body.querySelector("#go").onclick = start; setF();
+  return () => { running = false; clearTimeout(timeout); };
+};
+
+// --- Category Fluency Generation (free text) ---
+GAME_IMPL["category-generation"] = function (body, foot) {
+  const categories = [
+    { name: "Животные", words: "кот собака лошадь корова коза овца волк лиса медведь тигр лев слон жираф заяц кролик мышь крыса белка еж обезьяна олень кабан".split(" ") },
+    { name: "Фрукты", words: "яблоко груша банан апельсин мандарин лимон лайм персик абрикос слива вишня черешня виноград ананас манго киви гранат хурма".split(" ") },
+    { name: "Птицы", words: "воробей голубь ворона сорока синица снегирь орел сокол ястреб сова филин утка гусь лебедь журавль цапля пингвин страус".split(" ") },
+    { name: "Инструменты", words: "молоток пила отвертка дрель топор клещи пассатижи рубанок стамеска напильник ключ тиски лопата грабли".split(" ") },
+    { name: "Морские животные", words: "кит дельфин акула скат осьминог кальмар медуза краб омар креветка тюлень морж черепаха мурена".split(" ") },
+    { name: "Музыкальные инструменты", words: "пианино рояль скрипка альт виолончель контрабас гитара арфа флейта кларнет гобой труба тромбон барабан саксофон".split(" ") },
+  ];
+  const lad = ladder({ start: 1, max: 8 }); let running = false, current = null, words = new Set(), accepted = 0, intrusions = 0, timeLeft = 0, tick = null;
+  const P = () => {
+    const L = lad.level, durationS = Math.max(25, 48 - 3 * L), categoryBreadth = Math.max(.2, .85 - .08 * L), minUnique = 4 + L, subcategorySwitches = L >= 5 ? 1 + Math.floor((L - 5) / 2) : 0;
+    showDifficultyParams({ durationS, categoryBreadth, minUnique, subcategorySwitches }); return { L, durationS, categoryBreadth, minUnique, subcategorySwitches };
+  };
+  body.innerHTML = `<div><div class="stim-big" id="category" style="font-size:36px">—</div><div style="margin-top:16px"><input id="word" autocomplete="off" placeholder="введи слово + Enter" style="width:280px;padding:13px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:17px"></div><div id="chips" class="opts" style="max-width:600px"></div><div style="margin-top:12px"><button class="btn" id="go">Старт</button></div><div class="hint" id="hint">Свободно генерируй слова заданной категории. Повторы не считаются.</div></div>`;
+  const catEl = body.querySelector("#category"), input = body.querySelector("#word"), chips = body.querySelector("#chips"), hint = body.querySelector("#hint");
+  const norm = s => s.trim().toLowerCase().replace(/ё/g, "е").replace(/[^а-яa-z-]/g, "");
+  const setF = m => foot.innerHTML = $s("Уровень", P().L) + $s("Время", timeLeft + " c") + $s("Уникальных", words.size) + $s("В словаре", accepted) + $s("Intrusions", intrusions) + (m ? `<span>${m}</span>` : "");
+  function addWord() {
+    if (!running) return; const value = norm(input.value); input.value = ""; if (!value || words.has(value)) { setF(value ? "Повтор" : ""); return; }
+    words.add(value); const known = current.words.map(norm).includes(value); if (known) accepted++; else intrusions++;
+    const chip = document.createElement("span"); chip.className = "badge " + (known ? "mvp" : "cap"); chip.textContent = value; chips.appendChild(chip); setF();
+  }
+  function finish() { running = false; clearInterval(tick); const { minUnique } = P(), ok = accepted >= minUnique; lad.record(ok); hint.textContent = ok ? `Цель выполнена: ${accepted} подтверждённых слов.` : `Нужно ${minUnique}; подтверждено ${accepted}. Словарь демонстрационный, неизвестные слова сохранены как intrusions.`; body.querySelector("#go").textContent = "Новая категория"; setF(ok ? "Уровень ↑" : "Уровень ↓"); }
+  function start() {
+    const { durationS, L } = P(); current = pick(categories.slice(0, Math.min(categories.length, 2 + Math.ceil(L / 2)))); words.clear(); accepted = intrusions = 0; timeLeft = durationS; chips.innerHTML = ""; catEl.textContent = current.name; hint.textContent = "Вводи по одному слову и нажимай Enter."; running = true; input.focus(); setF(); clearInterval(tick); tick = setInterval(() => { timeLeft--; setF(); if (timeLeft <= 0) finish(); }, 1000);
+  }
+  input.onkeydown = e => { if (e.key === "Enter") addWord(); }; body.querySelector("#go").onclick = start; setF();
+  return () => { running = false; clearInterval(tick); };
+};
+
+// ---------- wire ----------
+function wire() {
+  document.getElementById("search").oninput = e => { state.search = e.target.value; render(); };
+  document.getElementById("catSel").onchange = e => { state.cat = e.target.value; render(); };
+  document.getElementById("mvpOnly").onchange = e => { state.mvpOnly = e.target.checked; render(); };
+  document.getElementById("playOnly").onchange = e => { state.playOnly = e.target.checked; render(); };
+  document.getElementById("closeBtn").onclick = closeDrawer;
+  document.getElementById("overlay").onclick = closeDrawer;
+  document.getElementById("stageClose").onclick = closeModal;
+  document.addEventListener("keydown", e => { if (e.key === "Escape") { closeModal(); closeDrawer(); } });
+}
+
+renderStats();
+buildCatSelect();
+wire();
+render();
+</script>
+</body>
+</html>
