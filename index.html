@@ -54,12 +54,13 @@
   .cat h2 .dot { width: 10px; height: 10px; border-radius: 50%; }
   .cat h2 .cnt { color: var(--muted); font-weight: 400; font-size: 12px; }
   .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: border-color 0.12s, transform 0.12s; position: relative; }
+  .card { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; color: var(--text); text-align: left; font: inherit; cursor: pointer; transition: border-color 0.12s, transform 0.12s; position: relative; }
   .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .card.active { border-color: var(--accent); background: rgba(91,157,255,.1); }
-  .card h3 { margin: 0 0 3px; font-size: 15px; }
-  .card .gid { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); margin-bottom: 8px; word-break: break-all; }
-  .card .mech { font-size: 13px; color: var(--text); }
+  .card .card-title { display: block; margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+  .card .gid { display: block; font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); margin-bottom: 8px; word-break: break-all; }
+  .card .mech { display: block; font-size: 13px; color: var(--text); }
   .card .badges { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
   .badge { font-size: 10px; padding: 2px 7px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
   .badge.ok { background: rgba(63,185,80,0.15); border-color: var(--green); color: var(--green); }
@@ -137,7 +138,27 @@
 
   /* shared game widgets */
   .opts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
-  .opt { min-width: 96px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 16px; cursor: pointer; transition: border-color .1s, background .1s; }
+  .opt { min-width: 96px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 16px; cursor: pointer; transition: border-color .1s, background .1s; position: relative; }
+  .choice-keyed[data-key-label] { position: relative; padding-right: 42px; }
+  .choice-keyed[data-key-label]::after {
+    content: attr(data-key-label);
+    position: absolute;
+    top: 4px;
+    right: 5px;
+    min-width: 20px;
+    padding: 1px 4px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--muted);
+    font: 9px/1.35 ui-monospace, Menlo, monospace;
+    text-align: center;
+  }
+  .choice-keyed.keyboard-pressed::after { border-color: #fff; color: #fff; }
+  .key.choice-keyed { padding: 0; }
+  .key.choice-keyed::after { display: none; }
+  .mot-object.choice-keyed { padding: 0; color: #fff; font: 700 10px/1 ui-monospace, Menlo, monospace; text-shadow: 0 1px 2px #000; }
+  .mot-object.choice-keyed::after { display: none; }
   .opt:hover { border-color: var(--accent); }
   button.keyboard-pressed,
   .opt.keyboard-pressed,
@@ -541,12 +562,12 @@ function cardHtml(g) {
   const badges = [];
   if (g.demo) badges.push(`<span class="badge play">▶ демо</span>`);
   (g.caps || []).forEach(c => badges.push(`<span class="badge cap">${esc(c)}</span>`));
-  return `<div class="card ${state.selectedId === g.id ? "active" : ""}" data-id="${esc(g.id)}">
-    <h3>${esc(g.name)}</h3>
-    <div class="gid">${esc(g.id)}</div>
-    <div class="mech">${esc(g.mech)}</div>
-    <div class="badges">${badges.join("")}</div>
-  </div>`;
+  return `<button type="button" class="card ${state.selectedId === g.id ? "active" : ""}" data-id="${esc(g.id)}">
+    <span class="card-title">${esc(g.name)}</span>
+    <span class="gid">${esc(g.id)}</span>
+    <span class="mech">${esc(g.mech)}</span>
+    <span class="badges">${badges.join("")}</span>
+  </button>`;
 }
 
 function openDetails(id) {
@@ -653,6 +674,65 @@ function keyboardActivate(button, event) {
   return true;
 }
 
+const CHOICE_KEY_POOL = [..."1234567890QWERTYUIOPASDFGHJKLZXCVBNM"];
+const EXPLICIT_CHOICE_KEYS = {
+  L: ["ArrowLeft", "←"],
+  R: ["ArrowRight", "→"],
+  match: ["Space", "Пробел"],
+  resp: ["Space", "Пробел"],
+  respond: ["Space", "Пробел"],
+  mark: ["Space", "Пробел"],
+  detect: ["P", "P"],
+  V: ["V", "V"],
+  A: ["A", "A"],
+  leftTap: ["F", "F"],
+  rightTap: ["J", "J"],
+  primaryAnswer: ["M", "M"],
+  secondaryAnswer: ["P", "P"],
+};
+
+function setButtonShortcut(button, key, label = key) {
+  button.classList.add("choice-keyed");
+  button.dataset.choiceKey = key;
+  button.dataset.keyLabel = label;
+  button.setAttribute("aria-keyshortcuts", key);
+}
+
+function syncChoiceHotkeys(body) {
+  const choices = [...body.querySelectorAll("button:not(.btn):not(.param-option):not([data-defer-hotkey])")];
+  const reserved = new Set();
+  const generic = [];
+  for (const button of choices) {
+    const keycap = button.matches(".key") && /^[1-9]$/.test(button.textContent.trim()) ? button.textContent.trim() : null;
+    const explicit = EXPLICIT_CHOICE_KEYS[button.id] || (keycap ? [keycap, keycap] : null);
+    if (explicit) {
+      setButtonShortcut(button, explicit[0], explicit[1]);
+      reserved.add(explicit[0].toUpperCase());
+    } else {
+      generic.push(button);
+    }
+  }
+  const available = CHOICE_KEY_POOL.filter(key => !reserved.has(key));
+  generic.forEach((button, index) => {
+    const key = available[index];
+    if (key) setButtonShortcut(button, key);
+    else {
+      button.classList.remove("choice-keyed");
+      delete button.dataset.choiceKey;
+      delete button.dataset.keyLabel;
+      button.removeAttribute("aria-keyshortcuts");
+    }
+  });
+  body.querySelectorAll("#go, #startBtn, #check").forEach(button => setButtonShortcut(button, "Space", "Пробел"));
+}
+
+function bindChoiceHotkeys(body) {
+  syncChoiceHotkeys(body);
+  const observer = new MutationObserver(() => syncChoiceHotkeys(body));
+  observer.observe(body, { subtree: true, childList: true });
+  return () => observer.disconnect();
+}
+
 function isTrailingTaskHint(element) {
   if (!(element instanceof Element) || !element.matches(".hint")) return false;
   const previous = element.previousElementSibling;
@@ -666,7 +746,7 @@ function bridgeTrailingTaskHints(body) {
       const hint = element?.closest?.(".hint");
       if (!hint || !body.contains(hint) || !isTrailingTaskHint(hint)) continue;
       const text = hint.textContent.trim();
-      if (text && activeGameId) setTaskInstruction(text, "Текущий этап");
+      if (text && activeGameId && document.getElementById("stageTaskLabel").textContent !== "Результат раунда") setTaskInstruction(text, "Текущий этап");
     }
   });
   observer.observe(body, { subtree: true, childList: true, characterData: true });
@@ -676,8 +756,10 @@ function bridgeTrailingTaskHints(body) {
 function mountGameImplementation(fn, body, foot) {
   const cleanupGame = fn(body, foot);
   const cleanupHintBridge = bridgeTrailingTaskHints(body);
+  const cleanupChoiceHotkeys = bindChoiceHotkeys(body);
   return () => {
     cleanupHintBridge();
+    cleanupChoiceHotkeys();
     if (typeof cleanupGame === "function") cleanupGame();
   };
 }
@@ -861,7 +943,7 @@ GAME_IMPL["spatial-span"] = function (body, foot) {
       <div id="roundResult" role="status" aria-live="polite" style="display:none;margin-top:14px;padding:10px 14px;border-radius:9px;font-weight:700"></div>
       <div style="margin-top:16px"><button class="btn" id="startBtn">${rounds ? "Начать следующий раунд" : "Показать последовательность"}</button></div>`;
     const cg = wrap.querySelector("#cg"); cells = [];
-    for (let i = 0; i < N; i++) { const d = document.createElement("div"); d.className = "cell"; d.style.width = d.style.height = sz + "px"; d.dataset.i = i; cg.appendChild(d); cells.push(d); }
+    for (let i = 0; i < N; i++) { const d = document.createElement("button"); d.type = "button"; d.className = "cell"; d.setAttribute("aria-label", `Ячейка ${i + 1}`); d.style.width = d.style.height = sz + "px"; d.dataset.i = i; cg.appendChild(d); cells.push(d); }
     cells.forEach(c => c.addEventListener("click", onCell));
     wrap.querySelector("#startBtn").onclick = play;
   }
@@ -965,7 +1047,7 @@ GAME_IMPL["visual-sequence"] = function (body, foot) {
       <div id="roundResult" role="status" aria-live="polite" style="display:none;margin-top:14px;padding:10px 14px;border-radius:9px;font-weight:700"></div>
       <div style="margin-top:16px"><button class="btn" id="go">${rounds ? "Начать следующий раунд" : "Показать последовательность"}</button></div>`;
     const pg = wrap.querySelector("#pg"); pads = [];
-    for (let i = 0; i < np; i++) { const d = document.createElement("div"); d.className = "pad"; d.style.background = palette[i]; d.style.width = d.style.height = sz + "px"; d.dataset.i = i; pg.appendChild(d); pads.push(d); }
+    for (let i = 0; i < np; i++) { const d = document.createElement("button"); d.type = "button"; d.className = "pad"; d.setAttribute("aria-label", `Цветовая площадка ${i + 1}`); d.style.background = palette[i]; d.style.width = d.style.height = sz + "px"; d.dataset.i = i; pg.appendChild(d); pads.push(d); }
     pads.forEach(p => p.addEventListener("click", onPad));
     wrap.querySelector("#go").onclick = play;
   }
@@ -1500,7 +1582,7 @@ GAME_IMPL["multiple-object-tracking"] = function (body, foot) {
     stop(); arena.innerHTML = ""; selected.clear(); const { objectCount, targetCount, speedPxS, trackingMs } = P(); nodes = [];
     const targets = new Set(shuffle([...Array(objectCount).keys()]).slice(0, targetCount));
     for (let i = 0; i < objectCount; i++) {
-      const el = document.createElement("div"); el.style.cssText = `position:absolute;width:28px;height:28px;border-radius:50%;background:${targets.has(i) ? "var(--green)" : "var(--accent)"};border:2px solid rgba(255,255,255,.3);`;
+      const el = document.createElement("button"); el.type = "button"; el.disabled = true; el.className = "mot-object"; el.dataset.deferHotkey = "true"; el.style.cssText = `position:absolute;width:28px;height:28px;padding:0;border-radius:50%;background:${targets.has(i) ? "var(--green)" : "var(--accent)"};border:2px solid rgba(255,255,255,.3);`;
       const x = ri(Math.max(1, arena.clientWidth - 30)), y = ri(Math.max(1, arena.clientHeight - 30)), a = Math.random() * Math.PI * 2;
       el.style.transform = `translate(${x}px,${y}px)`;
       arena.appendChild(el); nodes.push({ el, x, y, vx: Math.cos(a) * speedPxS, vy: Math.sin(a) * speedPxS, target: targets.has(i), i });
@@ -1509,7 +1591,7 @@ GAME_IMPL["multiple-object-tracking"] = function (body, foot) {
     phaseT = setTimeout(() => {
       nodes.forEach(n => n.el.style.background = "var(--accent)"); hint.textContent = "Следи…"; let last = performance.now();
       const move = now => { const dt = Math.min(.04, (now - last) / 1000); last = now; const w = arena.clientWidth - 30, h = arena.clientHeight - 30; nodes.forEach(n => { n.x += n.vx * dt; n.y += n.vy * dt; if (n.x <= 0 || n.x >= w) n.vx *= -1; if (n.y <= 0 || n.y >= h) n.vy *= -1; n.x = clamp(n.x, 0, w); n.y = clamp(n.y, 0, h); n.el.style.transform = `translate(${n.x}px,${n.y}px)`; }); raf = requestAnimationFrame(move); }; raf = requestAnimationFrame(move);
-      phaseT = setTimeout(() => { if (raf) cancelAnimationFrame(raf); raf = null; hint.textContent = `Выбери ${targetCount} целей`; check.style.display = ""; nodes.forEach(n => n.el.onclick = () => { if (selected.has(n.i)) { selected.delete(n.i); n.el.style.outline = ""; } else if (selected.size < targetCount) { selected.add(n.i); n.el.style.outline = "3px solid white"; } }); }, trackingMs);
+      phaseT = setTimeout(() => { if (raf) cancelAnimationFrame(raf); raf = null; hint.textContent = `Выбери ${targetCount} целей`; check.style.display = ""; nodes.forEach(n => { n.el.disabled = false; delete n.el.dataset.deferHotkey; n.el.setAttribute("aria-label", `Объект ${n.i + 1}`); n.el.onclick = () => { if (selected.has(n.i)) { selected.delete(n.i); n.el.style.outline = ""; } else if (selected.size < targetCount) { selected.add(n.i); n.el.style.outline = "3px solid white"; } }; }); syncChoiceHotkeys(body); nodes.forEach(n => n.el.textContent = n.el.dataset.keyLabel || ""); }, trackingMs);
     }, 1200);
   }
   function score() { const { targetCount } = P(); if (selected.size !== targetCount) return; const hits = nodes.filter(n => n.target && selected.has(n.i)).length, ok = hits === targetCount; rounds++; if (ok) correctRounds++; lad.record(ok); nodes.forEach(n => n.el.style.background = n.target ? "var(--green)" : "var(--red)"); hint.textContent = `${hits}/${targetCount} целей`; check.style.display = "none"; announceRoundOutcome(ok ? `Раунд пройден: найдены все ${targetCount} целей.` : `Раунд завершён: найдено ${hits} из ${targetCount} целей.`, body.querySelector("#go"), "Начать следующий раунд"); setF(); }
@@ -2095,11 +2177,12 @@ function wire() {
     if (!e.target.closest("button, input, textarea, select, [contenteditable='true']")) focusGameStage();
   });
   stage.addEventListener("click", e => {
-    const main = e.target.closest("#stageBody #go, #stageBody #startBtn");
-    if (!main) return;
+    const control = e.target.closest("#stageBody button");
+    if (!control) return;
+    const main = control.matches("#go, #startBtn") ? control : null;
     queueMicrotask(() => {
       if (!document.getElementById("gamePort").classList.contains("open")) return;
-      if (main.isConnected && main.getClientRects().length) main.disabled = true;
+      if (main?.isConnected && main.getClientRects().length) main.disabled = true;
       if (!isEditableTarget(document.activeElement)) focusGameStage();
     });
   });
@@ -2111,10 +2194,19 @@ function wire() {
       return;
     }
     if (e.code !== "Space") return;
-    const main = [...stage.querySelectorAll("#stageBody #go, #stageBody #startBtn")].find(isUsableButton);
+    const main = [...stage.querySelectorAll("#stageBody #go, #stageBody #startBtn, #stageBody #check")].find(isUsableButton);
     if (!main) return;
     e.stopImmediatePropagation();
     keyboardActivate(main, e);
+  });
+  stage.addEventListener("keydown", e => {
+    if (isEditableTarget(e.target) || e.target.closest?.("button") || e.repeat) return;
+    const key = e.key.length === 1 ? e.key.toUpperCase() : e.code === "Space" ? "Space" : e.key;
+    const choice = [...stage.querySelectorAll("#stageBody button[data-choice-key]")]
+      .find(button => button.dataset.choiceKey === key && isUsableButton(button));
+    if (!choice) return;
+    e.stopImmediatePropagation();
+    keyboardActivate(choice, e);
   });
   stage.addEventListener("keydown", e => {
     if (e.key !== "Tab") return;
