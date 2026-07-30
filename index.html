@@ -31,6 +31,9 @@
   .details-empty { height: 100%; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 30px; }
   header h1 { font-size: 22px; margin: 0 0 4px; }
   header p { color: var(--muted); margin: 0 0 18px; }
+  header .back-link { margin: -10px 0 18px; font-size: 13px; }
+  header .back-link a { color: var(--accent); text-decoration: none; }
+  header .back-link a:hover { text-decoration: underline; }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
@@ -197,6 +200,7 @@
         <header>
           <h1>Gamespace</h1>
           <p>Каталог когнитивных микроигр с адаптивным ростом сложности и сбором метрик.</p>
+          <p class="back-link"><a href="../">← Витрина протокола: модули на новой архитектуре</a></p>
         </header>
 
         <div class="stats" id="stats"></div>

@@ -34,6 +34,10 @@ app.innerHTML = `
     <div class="catalog-body" id="catalog"></div>
     <div class="catalog-head"><h1>Сценарий</h1></div>
     <div class="catalog-body" id="scenarios"></div>
+    <a class="catalog-link" href="./catalog/index.html">
+      Прежний каталог: 47 игр
+      <small>витрина одним файлом, эталон механик</small>
+    </a>
   </aside>
   <main class="port">
     <div class="port-head">

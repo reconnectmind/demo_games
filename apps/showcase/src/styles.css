@@ -54,6 +54,20 @@ body {
   color: var(--text);
   cursor: pointer;
 }
+/* Ссылка на прежнюю витрину: прижата к низу панели, не мешает списку. */
+.catalog-link {
+  margin: auto 8px 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+.catalog-link:hover { border-color: var(--accent); color: var(--text); }
+.catalog-link small { display: block; font-size: 11px; }
+#app.is-collapsed .catalog-link { display: none; }
+
 .game-item:hover { border-color: var(--border); }
 .game-item.is-active { border-color: var(--accent); }
 .game-item small { color: var(--muted); display: block; }
