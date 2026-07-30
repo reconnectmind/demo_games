@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://reconnect.org/gamespace/protocol.schema.json",
+  "title": "Protocol",
+  "description": "Сценарий эксперимента: что запускается, с какой сложностью и чем заканчивается. Приложение не содержит расписания, оно исполняет этот документ.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersion", "id", "title", "sections"],
+  "properties": {
+    "protocolVersion": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+    "id": { "type": "string", "pattern": "^[a-z0-9._-]+$" },
+    "title": { "type": "string" },
+    "seed": { "type": "integer", "description": "Общий seed сессии; при отсутствии выводится из participantId" },
+    "locale": { "type": "string" },
+    "difficulty": { "$ref": "#/definitions/difficulty" },
+    "counterbalance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["swap"],
+      "description": "Порядок двух участков назначается воспроизводимо по participantId, а не заново рандомизируется",
+      "properties": {
+        "swap": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "string" },
+          "description": "Идентификаторы участков, которые меняются местами у половины участников"
+        }
+      }
+    },
+    "sections": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/section" } }
+  },
+  "definitions": {
+    "difficulty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy"],
+      "properties": {
+        "policy": { "type": "string", "enum": ["monotonic", "adaptive", "manual", "fixed"] },
+        "start": { "type": "integer", "minimum": 1 },
+        "min": { "type": "integer", "minimum": 1 },
+        "max": { "type": "integer", "minimum": 1 },
+        "successesToAdvance": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "games", "end"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9._-]+$" },
+        "games": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Одна игра или ротация: прогоны идут по кругу, пока участок не закончится"
+        },
+        "end": { "$ref": "#/definitions/termination" },
+        "training": { "type": "boolean" },
+        "difficulty": { "$ref": "#/definitions/difficulty" },
+        "overrides": {
+          "type": "object",
+          "description": "Параметры поверх выданных политикой, по идентификатору игры",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": ["number", "string", "boolean"] }
+          }
+        }
+      }
+    },
+    "termination": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["by", "ms"],
+          "properties": { "by": { "const": "time" }, "ms": { "type": "integer", "minimum": 1000 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["by", "count"],
+          "properties": { "by": { "const": "runs" }, "count": { "type": "integer", "minimum": 1 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["by", "ms"],
+          "description": "Ограничение на длину одного прогона, а не всего участка",
+          "properties": { "by": { "const": "run-limit" }, "ms": { "type": "integer", "minimum": 1000 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["by", "of"],
+          "properties": {
+            "by": { "const": "first" },
+            "of": { "type": "array", "minItems": 2, "items": { "$ref": "#/definitions/termination" } }
+          }
+        }
+      ]
+    }
+  }
+}

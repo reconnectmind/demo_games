@@ -1,0 +1,79 @@
+{
+  "id": "org.reconnect.arithmetic",
+  "version": "1.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "Арифметический спринт", "en": "Arithmetic sprint" },
+  "domains": ["numeracy", "processing-speed", "working-memory"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": ["keyboard"],
+  "optionalCapabilities": ["pointer"],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operandMax",
+        "operations",
+        "operationSteps",
+        "distractorDistance",
+        "optionCount",
+        "responseMode",
+        "timeLimitMs"
+      ],
+      "properties": {
+        "operandMax": { "type": "integer", "minimum": 8, "maximum": 60, "title": "Верхняя граница операндов" },
+        "operations": { "type": "integer", "minimum": 2, "maximum": 3, "title": "Число операций" },
+        "operationSteps": { "type": "integer", "minimum": 1, "maximum": 2, "title": "Действий в выражении" },
+        "distractorDistance": { "type": "integer", "minimum": 1, "maximum": 6, "title": "Удалённость дистракторов" },
+        "optionCount": { "type": "integer", "minimum": 3, "maximum": 5, "title": "Число вариантов" },
+        "responseMode": { "type": "string", "enum": ["selection", "text-entry"], "title": "Способ ответа" },
+        "timeLimitMs": { "type": "integer", "minimum": 20000, "maximum": 180000, "title": "Длительность спринта" }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["stimulus.presented", "response", "block.start", "block.end"] }
+      }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": ["trials", "correct", "meanRtMs", "throughputPerMin"],
+      "properties": {
+        "trials": { "type": "integer" },
+        "correct": { "type": "integer" },
+        "meanRtMs": { "type": "number" },
+        "throughputPerMin": { "type": "number" }
+      }
+    }
+  },
+  "interaction": {
+    "schemaVersion": 1,
+    "actions": [
+      { "id": "choose", "label": "Вариант ответа", "defaultBinding": "1", "indexed": true, "source": "participant" },
+      { "id": "submit", "label": "Ответить", "defaultBinding": "Enter", "indexed": false, "source": "participant" }
+    ],
+    "signals": []
+  },
+  "timing": { "profile": "standard", "criticalOnsets": true, "toleranceMs": 12 },
+  "levels": {
+    "count": 10,
+    "monotonicAxes": [
+      { "param": "operandMax", "direction": "increases" },
+      { "param": "operations", "direction": "increases" },
+      { "param": "operationSteps", "direction": "increases" },
+      { "param": "distractorDistance", "direction": "decreases" }
+    ]
+  },
+  "resumable": true,
+  "training": { "available": true, "admissionCriterion": "8 из 10 верных на первом уровне" },
+  "assets": [],
+  "locales": ["ru"]
+}

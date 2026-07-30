@@ -1,0 +1,64 @@
+{
+  "id": "org.reconnect.stroop",
+  "version": "1.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "Stroop", "en": "Stroop" },
+  "domains": ["executive-control", "interference"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": ["keyboard"],
+  "optionalCapabilities": [],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colorCount", "incongruentRate", "deadlineMs", "blockLength"],
+      "properties": {
+        "colorCount": { "type": "integer", "minimum": 3, "maximum": 6, "title": "Число цветов" },
+        "incongruentRate": { "type": "number", "minimum": 0, "maximum": 0.9, "title": "Доля конфликтных проб" },
+        "deadlineMs": { "type": "integer", "minimum": 700, "maximum": 3000, "title": "Дедлайн ответа" },
+        "blockLength": { "type": "integer", "minimum": 4, "maximum": 60, "title": "Длина блока" }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["stimulus.presented", "response", "block.start", "block.end"] }
+      }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": ["trials", "correct", "meanRtMs", "interferenceMs"],
+      "properties": {
+        "trials": { "type": "integer" },
+        "correct": { "type": "integer" },
+        "meanRtMs": { "type": "number" },
+        "interferenceMs": { "type": "number" }
+      }
+    }
+  },
+  "interaction": {
+    "schemaVersion": 1,
+    "actions": [{ "id": "choose", "label": "Цвет текста", "defaultBinding": "1", "indexed": true, "source": "participant" }],
+    "signals": []
+  },
+  "timing": { "profile": "strict", "criticalOnsets": true, "toleranceMs": 8 },
+  "levels": {
+    "count": 8,
+    "monotonicAxes": [
+      { "param": "colorCount", "direction": "increases" },
+      { "param": "incongruentRate", "direction": "increases" },
+      { "param": "deadlineMs", "direction": "decreases" }
+    ]
+  },
+  "resumable": true,
+  "training": { "available": true, "admissionCriterion": "8 из 10 верных на первом уровне" },
+  "assets": [],
+  "locales": ["ru"]
+}

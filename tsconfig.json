@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "types": ["vitest/globals", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@gamespace/core": ["packages/core/src/index.ts"],
+      "@gamespace/core/*": ["packages/core/src/*"],
+      "@gamespace/ui-web": ["packages/ui-web/src/index.ts"],
+      "@gamespace/ui-web/*": ["packages/ui-web/src/*"],
+      "@gamespace/games": ["packages/games/src/index.ts"],
+      "@gamespace/games/*": ["packages/games/src/*"],
+      "@gamespace/protocol": ["packages/protocol/src/index.ts"],
+      "@gamespace/protocol/*": ["packages/protocol/src/*"]
+    }
+  },
+  "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+}

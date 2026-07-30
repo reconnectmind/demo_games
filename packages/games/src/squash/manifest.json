@@ -1,0 +1,125 @@
+{
+  "id": "org.reconnect.squash",
+  "version": "1.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "Сквош", "en": "Squash" },
+  "domains": ["sustained-attention", "visuomotor", "tracking"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": ["canvas", "keyboard"],
+  "optionalCapabilities": ["pointer"],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ballSpeed", "ballCount", "paddleWidth", "episodes", "serveDelayMs"],
+      "properties": {
+        "ballSpeed": {
+          "type": "number",
+          "title": "Скорость шарика, полей в секунду",
+          "minimum": 0.2,
+          "maximum": 1.6
+        },
+        "ballCount": {
+          "type": "integer",
+          "title": "Шариков одновременно: нагрузка на распределение внимания",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "paddleWidth": {
+          "type": "number",
+          "title": "Ширина площадки, доля поля",
+          "minimum": 0.06,
+          "maximum": 0.34
+        },
+        "episodes": {
+          "type": "integer",
+          "title": "Зачётных эпизодов в блоке: отбито или пропущено",
+          "minimum": 4,
+          "maximum": 60
+        },
+        "serveDelayMs": {
+          "type": "integer",
+          "title": "Пауза перед новым запуском, мс",
+          "minimum": 0,
+          "maximum": 2000
+        }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["block.start", "ball.served", "ball.bounced", "ball.returned", "ball.lost", "load.changed", "block.end"]
+        }
+      }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": [
+        "returns",
+        "losses",
+        "accuracy",
+        "longestRally",
+        "meanContactErrorFrac",
+        "meanBallsInPlay",
+        "crowdedLosses"
+      ],
+      "properties": {
+        "returns": { "type": "integer" },
+        "losses": { "type": "integer" },
+        "accuracy": { "type": "number" },
+        "longestRally": { "type": "integer" },
+        "meanContactErrorFrac": { "type": "number" },
+        "meanBallsInPlay": { "type": "number", "description": "Средняя нагрузка: сколько шариков было в поле" },
+        "crowdedLosses": {
+          "type": "integer",
+          "description": "Потери при живом конкуренте в нижней половине поля: цена деления внимания"
+        }
+      }
+    }
+  },
+  "interaction": {
+    "schemaVersion": 1,
+    "actions": [
+      {
+        "id": "left",
+        "label": "Влево",
+        "defaultBinding": "ArrowLeft",
+        "indexed": false,
+        "holdable": true,
+        "source": "participant"
+      },
+      {
+        "id": "right",
+        "label": "Вправо",
+        "defaultBinding": "ArrowRight",
+        "indexed": false,
+        "holdable": true,
+        "source": "participant"
+      },
+      { "id": "aim", "label": "Наведение", "defaultBinding": "Pointer", "indexed": false, "source": "participant" }
+    ],
+    "signals": []
+  },
+  "timing": { "profile": "standard", "criticalOnsets": false, "toleranceMs": 20 },
+  "levels": {
+    "count": 8,
+    "monotonicAxes": [
+      { "param": "ballSpeed", "direction": "increases" },
+      { "param": "ballCount", "direction": "increases" },
+      { "param": "paddleWidth", "direction": "decreases" }
+    ]
+  },
+  "resumable": true,
+  "training": { "available": true, "admissionCriterion": "accuracy >= 0.5 на уровне 1" },
+  "assets": [],
+  "locales": ["ru"]
+}

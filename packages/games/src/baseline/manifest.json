@@ -1,0 +1,57 @@
+{
+  "id": "org.reconnect.baseline",
+  "version": "1.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "Базовая линия", "en": "Baseline" },
+  "domains": ["rest"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": [],
+  "optionalCapabilities": [],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["durationMs", "showTimer", "text"],
+      "properties": {
+        "durationMs": {
+          "type": "integer",
+          "title": "Длительность покоя, мс",
+          "minimum": 5000,
+          "maximum": 1800000
+        },
+        "showTimer": {
+          "type": "boolean",
+          "title": "Показывать таймер: нужен ли он участнику — вопрос открытый"
+        },
+        "text": { "type": "string", "title": "Инструкция участнику", "maxLength": 400 }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": { "type": { "type": "string", "enum": ["block.start", "block.end"] } }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": ["plannedMs", "actualMs", "completed"],
+      "properties": {
+        "plannedMs": { "type": "integer" },
+        "actualMs": { "type": "integer" },
+        "completed": { "type": "boolean", "description": "false, если участок закрыли досрочно командой протокола" }
+      }
+    }
+  },
+  "interaction": { "schemaVersion": 1, "actions": [], "signals": [] },
+  "timing": { "profile": "relaxed", "criticalOnsets": false, "toleranceMs": 250 },
+  "levels": { "count": 1, "monotonicAxes": [] },
+  "resumable": true,
+  "training": { "available": false },
+  "assets": [],
+  "locales": ["ru"]
+}

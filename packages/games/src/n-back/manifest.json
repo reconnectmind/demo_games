@@ -1,0 +1,68 @@
+{
+  "id": "org.reconnect.n-back",
+  "version": "1.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "N-back", "en": "N-back" },
+  "domains": ["working-memory", "updating"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": ["keyboard"],
+  "optionalCapabilities": [],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n", "stimulusMs", "isiMs", "targetRate", "blockLength"],
+      "properties": {
+        "n": { "type": "integer", "minimum": 1, "maximum": 4, "title": "Глубина N" },
+        "stimulusMs": { "type": "integer", "minimum": 500, "maximum": 1600, "title": "Время показа буквы" },
+        "isiMs": { "type": "integer", "minimum": 200, "maximum": 600, "title": "Пауза между буквами" },
+        "targetRate": { "type": "number", "minimum": 0.15, "maximum": 0.4, "title": "Доля совпадений" },
+        "blockLength": { "type": "integer", "minimum": 10, "maximum": 40, "title": "Длина блока" }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["stimulus.presented", "response", "trial.end", "block.start", "block.end"] }
+      }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": ["trials", "targets", "hits", "falseAlarms", "misses", "dPrimeApprox"],
+      "properties": {
+        "trials": { "type": "integer" },
+        "targets": { "type": "integer" },
+        "hits": { "type": "integer" },
+        "falseAlarms": { "type": "integer" },
+        "misses": { "type": "integer" },
+        "dPrimeApprox": { "type": "number" }
+      }
+    }
+  },
+  "interaction": {
+    "schemaVersion": 1,
+    "actions": [{ "id": "match", "label": "Совпадение", "defaultBinding": "Space", "indexed": false, "source": "participant" }],
+    "signals": []
+  },
+  "timing": { "profile": "strict", "criticalOnsets": true, "toleranceMs": 8 },
+  "levels": {
+    "count": 8,
+    "monotonicAxes": [
+      { "param": "n", "direction": "increases" },
+      { "param": "stimulusMs", "direction": "decreases" },
+      { "param": "isiMs", "direction": "decreases" },
+      { "param": "blockLength", "direction": "increases" }
+    ]
+  },
+  "resumable": true,
+  "training": { "available": true, "admissionCriterion": "80% верных решений блока при N = 1" },
+  "assets": [],
+  "locales": ["ru"]
+}

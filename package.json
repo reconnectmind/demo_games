@@ -1,0 +1,31 @@
+{
+  "name": "gamespace-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @gamespace/showcase",
+    "build": "npm run build --workspace @gamespace/showcase",
+    "preview": "npm run preview --workspace @gamespace/showcase",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "gen:manifest-types": "json2ts packages/core/schema/manifest.schema.json -o packages/core/src/manifest.types.ts --additionalProperties false --bannerComment \"/* Сгенерировано из schema/manifest.schema.json. Не редактировать вручную: npm run gen:manifest-types */\"",
+    "gen:protocol-types": "json2ts packages/protocol/schema/protocol.schema.json -o packages/protocol/src/protocol.types.ts --additionalProperties false --bannerComment \"/* Сгенерировано из schema/protocol.schema.json. Не редактировать вручную: npm run gen:protocol-types */\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "jsdom": "^25.0.1",
+    "json-schema-to-typescript": "^15.0.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  }
+}

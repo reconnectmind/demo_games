@@ -1,0 +1,76 @@
+{
+  "id": "org.reconnect.interrupt-resume",
+  "version": "1.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "Прерывание и возврат", "en": "Interrupt and Resume" },
+  "domains": ["executive-control", "resumption", "composite"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": ["keyboard"],
+  "optionalCapabilities": [],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interruptions", "backgroundRunMs", "interruptionMs", "warningMs"],
+      "properties": {
+        "interruptions": { "type": "integer", "minimum": 1, "maximum": 6, "title": "Число прерываний" },
+        "backgroundRunMs": { "type": "integer", "minimum": 4000, "maximum": 20000, "title": "Работа до прерывания" },
+        "interruptionMs": { "type": "integer", "minimum": 3000, "maximum": 15000, "title": "Длительность прерывания" },
+        "warningMs": { "type": "integer", "minimum": 0, "maximum": 2000, "title": "Предупреждение о прерывании" }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "block.start",
+            "block.end",
+            "interruption.warning",
+            "interruption.start",
+            "interruption.end",
+            "resume",
+            "resumption.lag"
+          ]
+        }
+      }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": ["interruptions", "meanResumptionLagMs", "backgroundAccuracy"],
+      "properties": {
+        "interruptions": { "type": "integer" },
+        "meanResumptionLagMs": { "type": "number" },
+        "backgroundAccuracy": { "type": "number" },
+        "interrupterAccuracy": { "type": "number" }
+      }
+    }
+  },
+  "interaction": { "schemaVersion": 1, "actions": [], "signals": [] },
+  "timing": { "profile": "standard", "criticalOnsets": true, "toleranceMs": 16 },
+  "levels": {
+    "count": 6,
+    "monotonicAxes": [
+      { "param": "interruptions", "direction": "increases" },
+      { "param": "backgroundRunMs", "direction": "decreases" },
+      { "param": "interruptionMs", "direction": "increases" },
+      { "param": "warningMs", "direction": "decreases" }
+    ]
+  },
+  "resumable": false,
+  "training": { "available": true, "admissionCriterion": "одно прерывание пройдено без потери места" },
+  "assets": [],
+  "locales": ["ru"],
+  "children": [
+    { "id": "org.reconnect.number-sequence", "version": "1.0.0", "requiresResume": true },
+    { "id": "org.reconnect.arithmetic", "version": "1.0.0" },
+    { "id": "org.reconnect.rule-switch", "version": "1.0.0" }
+  ]
+}

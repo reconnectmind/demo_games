@@ -1,0 +1,58 @@
+{
+  "protocolVersion": "1.0",
+  "id": "reconnect-pilot",
+  "title": "Пилот: нагрузка, колебания продуктивности, утомление",
+  "locale": "ru",
+  "difficulty": { "policy": "monotonic", "start": 1, "successesToAdvance": 2 },
+  "counterbalance": { "swap": ["battery", "interrupt"] },
+  "sections": [
+    {
+      "id": "baseline-pre",
+      "games": ["org.reconnect.baseline"],
+      "end": { "by": "time", "ms": 600000 },
+      "overrides": {
+        "org.reconnect.baseline": {
+          "durationMs": 600000,
+          "showTimer": false,
+          "text": "Сидите спокойно, смотрите в центр экрана. Ничего делать не нужно."
+        }
+      }
+    },
+    {
+      "id": "training",
+      "games": [
+        "org.reconnect.arithmetic",
+        "org.reconnect.n-back",
+        "org.reconnect.stroop",
+        "org.reconnect.rule-switch",
+        "org.reconnect.dual-load",
+        "org.reconnect.number-sequence"
+      ],
+      "training": true,
+      "difficulty": { "policy": "fixed", "start": 1 },
+      "end": { "by": "first", "of": [{ "by": "time", "ms": 600000 }, { "by": "run-limit", "ms": 90000 }] }
+    },
+    {
+      "id": "battery",
+      "games": ["org.reconnect.adaptive-battery"],
+      "end": { "by": "time", "ms": 2400000 }
+    },
+    {
+      "id": "interrupt",
+      "games": ["org.reconnect.interrupt-resume"],
+      "end": { "by": "time", "ms": 2400000 }
+    },
+    {
+      "id": "baseline-post",
+      "games": ["org.reconnect.baseline"],
+      "end": { "by": "time", "ms": 600000 },
+      "overrides": {
+        "org.reconnect.baseline": {
+          "durationMs": 600000,
+          "showTimer": false,
+          "text": "Эксперимент закончен. Посидите спокойно, смотрите в центр экрана."
+        }
+      }
+    }
+  ]
+}

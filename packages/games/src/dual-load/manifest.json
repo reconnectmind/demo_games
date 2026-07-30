@@ -1,0 +1,92 @@
+{
+  "id": "org.reconnect.dual-load",
+  "version": "1.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "Двойная нагрузка", "en": "Dual Load" },
+  "domains": ["working-memory", "divided-attention"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": ["keyboard"],
+  "optionalCapabilities": [],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n", "stimulusMs", "isiMs", "targetRate", "blockLength", "peripheralIsiMs", "peripheralDeadlineMs"],
+      "properties": {
+        "n": { "type": "integer", "minimum": 1, "maximum": 4, "title": "Глубина N" },
+        "stimulusMs": { "type": "integer", "minimum": 500, "maximum": 1600, "title": "Время показа буквы" },
+        "isiMs": { "type": "integer", "minimum": 200, "maximum": 600, "title": "Пауза между буквами" },
+        "targetRate": { "type": "number", "minimum": 0.15, "maximum": 0.4, "title": "Доля совпадений" },
+        "blockLength": { "type": "integer", "minimum": 10, "maximum": 40, "title": "Длина блока" },
+        "peripheralIsiMs": { "type": "integer", "minimum": 900, "maximum": 3000, "title": "Интервал периферийных меток" },
+        "peripheralDeadlineMs": { "type": "integer", "minimum": 600, "maximum": 2000, "title": "Окно ответа на метку" }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "stimulus.presented",
+            "response",
+            "trial.end",
+            "peripheral.presented",
+            "peripheral.end",
+            "block.start",
+            "block.end"
+          ]
+        }
+      }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": [
+        "trials",
+        "primaryAccuracy",
+        "peripheralHits",
+        "peripheralMisses",
+        "peripheralFalseAlarms",
+        "dualCostMs"
+      ],
+      "properties": {
+        "trials": { "type": "integer" },
+        "primaryAccuracy": { "type": "number" },
+        "peripheralHits": { "type": "integer" },
+        "peripheralMisses": { "type": "integer" },
+        "peripheralFalseAlarms": { "type": "integer" },
+        "dualCostMs": { "type": "number" }
+      }
+    }
+  },
+  "interaction": {
+    "schemaVersion": 1,
+    "actions": [
+      { "id": "match", "label": "Совпадение", "defaultBinding": "Space", "indexed": false, "source": "participant" },
+      { "id": "peripheral", "label": "Периферийная метка", "defaultBinding": "J", "indexed": false, "source": "participant" }
+    ],
+    "signals": []
+  },
+  "timing": { "profile": "strict", "criticalOnsets": true, "toleranceMs": 8 },
+  "levels": {
+    "count": 8,
+    "monotonicAxes": [
+      { "param": "n", "direction": "increases" },
+      { "param": "stimulusMs", "direction": "decreases" },
+      { "param": "isiMs", "direction": "decreases" },
+      { "param": "blockLength", "direction": "increases" },
+      { "param": "peripheralIsiMs", "direction": "decreases" },
+      { "param": "peripheralDeadlineMs", "direction": "decreases" }
+    ]
+  },
+  "resumable": true,
+  "training": { "available": true, "admissionCriterion": "блок N = 1 без периферийных пропусков" },
+  "assets": [],
+  "locales": ["ru"]
+}
