@@ -64,7 +64,15 @@ describe("раннер участка: стратегии завершения",
   });
 
   it("по времени добивает участок перезапусками и закрывает последний блок командой", () => {
-    const { r, clock } = runner(section({ end: byTime(90_000), games: ["org.reconnect.squash"] }));
+    // Блок сквоша короче участка, поэтому участок добивается перезапусками, а
+    // последний блок попадает под обрезку по времени.
+    const { r, clock } = runner(
+      section({
+        end: byTime(90_000),
+        games: ["org.reconnect.squash"],
+        overrides: { "org.reconnect.squash": { blockMs: 25_000 } },
+      }),
+    );
     r.start();
     clock.advance(120_000);
 

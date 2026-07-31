@@ -16,7 +16,7 @@
       "properties": {
         "durationMs": {
           "type": "integer",
-          "title": "Длительность покоя, мс",
+          "title": "Длительность покоя",
           "minimum": 5000,
           "maximum": 1800000
         },
@@ -49,6 +49,7 @@
   },
   "interaction": { "schemaVersion": 1, "actions": [], "signals": [] },
   "timing": { "profile": "relaxed", "criticalOnsets": false, "toleranceMs": 250 },
+  "blockLength": { "param": "durationMs", "unit": "ms" },
   "levels": { "count": 1, "monotonicAxes": [] },
   "resumable": true,
   "training": { "available": false },

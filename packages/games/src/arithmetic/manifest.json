@@ -63,6 +63,7 @@
     "signals": []
   },
   "timing": { "profile": "standard", "criticalOnsets": true, "toleranceMs": 12 },
+  "blockLength": { "param": "timeLimitMs", "unit": "ms" },
   "levels": {
     "count": 10,
     "monotonicAxes": [

@@ -44,6 +44,18 @@ export function describeContract(protocolGames: Microgame<any, any>[], game: Mic
       expect(checkMonotonicAxes(game.manifest, (l) => game.paramsForLevel(l)).issues).toEqual([]);
     });
 
+    it("объявленная длина блока указывает на существующий параметр", () => {
+      const decl = game.manifest.blockLength;
+      if (!decl) return;
+      const props = (game.manifest.parametersSchema.schema as { properties?: Record<string, unknown> }).properties ?? {};
+      expect(Object.keys(props)).toContain(decl.param);
+      // Длину блока задаёт расписание, поэтому уровень её трогать не должен.
+      const axes = game.manifest.levels.monotonicAxes.map((a) => a.param);
+      const first = game.paramsForLevel(1)[decl.param];
+      const last = game.paramsForLevel(game.manifest.levels.count)[decl.param];
+      if (!axes.includes(decl.param)) expect(last).toEqual(first);
+    });
+
     it("состояние ядра сериализуемо", () => {
       const run = headlessRun(protocolGames, game.manifest.id, { seed: 4 });
       run.instance.start();

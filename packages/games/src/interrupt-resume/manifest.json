@@ -55,6 +55,7 @@
   },
   "interaction": { "schemaVersion": 1, "actions": [], "signals": [] },
   "timing": { "profile": "standard", "criticalOnsets": true, "toleranceMs": 16 },
+  "blockLength": { "param": "interruptions", "unit": "count" },
   "levels": {
     "count": 6,
     "monotonicAxes": [

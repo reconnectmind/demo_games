@@ -79,6 +79,20 @@
         }
       }
     },
+    "blockLength": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["param", "unit"],
+      "description": "Какой параметр задаёт длину блока. Это расписание, а не сложность: хост показывает его отдельно и разрешает менять при любой политике",
+      "properties": {
+        "param": { "type": "string", "description": "Имя свойства из parametersSchema" },
+        "unit": {
+          "type": "string",
+          "enum": ["ms", "count"],
+          "description": "ms — блок кончается по времени, count — по числу проб, эпизодов или подблоков"
+        }
+      }
+    },
     "resumable": { "type": "boolean" },
     "training": {
       "type": "object",

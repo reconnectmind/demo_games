@@ -38,6 +38,19 @@ export interface Manifest {
      */
     monotonicAxes: MonotonicAxis[];
   };
+  /**
+   * Какой параметр задаёт длину блока. Это расписание, а не сложность: хост показывает его отдельно и разрешает менять при любой политике
+   */
+  blockLength?: {
+    /**
+     * Имя свойства из parametersSchema
+     */
+    param: string;
+    /**
+     * ms — блок кончается по времени, count — по числу проб, эпизодов или подблоков
+     */
+    unit: "ms" | "count";
+  };
   resumable: boolean;
   training: {
     available: boolean;

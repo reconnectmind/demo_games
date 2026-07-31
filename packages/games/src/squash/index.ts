@@ -8,7 +8,8 @@ export function paramsForLevel(level: number): Params {
     ballSpeed: Number((0.28 + 0.075 * (level - 1)).toFixed(3)),
     ballCount: Math.min(4, 1 + Math.floor((level - 1) / 2)),
     paddleWidth: Number(Math.max(0.08, 0.3 - 0.028 * (level - 1)).toFixed(3)),
-    episodes: 12,
+    // Длина блока от уровня не зависит: это расписание, а не нагрузка.
+    blockMs: 90_000,
     serveDelayMs: 600,
   };
   return params;
@@ -90,12 +91,13 @@ class SquashWebView implements GameView<SquashView> {
       g.fill();
     }
 
-    // Текущая нагрузка видна прямо в поле: скорость и остаток мячей блока.
+    // Текущая нагрузка видна прямо в поле: скорость, шарики и остаток блока.
     g.fillStyle = "rgba(230,237,243,0.55)";
     g.font = "12px ui-monospace, monospace";
     g.textBaseline = "top";
     g.fillText(`скорость ${view.ballSpeed.toFixed(2)} · шариков ${view.ballCount}`, 10, 8);
-    const progress = `эпизоды ${view.progress.resolved}/${view.progress.total}`;
+    const left = Math.max(0, view.progress.blockMs - view.progress.playedMs);
+    const progress = `осталось ${Math.ceil(left / 1000)} с`;
     g.fillText(progress, size.w - 10 - g.measureText(progress).width, 8);
 
     if (view.finished) {

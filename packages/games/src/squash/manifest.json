@@ -12,7 +12,7 @@
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ballSpeed", "ballCount", "paddleWidth", "episodes", "serveDelayMs"],
+      "required": ["ballSpeed", "ballCount", "paddleWidth", "blockMs", "serveDelayMs"],
       "properties": {
         "ballSpeed": {
           "type": "number",
@@ -32,11 +32,11 @@
           "minimum": 0.06,
           "maximum": 0.34
         },
-        "episodes": {
+        "blockMs": {
           "type": "integer",
-          "title": "Зачётных эпизодов в блоке: отбито или пропущено",
-          "minimum": 4,
-          "maximum": 60
+          "title": "Длительность блока",
+          "minimum": 15000,
+          "maximum": 600000
         },
         "serveDelayMs": {
           "type": "integer",
@@ -70,7 +70,8 @@
         "longestRally",
         "meanContactErrorFrac",
         "meanBallsInPlay",
-        "crowdedLosses"
+        "crowdedLosses",
+        "playedMs"
       ],
       "properties": {
         "returns": { "type": "integer" },
@@ -82,7 +83,8 @@
         "crowdedLosses": {
           "type": "integer",
           "description": "Потери при живом конкуренте в нижней половине поля: цена деления внимания"
-        }
+        },
+        "playedMs": { "type": "integer", "description": "Наигранное время блока без пауз" }
       }
     }
   },
@@ -110,6 +112,7 @@
     "signals": []
   },
   "timing": { "profile": "standard", "criticalOnsets": false, "toleranceMs": 20 },
+  "blockLength": { "param": "blockMs", "unit": "ms" },
   "levels": {
     "count": 8,
     "monotonicAxes": [

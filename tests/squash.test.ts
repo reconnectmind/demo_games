@@ -12,7 +12,7 @@ import {
   type SquashState,
 } from "../packages/games/src/squash/core.js";
 
-const params: SquashParams = { ballSpeed: 0.4, ballCount: 1, paddleWidth: 0.2, episodes: 6, serveDelayMs: 200 };
+const params: SquashParams = { ballSpeed: 0.4, ballCount: 1, paddleWidth: 0.2, blockMs: 60_000, serveDelayMs: 200 };
 
 /** Ядро без хоста: состояние собирается напрямую, чтобы проверять геометрию. */
 function stateWith(balls: Ball[], overrides: Partial<SquashState> = {}): SquashState {
@@ -163,16 +163,46 @@ describe("сквош: сложность и блок", () => {
     expect(view.balls.length).toBeGreaterThan(1);
   });
 
-  it("блок заканчивается после заданного числа мячей", () => {
-    const r = run();
-    r.clock.advance(600_000);
+  it("блок длится заданное время, а не заданное число мячей", () => {
+    const blockMs = 40_000;
+    const r = run("org.reconnect.squash", { overrides: { blockMs } });
+    r.clock.advance(blockMs / 2);
+    expect(r.instance.phase).toBe("main");
+
+    r.clock.advance(blockMs / 2 + 1000);
     expect(r.instance.phase).toBe("completed");
     const end = r.records().find((rec: LoggedEvent) => rec.type === "block.end");
-    expect(end).toBeDefined();
-    const payload = end!.payload as { returns: number; losses: number };
-    expect(payload.returns + payload.losses).toBeGreaterThanOrEqual(
-      (squash.paramsForLevel(1) as SquashParams).episodes,
-    );
+    const payload = end!.payload as { playedMs: number };
+    expect(payload.playedMs).toBeGreaterThanOrEqual(blockMs);
+    expect(payload.playedMs).toBeLessThan(blockMs + 100);
+  });
+
+  it("много отбитых мячей блок не заканчивают", () => {
+    // Раньше зачётной единицей блока был мяч, и хороший игрок закрывал блок за
+    // десяток секунд: чем лучше играешь, тем короче участок.
+    const state = stateWith([{ id: 1, x: 0.5, y: 0.5, vx: 0, vy: 0.4 }], { resolved: 500, returns: 500 });
+    const after = tick(state, SIM_STEP_MS);
+    expect(after.state.finished).toBe(false);
+    expect(after.effects.some((e) => e.kind === "complete")).toBe(false);
+  });
+
+  it("длина блока не зависит от уровня: это расписание, а не нагрузка", () => {
+    const first = squash.paramsForLevel(1) as SquashParams;
+    const last = squash.paramsForLevel(8) as SquashParams;
+    expect(last.blockMs).toBe(first.blockMs);
+  });
+
+  it("пауза не съедает блок", () => {
+    const r = run("org.reconnect.squash", { overrides: { blockMs: 30_000 } });
+    r.clock.advance(10_000);
+    r.instance.pause();
+    r.clock.advance(120_000);
+    expect(r.instance.phase).toBe("paused");
+    r.instance.resume();
+    r.clock.advance(5_000);
+    // Наиграно 15 с из 30: блок ждёт участника, а не часы.
+    expect(r.instance.phase).toBe("main");
+    expect((r.instance.state as unknown as SquashState).playedMs).toBeLessThan(16_000);
   });
 
   it("после stop симуляция не тикает", () => {

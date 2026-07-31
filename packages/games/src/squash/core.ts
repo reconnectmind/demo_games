@@ -32,7 +32,7 @@ export interface SquashParams extends Params {
   ballSpeed: number;
   ballCount: number;
   paddleWidth: number;
-  episodes: number;
+  blockMs: number;
   serveDelayMs: number;
 }
 
@@ -62,6 +62,11 @@ export interface SquashState {
   /** Куда указывает курсор, если участник играет мышью. */
   aimX: number | null;
   lastTickMs: number;
+  /**
+   * Наигранное время блока. Считается по шагам симуляции, а не по часам:
+   * пауза, прерывание и свёрнутая вкладка не должны съедать блок.
+   */
+  playedMs: number;
   resolved: number;
   returns: number;
   losses: number;
@@ -95,8 +100,8 @@ export interface SquashView {
   ballSpeed: number;
   /** Сколько шариков требует текущий уровень: в поле их может быть меньше между подачами. */
   ballCount: number;
-  /** Сколько зачётных эпизодов блока уже разрешено. */
-  progress: { resolved: number; total: number };
+  /** Сколько блока уже наиграно и сколько он длится всего. */
+  progress: { playedMs: number; blockMs: number };
   stats: Array<[string, string | number]>;
 }
 
@@ -108,6 +113,8 @@ export interface SquashSummary {
   meanContactErrorFrac: number;
   meanBallsInPlay: number;
   crowdedLosses: number;
+  /** Сколько блок реально шёл: блок могли закрыть досрочно командой протокола. */
+  playedMs: number;
 }
 
 export function squashAccuracy(state: SquashState): number {
@@ -123,6 +130,7 @@ export function squashSummary(state: SquashState): SquashSummary {
     meanContactErrorFrac: state.returns === 0 ? 0 : state.contactErrorSum / state.returns,
     meanBallsInPlay: state.loadTicks === 0 ? 0 : state.loadSum / state.loadTicks,
     crowdedLosses: state.crowdedLosses,
+    playedMs: Math.round(state.playedMs),
   };
 }
 
@@ -172,7 +180,7 @@ export function squashView(state: SquashState): SquashView {
     feedback: state.feedback,
     ballSpeed: params?.ballSpeed ?? 0,
     ballCount: params?.ballCount ?? 1,
-    progress: { resolved: state.resolved, total: params?.episodes ?? 0 },
+    progress: { playedMs: state.playedMs, blockMs: params?.blockMs ?? 0 },
     stats: [
       ["отбито", state.returns],
       ["пропущено", state.losses],
@@ -198,6 +206,7 @@ export const squashCore: GameCore<SquashState> = {
     holdRight: false,
     aimX: null,
     lastTickMs: 0,
+    playedMs: 0,
     resolved: 0,
     returns: 0,
     losses: 0,
@@ -327,7 +336,7 @@ function step(state: SquashState, tMs: number): ReduceResult<SquashState> {
   const dt = dtMs / 1000;
   const effects: Effect[] = [];
 
-  let next: SquashState = { ...state, lastTickMs: tMs };
+  let next: SquashState = { ...state, lastTickMs: tMs, playedMs: state.playedMs + dtMs };
   next = movePaddle(next, params, dt);
 
   // Отложенные подачи: время пришло — шарик выходит в поле.
@@ -429,7 +438,10 @@ function step(state: SquashState, tMs: number): ReduceResult<SquashState> {
     });
   }
 
-  if (next.resolved >= params.episodes) {
+  // Аркада заканчивается по времени, а не по числу мячей: сколько эпизодов
+  // успеет участник — само по себе результат, и в блоке он не должен зависеть
+  // от того, насколько хорошо человек играет.
+  if (next.playedMs >= params.blockMs) {
     const finish = endBlock(next);
     return { state: finish.state, effects: [...effects, ...finish.effects] };
   }

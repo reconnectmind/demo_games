@@ -67,6 +67,8 @@ app.innerHTML = `
           <div id="schedule"></div>
         </div>
         <div id="difficultyPanel">
+        <h3>Блок</h3>
+        <div id="block"></div>
         <h3>Сложность</h3>
         <div class="param">
           <label for="policy">Политика</label>
@@ -111,6 +113,8 @@ let current: Microgame<any, any> = protocolGames[0]!;
 let instance: GameInstanceImpl | null = null;
 let markers = new MarkerDispatcher(new NullMarkerSink());
 let manualOverrides: Params = {};
+/** Длина блока живёт отдельно от сложности: её оператор меняет при любой политике. */
+let blockOverride: Params = {};
 /** Режим витрины: одиночная игра или сценарий целиком. */
 let mode: "game" | "protocol" = "game";
 let session: SessionRunner | null = null;
@@ -150,17 +154,83 @@ function isRunning(): boolean {
   return instance !== null && ["main", "intro", "paused"].includes(instance.phase);
 }
 
+type ParamSpec = { type?: string; minimum?: number; maximum?: number; enum?: string[]; title?: string };
+
+function schemaProps(): Record<string, ParamSpec> {
+  return (current.manifest.parametersSchema.schema as { properties?: Record<string, ParamSpec> }).properties ?? {};
+}
+
+/** Сложность переопределяется только вручную, длина блока — при любой политике. */
+function effectiveOverrides(): Params {
+  const manual = ($("policy") as HTMLSelectElement).value === "manual";
+  return { ...(manual ? manualOverrides : {}), ...blockOverride };
+}
+
+/**
+ * Длина блока — расписание, а не нагрузка: уровень её не двигает, поэтому у неё
+ * свой контрол, живой и в адаптивном режиме.
+ */
+function blockControl(): void {
+  const host = $("block");
+  const decl = current.manifest.blockLength;
+  const spec = decl ? schemaProps()[decl.param] : undefined;
+  if (!decl || !spec) {
+    const note = document.createElement("div");
+    note.style.cssText = "color:var(--muted);font-size:12px";
+    note.textContent = "Длину блока задаёт сама задача: отдельного параметра нет.";
+    host.replaceChildren(note);
+    return;
+  }
+
+  const base = Number(current.paramsForLevel(Number(($("level") as HTMLInputElement).value))[decl.param]);
+  const overridden = decl.param in blockOverride;
+  const value = overridden ? Number(blockOverride[decl.param]) : base;
+  const text = (v: number) => (decl.unit === "ms" ? `${Math.round(v / 1000)} с` : String(v));
+
+  const wrap = document.createElement("div");
+  wrap.className = "param";
+  const label = document.createElement("label");
+  label.innerHTML = `${spec.title ?? decl.param} <b>${text(value)}</b>`;
+
+  const reset = document.createElement("button");
+  reset.className = "btn";
+  reset.textContent = "по уровню";
+  reset.title = "Вернуть длину, которую задаёт текущий уровень";
+  reset.disabled = !overridden;
+  reset.addEventListener("click", () => {
+    delete blockOverride[decl.param];
+    instance?.difficulty.setOverrides(effectiveOverrides());
+    blockControl();
+  });
+
+  const control = document.createElement("input");
+  control.type = "range";
+  control.min = String(spec.minimum ?? 0);
+  control.max = String(spec.maximum ?? 100);
+  control.step = decl.unit === "ms" ? "5000" : "1";
+  control.value = String(value);
+  control.addEventListener("input", () => {
+    const next = Number(control.value);
+    blockOverride[decl.param] = next;
+    label.innerHTML = `${spec.title ?? decl.param} <b>${text(next)}</b>`;
+    reset.disabled = false;
+    instance?.difficulty.setOverrides(effectiveOverrides());
+  });
+
+  wrap.append(label, control);
+  host.replaceChildren(wrap, reset);
+}
+
 function paramControls(): void {
   const host = $("params");
-  const schema = current.manifest.parametersSchema.schema as {
-    properties?: Record<string, { type?: string; minimum?: number; maximum?: number; enum?: string[]; title?: string }>;
-  };
   const level = Number(($("level") as HTMLInputElement).value);
   const base = current.paramsForLevel(level);
   const manual = ($("policy") as HTMLSelectElement).value === "manual";
+  // Длина блока показана выше отдельно: дублировать её среди осей сложности незачем.
+  const entries = Object.entries(schemaProps()).filter(([key]) => key !== current.manifest.blockLength?.param);
 
   host.replaceChildren(
-    ...Object.entries(schema.properties ?? {}).map(([key, spec]) => {
+    ...entries.map(([key, spec]) => {
       const wrap = document.createElement("div");
       wrap.className = "param";
       const value = manualOverrides[key] ?? base[key];
@@ -202,7 +272,7 @@ function paramControls(): void {
         const raw = (control as HTMLInputElement).value;
         manualOverrides[key] = spec.type === "boolean" ? raw === "true" : spec.enum ? raw : Number(raw);
         label.innerHTML = `${spec.title ?? key} <b>${fmt(spec.type === "boolean" || spec.enum ? raw : Number(raw))}</b>`;
-        instance?.difficulty.setOverrides(manualOverrides);
+        instance?.difficulty.setOverrides(effectiveOverrides());
       });
       wrap.append(control);
       return wrap;
@@ -320,6 +390,7 @@ function select(game: Microgame<any, any>): void {
   $("difficultyPanel").style.display = "";
   current = game;
   manualOverrides = {};
+  blockOverride = {};
   const levelInput = $("level") as HTMLInputElement;
   levelInput.max = String(game.manifest.levels.count);
   levelInput.value = "1";
@@ -334,6 +405,7 @@ function select(game: Microgame<any, any>): void {
   $("log").replaceChildren();
   renderCatalog();
   renderManifest();
+  blockControl();
   paramControls();
 }
 
@@ -441,10 +513,11 @@ function start(): void {
     surface,
     seed: Math.floor(Math.random() * 1e6),
     policy,
-    overrides: ($("policy") as HTMLSelectElement).value === "manual" ? manualOverrides : {},
+    overrides: effectiveOverrides(),
     onDifficultyChanged: (level) => {
       ($("level") as HTMLInputElement).value = String(level);
       $("levelValue").textContent = String(level);
+      blockControl();
       paramControls();
     },
     onComplete: (summary: Json) => {
@@ -536,6 +609,7 @@ $("level").addEventListener("input", (e) => {
   const value = (e.target as HTMLInputElement).value;
   $("levelValue").textContent = value;
   if (isRunning() && instance) instance.difficulty.setLevel(Number(value));
+  blockControl();
   paramControls();
 });
 $("participant").addEventListener("input", renderSchedule);
