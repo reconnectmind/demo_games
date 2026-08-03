@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Стенд деревьев · заезд</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #10141a;
+        color: #e6edf3;
+        font: 14px/1.5 system-ui, sans-serif;
+      }
+      #stage {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        outline: none;
+      }
+      #hud {
+        position: fixed;
+        left: 16px;
+        top: 16px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: rgba(9, 12, 16, 0.62);
+        backdrop-filter: blur(6px);
+        pointer-events: none;
+      }
+      #hud .keys {
+        color: #93a4b8;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="hud">сад грузится…</div>
+    <script type="module" src="./src/trees-lab.ts"></script>
+  </body>
+</html>

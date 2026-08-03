@@ -163,6 +163,14 @@ export interface Microgame<S = Json, VM = Json> {
   core: GameCore<S>;
   paramsForLevel(level: number): Params;
   createView(ctx: GameContext): GameView<VM>;
+  /**
+   * Разовая подготовка модуля перед первым запуском: догрузить то, без чего ядро
+   * не может шагать. Появилось из-за заезда, где физику считает WASM: `init`
+   * синхронный, а инстанцирование модуля WebAssembly — нет. Вызывать можно сколько
+   * угодно раз, ждать необязательно: ядро, которому нечем шагать, обязано просто
+   * ждать, не тратя время блока.
+   */
+  prepare?(): Promise<void>;
 }
 
 export interface Handle {

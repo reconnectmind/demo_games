@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   autoDrive,
   checkMonotonicAxes,
@@ -26,6 +26,15 @@ export function describeContract(protocolGames: Microgame<any, any>[], game: Mic
   const graded = game.manifest.levels.count > 1;
 
   describe(`контракт: ${game.manifest.id}`, () => {
+    /**
+     * Модуль, которому нужна подготовка (например, физика в WASM), обязан пройти
+     * тот же контракт, что и остальные. Ждать её здесь — единственная уступка:
+     * иначе контракт проверялся бы на игре, симуляция которой ни разу не шагнула.
+     */
+    beforeAll(async () => {
+      for (const module of protocolGames) await module.prepare?.();
+    });
+
     it("манифест проходит схему", () => {
       const report = validateManifest(game.manifest);
       expect(report.issues).toEqual([]);

@@ -9,6 +9,7 @@ export default defineConfig({
       "@gamespace/core": resolve("./packages/core/src/index.ts"),
       "@gamespace/ui-web": resolve("./packages/ui-web/src/index.ts"),
       "@gamespace/games": resolve("./packages/games/src/index.ts"),
+      "@gamespace/race": resolve("./packages/race/src/index.ts"),
       "@gamespace/protocol": resolve("./packages/protocol/src/index.ts"),
     },
   },

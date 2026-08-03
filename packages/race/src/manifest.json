@@ -1,0 +1,181 @@
+{
+  "id": "org.reconnect.race",
+  "version": "2.0.0",
+  "schemaVersion": 1,
+  "title": { "ru": "Заезд", "en": "Drive" },
+  "domains": ["biofeedback", "visuomotor", "sustained-attention"],
+  "runtimeApi": ">=1.0 <2",
+  "requiredCapabilities": ["canvas", "keyboard", "webgl"],
+  "optionalCapabilities": ["pointer", "audio-output"],
+  "parametersSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blockMs", "curveRate", "gradeMax", "roadHalfWidth", "gears"],
+      "properties": {
+        "blockMs": {
+          "type": "integer",
+          "title": "Длительность блока",
+          "minimum": 15000,
+          "maximum": 900000
+        },
+        "curveRate": {
+          "type": "number",
+          "title": "Извилистость трассы, 1/м",
+          "minimum": 0,
+          "maximum": 0.03
+        },
+        "gradeMax": {
+          "type": "number",
+          "title": "Крутизна подъёмов, тангенс уклона",
+          "minimum": 0,
+          "maximum": 0.14
+        },
+        "roadHalfWidth": {
+          "type": "number",
+          "title": "Полуширина полосы, м",
+          "minimum": 2.4,
+          "maximum": 9
+        },
+        "gears": {
+          "type": "integer",
+          "title": "Ступеней вариатора",
+          "minimum": 2,
+          "maximum": 8
+        }
+      }
+    }
+  },
+  "eventsSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "block.start",
+            "gear.changed",
+            "offroad.enter",
+            "offroad.exit",
+            "overheat.start",
+            "overheat.end",
+            "spin.out",
+            "sector.passed",
+            "block.end"
+          ]
+        }
+      }
+    }
+  },
+  "resultSchema": {
+    "schemaVersion": 1,
+    "schema": {
+      "type": "object",
+      "required": [
+        "distanceM",
+        "meanSpeedKmh",
+        "meanEfficiency",
+        "wastedThrottleFrac",
+        "meanRatio",
+        "gearChanges",
+        "overheats",
+        "offroadFrac",
+        "accuracy",
+        "sectors",
+        "playedMs",
+        "respawns"
+      ],
+      "properties": {
+        "distanceM": { "type": "number" },
+        "meanSpeedKmh": { "type": "number" },
+        "meanEfficiency": {
+          "type": "number",
+          "description": "Метры пути на единицу расхода (газ × обороты): КПД, главное число заезда"
+        },
+        "wastedThrottleFrac": {
+          "type": "number",
+          "description": "Доля тяги, ушедшей в обороты и нагрев вместо дороги"
+        },
+        "meanRatio": { "type": "number" },
+        "gearChanges": { "type": "integer" },
+        "overheats": { "type": "integer" },
+        "offroadFrac": { "type": "number", "description": "Доля времени вне полосы" },
+        "accuracy": { "type": "number", "description": "Доля секторов, пройденных без съезда" },
+        "sectors": { "type": "integer" },
+        "playedMs": { "type": "integer", "description": "Наигранное время блока без пауз" },
+        "respawns": {
+          "type": "integer",
+          "description": "Сколько раз машину возвращали на дорогу после кувырка или падения"
+        }
+      }
+    }
+  },
+  "interaction": {
+    "schemaVersion": 1,
+    "actions": [
+      {
+        "id": "throttle",
+        "label": "Газ",
+        "defaultBinding": "W",
+        "indexed": false,
+        "holdable": true,
+        "source": "participant"
+      },
+      {
+        "id": "brake",
+        "label": "Тормоз",
+        "defaultBinding": "S",
+        "indexed": false,
+        "holdable": true,
+        "source": "participant"
+      },
+      {
+        "id": "left",
+        "label": "Влево",
+        "defaultBinding": "A",
+        "indexed": false,
+        "holdable": true,
+        "source": "participant"
+      },
+      {
+        "id": "right",
+        "label": "Вправо",
+        "defaultBinding": "D",
+        "indexed": false,
+        "holdable": true,
+        "source": "participant"
+      },
+      {
+        "id": "gearUp",
+        "label": "Передача выше",
+        "defaultBinding": "ArrowUp",
+        "indexed": false,
+        "source": "participant"
+      },
+      {
+        "id": "gearDown",
+        "label": "Передача ниже",
+        "defaultBinding": "ArrowDown",
+        "indexed": false,
+        "source": "participant"
+      }
+    ],
+    "signals": []
+  },
+  "timing": { "profile": "relaxed", "criticalOnsets": false, "toleranceMs": 30 },
+  "blockLength": { "param": "blockMs", "unit": "ms" },
+  "levels": {
+    "count": 8,
+    "monotonicAxes": [
+      { "param": "curveRate", "direction": "increases" },
+      { "param": "gradeMax", "direction": "increases" },
+      { "param": "roadHalfWidth", "direction": "decreases" }
+    ]
+  },
+  "resumable": true,
+  "training": { "available": true, "admissionCriterion": "accuracy >= 0.6 на уровне 1" },
+  "assets": [],
+  "locales": ["ru"]
+}

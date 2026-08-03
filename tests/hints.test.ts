@@ -3,21 +3,24 @@ import { describe, expect, it } from "vitest";
 import { GameRegistry, GameRuntime, INDEX_KEYS, LETTER_INDEX_KEYS, Manual, VirtualClock } from "@gamespace/core";
 import { DomSurface, keyLabel } from "@gamespace/ui-web";
 import { protocolGames } from "@gamespace/games";
+import { race } from "@gamespace/race";
+
+const games = [...protocolGames, race];
 
 /** Оркестраторы своих кнопок не рисуют: их проверяют дочерние модули. */
-const interactive = protocolGames.filter((game) => game.manifest.interaction.actions.length > 0);
+const interactive = games.filter((game) => game.manifest.interaction.actions.length > 0);
 
 // jsdom не умеет 2d-контекст и шумит в stderr; канвас в этих тестах не рисуется.
 HTMLCanvasElement.prototype.getContext = () => null;
 
 function mount(id: string, level = 1) {
   const registry = new GameRegistry();
-  for (const game of protocolGames) registry.register(game);
+  for (const game of games) registry.register(game);
   const clock = new VirtualClock();
   const runtime = new GameRuntime({
     registry,
     clock,
-    capabilities: ["keyboard", "pointer", "audio-output", "canvas"],
+    capabilities: ["keyboard", "pointer", "audio-output", "canvas", "webgl"],
     t0WallMs: 1_700_000_000_000,
     wallNow: () => 1_700_000_000_000 + clock.now(),
   });

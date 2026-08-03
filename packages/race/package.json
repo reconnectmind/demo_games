@@ -1,0 +1,26 @@
+{
+  "name": "@gamespace/race",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./lab": "./src/lab/garden.ts"
+  },
+  "scripts": {
+    "bake:trees": "node tools/bake-trees.mjs",
+    "bake:car": "node tools/bake-car.mjs"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^9.19.0",
+    "@babylonjs/materials": "^9.19.0",
+    "@dimforge/rapier3d-compat": "^0.19.3",
+    "@gamespace/core": "*",
+    "@gamespace/ui-web": "*"
+  },
+  "devDependencies": {
+    "@dgreenheck/ez-tree": "^1.1.0",
+    "three": "^0.185.1"
+  }
+}

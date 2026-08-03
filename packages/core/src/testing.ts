@@ -59,8 +59,8 @@ export function headlessRun(
     clock,
     sink: options.sink,
     markers: options.markers,
-    // Отрисовки в headless нет вовсе, поэтому canvas объявлен: он ничего не стоит.
-    capabilities: options.capabilities ?? ["keyboard", "pointer", "audio-output", "canvas"],
+    // Отрисовки в headless нет вовсе, поэтому canvas и webgl объявлены: они ничего не стоят.
+    capabilities: options.capabilities ?? ["keyboard", "pointer", "audio-output", "canvas", "webgl"],
     t0WallMs: 1_700_000_000_000,
     wallNow: () => 1_700_000_000_000 + clock.now(),
   });

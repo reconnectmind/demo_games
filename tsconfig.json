@@ -22,6 +22,9 @@
       "@gamespace/ui-web/*": ["packages/ui-web/src/*"],
       "@gamespace/games": ["packages/games/src/index.ts"],
       "@gamespace/games/*": ["packages/games/src/*"],
+      "@gamespace/race": ["packages/race/src/index.ts"],
+      "@gamespace/race/lab": ["packages/race/src/lab/garden.ts"],
+      "@gamespace/race/*": ["packages/race/src/*"],
       "@gamespace/protocol": ["packages/protocol/src/index.ts"],
       "@gamespace/protocol/*": ["packages/protocol/src/*"]
     }

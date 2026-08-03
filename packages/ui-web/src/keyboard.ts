@@ -1,4 +1,4 @@
-import type { InputController } from "@gamespace/core";
+import { physicalKey, type InputController } from "@gamespace/core";
 
 export interface KeyboardOptions {
   /** Клавиши ловятся только пока фокус внутри этого элемента. */
@@ -11,6 +11,16 @@ const EDITABLE = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 /**
  * Раскладка живёт здесь, а не в играх: это то, что позволяет эксперименту
  * принудительно включить F/J/D/K, не трогая ни одного модуля.
+ *
+ * Нажатие и отпускание пропускаются через разные сита, и это не небрежность, а
+ * единственный способ не залипнуть. Нажатие имеет право не дойти до игры: курсор
+ * стоит в поле ввода, нажат Cmd, фокус ушёл из площадки — во всех этих случаях
+ * клавиша принадлежит не игре. Отпускание же отдаётся всегда. Оно ничего не
+ * начинает, оно только заканчивает уже начатое, и снять можно ровно то, что
+ * было нажато: если нажатия не было, ядро само вернёт «не моё». Пока «up»
+ * фильтровался наравне с «down», достаточно было в удержанном газе щёлкнуть
+ * мышью по любой кнопке рядом с площадкой — фокус переезжал, отпускание
+ * отбрасывалось, и педаль оставалась вдавленной до конца заезда.
  */
 export function bindKeyboard(
   input: InputController | (() => InputController),
@@ -26,15 +36,15 @@ export function bindKeyboard(
 
   const onDown = (event: KeyboardEvent) => {
     if (ignored(event)) return;
-    const accepted = resolve().handleKey(event.key);
-    opts.onKeyVisual?.(event.key === " " ? "Space" : event.key.toUpperCase(), accepted);
+    const accepted = resolve().handleKey(event.key, event.code);
+    const place = physicalKey(event.code) ?? event.key;
+    opts.onKeyVisual?.(place === " " ? "Space" : place.toUpperCase(), accepted);
     if (accepted) event.preventDefault();
   };
 
   // Удерживаемые действия требуют отпускания: без него ядро не узнает конец нажатия.
   const onUp = (event: KeyboardEvent) => {
-    if (ignored(event)) return;
-    if (resolve().handleKeyUp(event.key)) event.preventDefault();
+    if (resolve().handleKeyUp(event.key, event.code)) event.preventDefault();
   };
 
   // Окно потеряло фокус — «up» не придёт, поэтому удержания снимаем сами.
@@ -43,11 +53,16 @@ export function bindKeyboard(
   window.addEventListener("keydown", onDown);
   window.addEventListener("keyup", onUp);
   window.addEventListener("blur", onBlur);
+  // Смена языка ввода, Cmd+Tab, системная панель — всё это уводит окно так, что
+  // «up» до него уже не доходит. Видимость страницы ловит эти случаи там, где
+  // `blur` молчит.
+  document.addEventListener("visibilitychange", onBlur);
   return {
     dispose: () => {
       window.removeEventListener("keydown", onDown);
       window.removeEventListener("keyup", onUp);
       window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onBlur);
     },
   };
 }

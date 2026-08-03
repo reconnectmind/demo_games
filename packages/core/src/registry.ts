@@ -57,6 +57,24 @@ export class GameRegistry {
   }
 }
 
+/**
+ * Подготовить модули заранее. Витрина и протокол зовут это на старте: пока человек
+ * читает список игр, физика заезда успевает догрузиться, и запуск не ждёт сети.
+ * Ошибку подготовки глотать нельзя молча, но и валить приложение из-за одной игры
+ * тоже: остальные должны работать.
+ */
+export async function prepareGames(games: Iterable<Microgame<any, any>>): Promise<void> {
+  await Promise.all(
+    [...games].map(async (game) => {
+      try {
+        await game.prepare?.();
+      } catch (error) {
+        console.warn(`Модуль ${game.manifest.id} не подготовился`, error);
+      }
+    }),
+  );
+}
+
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map(Number);
   const pb = b.split(".").map(Number);

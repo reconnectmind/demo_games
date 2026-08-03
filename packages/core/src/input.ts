@@ -31,6 +31,29 @@ export function indexKeysFor(keyset: string | undefined): string[] {
 
 const FJDK = ["F", "J", "D", "K", "S", "L"];
 
+/**
+ * Какую клавишу нажали физически, независимо от раскладки.
+ *
+ * Браузер сообщает о нажатии двумя разными вещами. `key` — это символ, который
+ * получился: в русской раскладке на месте `W` приходит `ц`, и привязка «газ на
+ * W» перестаёт совпадать вовсе. `code` — это место на клавиатуре, и оно от
+ * раскладки не зависит: `KeyW` остаётся `KeyW` при любом языке ввода.
+ *
+ * Привязки в манифестах записаны буквами латиницы, то есть на самом деле —
+ * местами на клавиатуре. Значит и сравнивать надо с местом. Здесь `code`
+ * приводится обратно к той букве или цифре, которую это место даёт на
+ * латинской раскладке; всё остальное (`Enter`, `ArrowUp`, `Space`) в `code` и
+ * так записано так же, как в привязке.
+ */
+export function physicalKey(code: string | undefined): string | null {
+  if (!code) return null;
+  if (code.startsWith("Key")) return code.slice(3);
+  if (code.startsWith("Digit")) return code.slice(5);
+  if (code.startsWith("Numpad") && code.length === 7) return code.slice(6);
+  if (code === "NumpadEnter") return "Enter";
+  return code;
+}
+
 export interface SignalSource {
   read(id: string): SignalSample | null;
   state(id: string): SignalState;
@@ -110,17 +133,20 @@ export class InputController implements InputHandle {
   }
 
   /** Возвращает true, если клавиша принадлежит игре: хост тогда гасит событие. */
-  handleKey(key: string): boolean {
+  handleKey(key: string, code?: string): boolean {
     const normalized = key.length === 1 ? key.toUpperCase() : key;
+    const place = physicalKey(code);
     const indexed = this.opts.actions.find((a) => a.indexed);
     if (indexed) {
-      const idx = indexKeysFor(indexed.indexKeyset).indexOf(normalized);
+      const keys = indexKeysFor(indexed.indexKeyset);
+      const typed = keys.indexOf(normalized);
+      const idx = typed >= 0 ? typed : place ? keys.indexOf(place) : -1;
       if (idx >= 0 && idx < this.optionCount) {
         this.submit(indexed.id, { index: idx }, "keyboard");
         return true;
       }
     }
-    const match = this.match(key, normalized);
+    const match = this.match(key, normalized) ?? (place ? this.match(place, place) : undefined);
     if (!match) return false;
     const action = this.opts.actions.find((a) => a.id === match.id);
     if (action?.holdable) {
@@ -135,9 +161,10 @@ export class InputController implements InputHandle {
   }
 
   /** Отпускание значимо только для удерживаемых действий. */
-  handleKeyUp(key: string): boolean {
+  handleKeyUp(key: string, code?: string): boolean {
     const normalized = key.length === 1 ? key.toUpperCase() : key;
-    const match = this.match(key, normalized);
+    const place = physicalKey(code);
+    const match = this.match(key, normalized) ?? (place ? this.match(place, place) : undefined);
     if (!match) return false;
     const action = this.opts.actions.find((a) => a.id === match.id);
     if (!action?.holdable) return false;

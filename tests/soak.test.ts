@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { AdaptiveStaircase, autoDrive, headlessRun, Manual } from "@gamespace/core";
 import { protocolGames, stroop } from "@gamespace/games";
+import { race } from "@gamespace/race";
+
+const games = [...protocolGames, race];
 
 const SESSION_MS = 110 * 60 * 1000;
 
@@ -9,7 +12,7 @@ const SESSION_MS = 110 * 60 * 1000;
  * а непрерывная симуляция — по шагу таймера, то есть на два порядка чаще: у неё
  * бюджет свой и явный, чтобы регресс в плотности всё равно был виден.
  */
-const DENSITY_BUDGET: Record<string, number> = { "org.reconnect.squash": 90 };
+const DENSITY_BUDGET: Record<string, number> = { "org.reconnect.squash": 90, "org.reconnect.race": 90 };
 const DEFAULT_DENSITY_BUDGET = 25;
 
 /**
@@ -17,13 +20,13 @@ const DEFAULT_DENSITY_BUDGET = 25;
  * проходит за секунды, поэтому проверка выполнима в CI, а не «когда-нибудь».
  */
 describe("длинная сессия", () => {
-  it.each(protocolGames.map((g) => g.manifest.id))("%s выдерживает 110 минут подряд", (id) => {
+  it.each(games.map((g) => g.manifest.id))("%s выдерживает 110 минут подряд", (id) => {
     let elapsed = 0;
     let blocks = 0;
     let recordsTotal = 0;
 
     while (elapsed < SESSION_MS && blocks < 3000) {
-      const run = headlessRun(protocolGames, id, { seed: 100 + blocks, policy: new AdaptiveStaircase() });
+      const run = headlessRun(games, id, { seed: 100 + blocks, policy: new AdaptiveStaircase() });
       run.instance.start();
       autoDrive(run, { seed: blocks, maxSteps: 4000, pressRate: 0.55 });
       elapsed += run.clock.now();

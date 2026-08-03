@@ -9,6 +9,7 @@ import {
   Monotonic,
   NullMarkerSink,
   RealClock,
+  prepareGames,
   type DifficultyPolicy,
   type GameInstanceImpl,
   type Json,
@@ -19,10 +20,22 @@ import {
 import type { DurableSink } from "@gamespace/core";
 import { DomSurface, bindKeyboard, keyLabel } from "@gamespace/ui-web";
 import { protocolGames } from "@gamespace/games";
+import { race } from "@gamespace/race";
 import { SessionRunner, compileProtocol, pilotProtocol, plannedMs, type RunRecord } from "@gamespace/protocol";
 
+/**
+ * Заезд живёт в своём пакете: он один тянет за собой трёхмерный движок, и
+ * платить за это бандлом остальные модули не должны. В каталоге он рядовой.
+ */
+const games: Microgame<any, any>[] = [...protocolGames, race];
+
 const registry = new GameRegistry();
-for (const game of protocolGames) registry.register(game);
+for (const game of games) registry.register(game);
+
+// Пока человек читает каталог, модули догружают то, без чего им не шагнуть:
+// заезду нужен WASM с физикой. Запуск не ждёт сети, а игра, не успевшая
+// подготовиться, просто стоит на месте, не тратя время блока.
+void prepareGames(games);
 
 const app = document.getElementById("app")!;
 app.innerHTML = `
@@ -109,7 +122,7 @@ const surface = new DomSurface({
   stats: $("foot"),
 });
 
-let current: Microgame<any, any> = protocolGames[0]!;
+let current: Microgame<any, any> = games[0]!;
 let instance: GameInstanceImpl | null = null;
 let markers = new MarkerDispatcher(new NullMarkerSink());
 let manualOverrides: Params = {};
@@ -123,7 +136,7 @@ let sessionSink: LoggedEvent[] | null = null;
 function renderCatalog(): void {
   const catalog = $("catalog");
   catalog.replaceChildren(
-    ...protocolGames.map((game) => {
+    ...games.map((game) => {
       const button = document.createElement("button");
       button.className = `game-item${mode === "game" && game.manifest.id === current.manifest.id ? " is-active" : ""}`;
       button.innerHTML = `${game.manifest.title.ru}<small>${game.manifest.domains.join(" · ")}</small>`;
@@ -443,7 +456,7 @@ function startProtocol(): void {
     clock: new RealClock(),
     markers,
     sink: wrapped,
-    capabilities: ["keyboard", "pointer", "audio-output", "canvas"],
+    capabilities: ["keyboard", "pointer", "audio-output", "canvas", "webgl"],
     t0WallMs: Date.now(),
   });
   $("log").replaceChildren();
@@ -501,7 +514,7 @@ function start(): void {
     registry,
     clock,
     markers,
-    capabilities: ["keyboard", "pointer", "audio-output", "canvas"],
+    capabilities: ["keyboard", "pointer", "audio-output", "canvas", "webgl"],
     t0WallMs: Date.now(),
   });
   $("log").replaceChildren();
@@ -635,4 +648,4 @@ bindKeyboard(activeInput, {
 /** Игра не запущена: клавиши некому отдавать, но хост всё равно их спрашивает. */
 const protocolInputStub = { handleKey: () => false, handleKeyUp: () => false, releaseAll: () => {} } as never;
 
-select(protocolGames[0]!);
+select(games[0]!);
