@@ -60,13 +60,19 @@ beforeAll(async () => {
   await race.prepare?.();
 });
 
-function start(level = 4, overrides: Record<string, number> = {}) {
+/**
+ * Заезд начинается на нейтрали, как настоящая стоящая машина, поэтому передача
+ * выбирается сразу: почти всякий тест здесь про езду, а не про селектор. Кому
+ * нужен нетронутый старт — те передают `null` и смотрят на машину как есть.
+ */
+function start(level = 4, overrides: Record<string, number> = {}, gear: number | null = 3) {
   const run = headlessRun([race], ID, {
     seed: 7,
     policy: new Manual({ start: level }),
     overrides: { blockMs: 300_000, ...overrides },
   });
   run.instance.start();
+  if (gear !== null) shift(run, gear);
   return run;
 }
 
@@ -901,6 +907,23 @@ describe("заезд: коробка передач", () => {
     expect(gearLabel(GEAR_REVERSE, 6)).toContain("задний");
     expect(gearLabel(GEAR_NEUTRAL, 6)).toContain("нейтраль");
     expect(gearLabel(3, 6)).toBe("3 из 6");
+  });
+
+  it("заезд начинается на нейтрали и без передачи не трогается", () => {
+    // Первый шаг отдан участнику: сначала передача, потом газ. Пока блок
+    // начинался сразу в передаче, машина ехала с первого касания газа.
+    const run = start(1, { curveRate: 0, gradeMax: 0, roadHalfWidth: 8 }, null);
+    expect(state(run).gear).toBe(GEAR_NEUTRAL);
+    hold(run, "throttle");
+    run.clock.advance(5000);
+    expect(speed(run)).toBeLessThan(0.5);
+    expect(state(run).rpm).toBeGreaterThan(RPM_MAX * 0.9);
+
+    // Одна стрелка вверх — и та же педаль уже везёт.
+    run.instance.submitAction("gearUp", {}, "keyboard");
+    expect(state(run).gear).toBe(1);
+    run.clock.advance(4000);
+    expect(speed(run)).toBeGreaterThan(3);
   });
 
   it("на нейтрали мотор раскручивается свободно, а на колёса не уходит ничего", () => {

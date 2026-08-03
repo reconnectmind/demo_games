@@ -1,5 +1,7 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
@@ -91,6 +93,85 @@ function vertexDataOf(part: PackedPart): VertexData {
   return data;
 }
 
+/**
+ * Номер.
+ *
+ * В модели его нет вовсе: у выгрузки из SketchUp бампер гладкий, и вешать знак
+ * приходится своей сеткой. Сетка эта — прямоугольник в четыре вершины с
+ * нарисованной на нём надписью, то есть ровно то, чем номер и является: плоская
+ * табличка, прикрученная снаружи.
+ *
+ * Размер настоящий, 520 на 110 миллиметров. Места взяты обмером самой сетки
+ * кузова: сзади бампер выходит дальше всего на высоте около шестидесяти
+ * сантиметров, спереди — на полуметре, и знак кладётся на эти площадки, чуть
+ * выступая из них. Камера весь заезд смотрит машине в затылок, поэтому задний
+ * знак видно всегда, а передний — только когда машину развернёт.
+ */
+const PLATE_TEXT = "RECONNECT";
+const PLATE_M = { width: 0.52, height: 0.11 };
+const PLATES = [
+  { id: "back", y: 0.585, z: -2.405, facing: -1 },
+  { id: "front", y: 0.48, z: 2.405, facing: 1 },
+];
+
+/** Сама табличка: белое поле, тёмная кромка и надпись во всю ширину. */
+function plateTexture(scene: Scene, text: string): DynamicTexture {
+  const width = 512;
+  const height = Math.round((width * PLATE_M.height) / PLATE_M.width);
+  const texture = new DynamicTexture("race-plate", { width, height }, scene, true);
+  const ctx = texture.getContext() as unknown as CanvasRenderingContext2D;
+  // Не бумажно-белый: чистого белого на улице не бывает, а рядом с тёмным
+  // кузовом он читался бы лампой.
+  ctx.fillStyle = "#dcd9cf";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "#1d2026";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(4, 4, width - 8, height - 8);
+  ctx.fillStyle = "#15171c";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `bold ${Math.round(height * 0.66)}px ui-monospace, "SFMono-Regular", monospace`;
+  // Девять букв в знак на семь влезают только сжатием, и это как раз то, что
+  // делают с длинными номерами и в жизни.
+  ctx.fillText(text, width / 2, height / 2 + 2, width - 34);
+  // Холст считает строки сверху вниз, а развёртка — снизу вверх, поэтому картинка
+  // при переносе в текстуру переворачивается: это и просит `update` обратить.
+  texture.update(true);
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+  return texture;
+}
+
+function plateMesh(at: (typeof PLATES)[number], material: StandardMaterial, scene: Scene): Mesh {
+  const { width, height } = PLATE_M;
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  // Развёртка кладётся по взгляду: строка обязана читаться слева направо тому,
+  // кто смотрит знаку в лицо, а «слева» у переднего и заднего знака — разные
+  // борта машины. Отсюда `facing` в поперечной координате.
+  for (const [u, v] of [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ]) {
+    positions.push((0.5 - u!) * width * at.facing * BODY_SCALE, at.y + (v! - 0.5) * height, at.z);
+    normals.push(0, 0, at.facing);
+    uvs.push(u!, v!);
+  }
+  const data = new VertexData();
+  data.positions = positions;
+  data.normals = normals;
+  data.uvs = uvs;
+  data.indices = [0, 1, 2, 0, 2, 3];
+  const mesh = new Mesh(`race-car-plate-${at.id}`, scene);
+  data.applyToMesh(mesh);
+  mesh.material = material;
+  mesh.isPickable = false;
+  return mesh;
+}
+
 function meshOf(name: string, part: PackedPart, material: StandardMaterial, scene: Scene): Mesh {
   const mesh = new Mesh(name, scene);
   vertexDataOf(part).applyToMesh(mesh);
@@ -158,9 +239,34 @@ export function createCarModel(scene: Scene): CarModel {
   const BLINK_HZ = 1.5;
   const glow = (id: string, hex: string) => lampMats.get(id)?.emissiveColor.copyFrom(Color3.FromHexString(hex));
 
+  /**
+   * Знак светится сам, но слабо. Это не вольность: плёнка на номере
+   * световозвращающая, для того и сделана, и в сумерках он остаётся белым, когда
+   * весь кузов уже серый. Без этого задний знак — а его видно весь заезд —
+   * уходил бы в тень вместе с бампером и не читался вовсе.
+   */
+  const plateMat = new StandardMaterial("race-plate", scene);
+  const plateTex = plateTexture(scene, PLATE_TEXT);
+  plateMat.diffuseTexture = plateTex;
+  plateMat.emissiveTexture = plateTex;
+  plateMat.emissiveColor = new Color3(0.3, 0.3, 0.3);
+  plateMat.specularColor = new Color3(0.08, 0.08, 0.08);
+  // Кромка знака и кромка бампера сходятся под острым углом, и с какой стороны
+  // окажется передняя грань, зависит от того, куда его повернули. Освещение при
+  // этом обязано остаться правильным с обеих.
+  plateMat.backFaceCulling = false;
+  plateMat.twoSidedLighting = true;
+  const plateMeshes = PLATES.map((at) => {
+    const mesh = plateMesh(at, plateMat, scene);
+    mesh.parent = body;
+    return mesh;
+  });
+
   return {
     body,
     wheels,
+    // Знак в список не идёт: тень от таблички, приклеенной к бамперу, — это не
+    // тень, а рябь на самом бампере.
     meshes: [body, ...wheelMeshes, ...lampMeshes],
     setLights: ({ brake, turn, timeS }) => {
       // Габарит сзади тлеет всегда, стоп-сигнал вспыхивает поверх него.
@@ -174,10 +280,13 @@ export function createCarModel(scene: Scene): CarModel {
       glow("turn-right", on && turn > 0 ? "#ff9a1e" : "#2a1604");
     },
     dispose: () => {
+      for (const mesh of plateMeshes) mesh.dispose();
       for (const mesh of lampMeshes) mesh.dispose();
       for (const mesh of wheelMeshes) mesh.dispose();
       body.dispose();
       paint.dispose();
+      plateMat.dispose();
+      plateTex.dispose();
       for (const material of lampMats.values()) material.dispose();
     },
   };
