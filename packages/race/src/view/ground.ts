@@ -1,8 +1,8 @@
-import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture.js";
-import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
-import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
-import type { Scene } from "@babylonjs/core/scene.js";
+import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
+import type { Scene } from "@babylonjs/core/scene";
 
 /**
  * Земля и асфальт — рисованные текстуры, но не файлы: их считает процедура при

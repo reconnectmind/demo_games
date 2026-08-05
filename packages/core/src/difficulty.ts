@@ -127,10 +127,26 @@ export interface DifficultyHandleOptions {
   paramsForLevel(level: number): Params;
   /** Ручные переопределения оператора поверх выданных политикой параметров. */
   overrides?: Params;
+  /**
+   * Оси, закреплённые протоколом. Знать их обязательно: иначе лестница
+   * продолжает «тратить» рост на закреплённую ось, значение затирается
+   * переопределением, и уровень растёт, а нагрузка стоит. Внешне всё исправно —
+   * политика повышает уровень, журнал пишет `difficulty.changed`, — и потому
+   * такое молчаливое затирание опаснее ошибки.
+   */
+  frozen?: string[];
+  /** Оси, по которым этот протокол ещё может расти. */
+  free?: string[];
   onOutcome(outcome: Outcome, levelBefore: number, levelAfter: number): void;
   onChanged?(level: number, params: Params): void;
   /** Обучение: исходы не идут в политику вообще. */
   training?: boolean;
+}
+
+/** Что осталось у политики после закреплений протокола. */
+export interface DifficultyFreedom {
+  frozen: string[];
+  free: string[];
 }
 
 /**
@@ -150,6 +166,11 @@ export class DifficultyController implements DifficultyHandle {
 
   get policy(): DifficultyPolicy {
     return this.activePolicy;
+  }
+
+  /** Степени свободы наружу: оператору — показать, журналу — записать рядом с уровнем. */
+  freedom(): DifficultyFreedom {
+    return { frozen: [...(this.opts.frozen ?? [])], free: [...(this.opts.free ?? [])] };
   }
 
   /**

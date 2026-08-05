@@ -1,4 +1,4 @@
-import { el } from "./widgets.js";
+import { el, stimulusScale } from "./widgets.js";
 
 function tryContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   try {
@@ -34,7 +34,8 @@ export class CanvasStage {
     this.aspect = options.aspect ?? 4 / 3;
     this.canvas = el("canvas", { class: options.className ?? "gs-canvas" }) as HTMLCanvasElement;
     this.root = el("div", { class: "gs-canvas-wrap" });
-    this.root.style.maxWidth = `${options.maxWidthPx ?? 620}px`;
+    // Поле — тоже стимул, поэтому оно растёт тем же множителем, что и остальные.
+    this.root.style.maxWidth = `${Math.round((options.maxWidthPx ?? 620) * stimulusScale())}px`;
     this.root.append(this.canvas);
     // Хост без 2d-контекста возможен (jsdom в тестах): игра обязана это пережить.
     this.ctx2d = tryContext(this.canvas);

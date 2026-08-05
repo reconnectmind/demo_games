@@ -1,13 +1,24 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+} from "@gamespace/core";
 import { el } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import { baselineCore, type BaselineParams, type BaselineState, type BaselineView } from "./core.js";
+
+const presets = asPresets(presetsJson);
 
 const DEFAULT_TEXT = "Сидите спокойно, смотрите в центр экрана. Ничего делать не нужно.";
 
-export function paramsForLevel(_level: number): Params {
-  const params: BaselineParams = { durationMs: 600_000, showTimer: false, text: DEFAULT_TEXT };
-  return params;
+export function paramsForLevel(level: number): Params {
+  return presetParams(presets, level) as BaselineParams;
 }
 
 class BaselineWebView implements GameView<BaselineView> {
@@ -43,6 +54,7 @@ function fmt(ms: number): string {
 
 export const baseline: Microgame<BaselineState, BaselineView> = {
   manifest: asManifest(manifest),
+  presets,
   core: baselineCore,
   paramsForLevel,
   createView: (ctx) => new BaselineWebView(ctx),

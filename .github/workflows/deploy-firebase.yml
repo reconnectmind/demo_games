@@ -1,0 +1,78 @@
+# Выкладка витрины на Firebase Hosting — ради серверной аналитики посещений:
+# логи CDN уходят в Cloud Logging и дальше в BigQuery, чего GitHub Pages не даёт
+# в принципе. Workflow для Pages остаётся рядом и работает как раньше: пока
+# домены не переехали, оба адреса живы, а откат — удаление этого файла.
+#
+# Переменные репозитория (Settings → Secrets and variables → Actions → Variables),
+# их печатает product/analytics/setup-gcp.sh:
+#   GCP_WIF_PROVIDER, GCP_DEPLOY_SA
+name: Deploy Web Demo to Firebase Hosting
+
+env:
+  GCP_PROJECT_ID: rc-gcp-default
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Токен OIDC — то, чем этот прогон доказывает Google, что он именно этот
+  # репозиторий. Долгоживущих ключей в секретах нет и не должно быть.
+  id-token: write
+
+concurrency:
+  group: firebase-hosting
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Битая сборка не должна доехать до хостинга: типы и тесты идут до билда.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build showcase
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          # Файл с временными доступами: firebase-tools своего OIDC не умеет и
+          # читает обычный ADC, поэтому файл нужен явно.
+          create_credentials_file: true
+          export_environment_variables: true
+
+      # Если здесь вдруг «Failed to authenticate, have you run firebase login?»
+      # при живом GOOGLE_APPLICATION_CREDENTIALS — это известная поломка связки
+      # firebase-tools 15.22.2 и Node 22.23.0/24.17.0 (регрессия keep-alive в
+      # самом Node). Лечится сужением версий, а не переходом на ключи.
+      - name: Deploy
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: >
+          npx --yes firebase-tools@15 deploy --only hosting
+          --project "${{ env.GCP_PROJECT_ID }}"
+          --non-interactive
+          --message "${{ github.sha }}"

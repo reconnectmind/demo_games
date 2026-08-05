@@ -3,11 +3,11 @@ import type {
   ActionPayload,
   Handle,
   InputHandle,
-  LayoutProfile,
+  InputProfile,
   SignalSample,
   SignalState,
 } from "./contracts.js";
-import type { ActionSpec, SignalSpec } from "./manifest.types.js";
+import type { ActionSpec, ResponseAlternatives, SignalSpec } from "./manifest.types.js";
 
 const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 /** Буквы идут рядами клавиатуры: подсказка на ячейке должна легко находиться пальцем. */
@@ -29,7 +29,19 @@ export function indexKeysFor(keyset: string | undefined): string[] {
   return keyset === "letters-first" ? LETTER_INDEX_KEYS : INDEX_KEYS;
 }
 
-const FJDK = ["F", "J", "D", "K", "S", "L"];
+/** Свободная сборка: витрина и одиночные запуски живут на привязках манифеста. */
+export const FREE_INPUT: InputProfile = { id: "free", keys: [], pointer: "free" };
+
+/**
+ * Лабораторный профиль: три клавиши верхнего ряда и мышь только в зрительном
+ * поиске. Ряд выбран за расширяемость — по нему можно продолжить `R`, `T` и
+ * дальше, тогда как у стрелок пригодных направлений ровно три.
+ */
+export const THREE_KEYS: InputProfile = { id: "qwe", keys: ["Q", "W", "E"], pointer: "task-only" };
+
+export function keyboardProfile(keys: string[], id = keys.join("")): InputProfile {
+  return { id, keys: [...keys], pointer: "task-only" };
+}
 
 /**
  * Какую клавишу нажали физически, независимо от раскладки.
@@ -72,7 +84,9 @@ export interface InputControllerOptions {
   /** Куда уходит логическое действие: runtime кладёт его в очередь входов. */
   onAction(event: ActionEvent): void;
   signalSource?: SignalSource;
-  profile?: LayoutProfile;
+  profile?: InputProfile;
+  /** Чем адресуются варианты ответа: из манифеста модуля. */
+  alternatives?: ResponseAlternatives;
 }
 
 /**
@@ -81,7 +95,7 @@ export interface InputControllerOptions {
  */
 export class InputController implements InputHandle {
   private readonly opts: InputControllerOptions;
-  private profile: LayoutProfile;
+  private layout: InputProfile;
   private listeners = new Map<string, Set<(e: ActionEvent) => void>>();
   private signalListeners = new Map<string, Set<(s: SignalSample) => void>>();
   private source: SignalSource;
@@ -91,7 +105,7 @@ export class InputController implements InputHandle {
 
   constructor(opts: InputControllerOptions) {
     this.opts = opts;
-    this.profile = opts.profile ?? "default";
+    this.layout = opts.profile ?? FREE_INPUT;
     this.source = opts.signalSource ?? absentSignals;
   }
 
@@ -99,24 +113,62 @@ export class InputController implements InputHandle {
     this.optionCount = n;
   }
 
+  /**
+   * Клавиши раздаются по одному правилу на все модули: слева направо из
+   * объявленной протоколом ёмкости. Модуль отвечает либо вариантами
+   * (indexed-действие забирает весь набор и адресуется номером), либо
+   * поимёнованными действиями — им достаётся по клавише в порядке объявления в
+   * манифесте.
+   *
+   * Всё, что в ёмкость не попало, в этом профиле остаётся без клавиши — иначе
+   * `Enter` у текстового ввода или `Space` у совпадения продолжали бы работать
+   * рядом с тремя объявленными клавишами, то есть способов ответа снова стало бы
+   * несколько.
+   */
   bindings(): Array<{ id: string; label: string; binding: string }> {
-    const fjdk = [...FJDK];
+    const handout = this.handout();
     return this.opts.actions.map((a) => ({
       id: a.id,
       label: a.label,
-      binding: this.profile === "fjdk" && !a.indexed ? fjdk.shift() ?? a.defaultBinding : a.defaultBinding,
+      binding: this.layout.keys.length === 0 ? a.defaultBinding : handout.get(a.id) ?? "",
     }));
   }
 
-  setProfile(profile: LayoutProfile): void {
-    this.profile = profile;
+  private handout(): Map<string, string> {
+    const out = new Map<string, string>();
+    const keys = [...this.layout.keys];
+    if (keys.length === 0) return out;
+    // Ответ вариантами и ответ действиями — разные способы адресации, и набор
+    // достаётся тому, который у модуля основной.
+    if (this.opts.actions.some((a) => a.indexed)) return out;
+    for (const action of this.opts.actions) {
+      if (action.source === "signal-trigger") continue;
+      // Указание мышью клавиши не требует по своей природе.
+      if (action.defaultBinding === "Pointer") continue;
+      const key = keys.shift();
+      if (!key) break;
+      out.set(action.id, key);
+    }
+    return out;
+  }
+
+  setProfile(profile: InputProfile): void {
+    this.layout = profile;
+  }
+
+  profile(): InputProfile {
+    return this.layout;
   }
 
   /** Раскладку indexed-действия знает хост: виджет только читает её для подписи. */
   indexKeys(actionId: string): string[] {
     const action = this.opts.actions.find((a) => a.id === actionId);
     if (!action?.indexed) return [];
-    return indexKeysFor(action.indexKeyset);
+    if (this.layout.keys.length === 0) return indexKeysFor(action.indexKeyset);
+    // Варианты, адресуемые мышью, клавиш не получают: подписать 36 ячеек тремя
+    // клавишами нельзя, и это не нехватка, а другая задача — зрительный поиск.
+    if (this.opts.alternatives?.addressedBy === "pointer") return [];
+    return [...this.layout.keys];
   }
 
   on(actionId: string, cb: (e: ActionEvent) => void): Handle {
@@ -138,7 +190,7 @@ export class InputController implements InputHandle {
     const place = physicalKey(code);
     const indexed = this.opts.actions.find((a) => a.indexed);
     if (indexed) {
-      const keys = indexKeysFor(indexed.indexKeyset);
+      const keys = this.indexKeys(indexed.id);
       const typed = keys.indexOf(normalized);
       const idx = typed >= 0 ? typed : place ? keys.indexOf(place) : -1;
       if (idx >= 0 && idx < this.optionCount) {
@@ -187,7 +239,15 @@ export class InputController implements InputHandle {
   private match(key: string, normalized: string): { id: string } | undefined {
     // Сравнение без регистра: иначе «Enter» и «ArrowLeft» не совпали бы никогда.
     const upper = normalized.toUpperCase();
-    return this.bindings().find((b) => b.binding.toUpperCase() === upper || (b.binding === "Space" && key === " "));
+    const indexed = new Set(this.opts.actions.filter((a) => a.indexed).map((a) => a.id));
+    return this.bindings().find(
+      (b) =>
+        // Indexed-действие адресуется только номером варианта: его клавиша уже
+        // разобрана выше, и второй раз она значить ничего не должна.
+        b.binding !== "" &&
+        !indexed.has(b.id) &&
+        (b.binding.toUpperCase() === upper || (b.binding === "Space" && key === " ")),
+    );
   }
 
   setSignalSource(source: SignalSource): void {

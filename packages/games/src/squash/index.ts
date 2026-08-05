@@ -1,18 +1,22 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
-import { ActionButton, CanvasStage, el } from "@gamespace/ui-web";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+} from "@gamespace/core";
+import { ActionButton, CanvasStage, el, stimulusScale } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import { squashCore, type SquashParams, type SquashState, type SquashView } from "./core.js";
 
+const presets = asPresets(presetsJson);
+
 export function paramsForLevel(level: number): Params {
-  const params: SquashParams = {
-    ballSpeed: Number((0.28 + 0.075 * (level - 1)).toFixed(3)),
-    ballCount: Math.min(4, 1 + Math.floor((level - 1) / 2)),
-    paddleWidth: Number(Math.max(0.08, 0.3 - 0.028 * (level - 1)).toFixed(3)),
-    // Длина блока от уровня не зависит: это расписание, а не нагрузка.
-    blockMs: 90_000,
-    serveDelayMs: 600,
-  };
-  return params;
+  return presetParams(presets, level) as SquashParams;
 }
 
 const COLORS = {
@@ -43,18 +47,26 @@ class SquashWebView implements GameView<SquashView> {
     this.right.onHold((phase) => this.ctx.input.submit("right", { phase }, "pointer"));
     this.controls.append(this.left.root, this.right.root);
     this.stage.onPaint((g, size) => this.paint(g, size));
-    // Наведение шлётся только при заметном сдвиге: журнал не должен пухнуть от дрожи мыши.
-    this.stage.canvas.addEventListener("pointermove", (event) => {
-      const fraction = this.stage.pointerFraction(event);
-      if (Math.abs(fraction - this.lastAim) < 0.004) return;
-      this.lastAim = fraction;
-      this.ctx.input.submit("aim", { value: fraction }, "pointer");
-    });
+    // В лабораторном профиле наведения нет: случайное движение мыши над канвасом
+    // молча забирало площадку у клавиш, и участник переставал понимать, чем
+    // управляет. Мышь остаётся там, где указание — существо задачи.
+    if (ctx.input.profile().pointer === "free") {
+      // Наведение шлётся только при заметном сдвиге: журнал не должен пухнуть от дрожи мыши.
+      this.stage.canvas.addEventListener("pointermove", (event) => {
+        const fraction = this.stage.pointerFraction(event);
+        if (Math.abs(fraction - this.lastAim) < 0.004) return;
+        this.lastAim = fraction;
+        this.ctx.input.submit("aim", { value: fraction }, "pointer");
+      });
+    }
   }
 
   mount(surface: Surface): void {
+    const aiming = this.ctx.input.profile().pointer === "free";
     surface.setTask(
-      "Отбивай шарик площадкой: держи стрелки ← → или веди мышью. Пропущенный шарик считается ошибкой.",
+      aiming
+        ? "Отбивай шарик площадкой: держи клавиши влево-вправо или веди мышью. Пропущенный шарик считается ошибкой."
+        : "Отбивай шарик площадкой: держи клавишу влево или вправо. Пропущенный шарик считается ошибкой.",
       "Сквош",
     );
     surface.stage.replaceChildren(this.stage.root, this.controls);
@@ -92,8 +104,11 @@ class SquashWebView implements GameView<SquashView> {
     }
 
     // Текущая нагрузка видна прямо в поле: скорость, шарики и остаток блока.
+    // Подписи в поле растут тем же множителем, что и стимулы: иначе на увеличенном
+    // поле они остались бы прежними и стали бы нечитаемыми относительно него.
+    const scale = stimulusScale();
     g.fillStyle = "rgba(230,237,243,0.55)";
-    g.font = "12px ui-monospace, monospace";
+    g.font = `${Math.round(12 * scale)}px ui-monospace, monospace`;
     g.textBaseline = "top";
     g.fillText(`скорость ${view.ballSpeed.toFixed(2)} · шариков ${view.ballCount}`, 10, 8);
     const left = Math.max(0, view.progress.blockMs - view.progress.playedMs);
@@ -104,7 +119,7 @@ class SquashWebView implements GameView<SquashView> {
       g.fillStyle = "rgba(13,27,42,0.72)";
       g.fillRect(0, 0, size.w, size.h);
       g.fillStyle = COLORS.ball;
-      g.font = "16px system-ui, sans-serif";
+      g.font = `${Math.round(16 * scale)}px system-ui, sans-serif`;
       g.textAlign = "center";
       g.fillText("блок завершён", size.w / 2, size.h / 2 - 8);
       g.textAlign = "left";
@@ -119,6 +134,7 @@ class SquashWebView implements GameView<SquashView> {
 
 export const squash: Microgame<SquashState, SquashView> = {
   manifest: asManifest(manifest),
+  presets,
   core: squashCore,
   paramsForLevel,
   createView: (ctx) => new SquashWebView(ctx),
@@ -138,4 +154,5 @@ export {
   squashSummary,
   squashView,
 } from "./core.js";
+
 export type { Ball, SquashFeedback, SquashParams, SquashState, SquashSummary, SquashView } from "./core.js";

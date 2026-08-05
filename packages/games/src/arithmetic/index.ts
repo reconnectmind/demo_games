@@ -1,19 +1,22 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
-import { ActionButton, OptionRow, Stimulus, el } from "@gamespace/ui-web";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+} from "@gamespace/core";
+import { ActionButton, FeedbackMark, OptionRow, Stimulus, debriefText, el, verdictOf } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import { arithmeticCore, type ArithmeticParams, type ArithmeticState, type ArithmeticView } from "./core.js";
 
+const presets = asPresets(presetsJson);
+
 export function paramsForLevel(level: number): Params {
-  const params: ArithmeticParams = {
-    operandMax: 8 + 4 * level,
-    operations: level >= 3 ? 3 : 2,
-    operationSteps: level >= 6 ? 2 : 1,
-    distractorDistance: Math.max(1, 6 - Math.floor(level / 2)),
-    optionCount: 4,
-    responseMode: "selection",
-    timeLimitMs: 60_000,
-  };
-  return params;
+  return presetParams(presets, level) as ArithmeticParams;
 }
 
 class ArithmeticWebView implements GameView<ArithmeticView> {
@@ -28,7 +31,7 @@ class ArithmeticWebView implements GameView<ArithmeticView> {
     placeholder: "введи ответ",
   });
   private readonly button: ActionButton;
-  private readonly feedback = el("div", { class: "gs-feedback" });
+  private readonly feedback = new FeedbackMark();
 
   constructor(private readonly ctx: GameContext) {
     this.options = new OptionRow(ctx.input, "choose");
@@ -47,20 +50,35 @@ class ArithmeticWebView implements GameView<ArithmeticView> {
     this.ctx.input.submit("submit", { value }, "pointer");
   }
 
+  /**
+   * Ввод числа с клавиатуры — другой способ ответа, и в протоколе с объявленной
+   * ёмкостью его быть не должно: поле ввода к тому же не видно контроллеру, то
+   * есть такой ответ идёт мимо единой раздачи клавиш.
+   */
+  private get typingAllowed(): boolean {
+    return this.ctx.input.profile().keys.length === 0;
+  }
+
   mount(surface: Surface): void {
-    surface.setTask("Посчитай выражение и дай ответ: выбери вариант или введи число.", "Арифметический спринт");
-    surface.stage.replaceChildren(this.stimulus.root, this.options.root, this.entry, this.feedback);
+    surface.setTask(
+      this.typingAllowed
+        ? "Посчитай выражение и дай ответ: выбери вариант или введи число."
+        : "Посчитай выражение и выбери верный вариант.",
+      "Арифметический спринт",
+    );
+    surface.stage.replaceChildren(this.stimulus.root, this.options.root, this.entry, this.feedback.root);
   }
 
   render(view: ArithmeticView): void {
     this.stimulus.show(view.expr);
     this.options.render(view.options.map((label, index) => ({ label, index })));
     this.ctx.input.setOptionCount(view.options.length);
-    const entering = view.responseMode === "text-entry";
+    const entering = view.responseMode === "text-entry" && this.typingAllowed;
     this.entry.style.display = entering ? "" : "none";
     if (entering && view.running) this.field.focus();
-    this.feedback.textContent = view.feedback === "correct" ? "верно" : view.feedback === "wrong" ? "мимо" : "";
-    this.feedback.className = `gs-feedback${view.feedback ? ` is-${view.feedback}` : ""}`;
+    // Разбор ошибки — только в обучении: в зачёте он отнимал бы время у
+    // следующего стимула и менял бы саму задачу.
+    this.feedback.show(verdictOf(view.feedback), this.ctx.training ? debriefText(view.debrief) : "");
     this.ctx.surface.setStats(view.stats);
   }
 
@@ -72,6 +90,7 @@ class ArithmeticWebView implements GameView<ArithmeticView> {
 
 export const arithmetic: Microgame<ArithmeticState, ArithmeticView> = {
   manifest: asManifest(manifest),
+  presets,
   core: arithmeticCore,
   paramsForLevel,
   createView: (ctx) => new ArithmeticWebView(ctx),

@@ -1,4 +1,4 @@
-import { type Handle, type InputHandle } from "@gamespace/core";
+import { type Handle, type InputHandle, type TrialDebrief } from "@gamespace/core";
 
 /** Человеческое имя клавиши: на кнопке нужен знак, а не код события. */
 export function keyLabel(binding: string): string {
@@ -13,15 +13,59 @@ export function keyLabel(binding: string): string {
 }
 
 /**
+ * Что напечатано на этом же месте в русской раскладке. Привязки записаны
+ * латиницей, но означают места на клавиатуре, а на лабораторном ноутбуке в этих
+ * местах стоит `Й Ц У`: без второй буквы участник искал бы `Q`, которой на
+ * клавише нет.
+ */
+const CYRILLIC_LEGEND: Record<string, string> = {
+  Q: "Й", W: "Ц", E: "У", R: "К", T: "Е", Y: "Н", U: "Г", I: "Ш", O: "Щ", P: "З",
+  A: "Ф", S: "Ы", D: "В", F: "А", G: "П", H: "Р", J: "О", K: "Л", L: "Д",
+  Z: "Я", X: "Ч", C: "С", V: "М", B: "И", N: "Т", M: "Ь",
+};
+
+export function cyrillicLegend(binding: string): string | null {
+  return binding.length === 1 ? CYRILLIC_LEGEND[binding.toUpperCase()] ?? null : null;
+}
+
+/** Подпись клавиши: латинская буква и то, что на этом месте стоит в русской раскладке. */
+function keyCap(binding: string): HTMLElement {
+  const cap = el("kbd", { class: "gs-key" }, [el("span", { class: "gs-key-main", text: keyLabel(binding) })]);
+  const legend = cyrillicLegend(binding);
+  if (legend) cap.append(el("span", { class: "gs-key-legend", text: legend }));
+  return cap;
+}
+
+/**
  * Подпись клавиши берётся из фактической привязки, а не из констант виджета:
- * иначе профиль F/J/D/K поменял бы управление, а кнопки продолжали бы врать.
+ * иначе профиль с другой ёмкостью поменял бы управление, а кнопки продолжали бы
+ * врать. Пустая привязка — законное состояние: в этом профиле действие клавиши
+ * не получило, и подписывать нечего.
  */
 export function keyHint(input: InputHandle | undefined, actionId: string, index?: number): string | null {
+  const raw = rawBinding(input, actionId, index);
+  return raw ? keyLabel(raw) : null;
+}
+
+/** Сама привязка, без человеческого имени: нужна там, где рисуется клавиша целиком. */
+function rawBinding(input: InputHandle | undefined, actionId: string, index?: number): string | null {
   if (!input) return null;
   const binding = input.bindings().find((b) => b.id === actionId);
   if (!binding) return null;
-  if (index === undefined) return keyLabel(binding.binding);
+  if (index === undefined) return binding.binding || null;
   return input.indexKeys(actionId)[index] ?? null;
+}
+
+/**
+ * Множитель размера стимулов. Живёт в переменной темы, потому что размер — дело
+ * представления, а не игры; отсюда его берут канвасы, которым CSS-переменная
+ * недоступна напрямую. Без темы (тесты, безголовый прогон) множитель равен единице.
+ */
+export function stimulusScale(): number {
+  if (typeof getComputedStyle !== "function" || typeof document === "undefined") return 1;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--gs-scale");
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
 export function el<K extends keyof HTMLElementTagNameMap>(
@@ -91,10 +135,10 @@ export class OptionRow {
         });
         button.append(el("span", { class: "gs-opt-label", text: item.label }));
         // Indexed-действие адресуется номером варианта, обычное — своей клавишей.
-        const hint = item.actionId
-          ? keyHint(this.input, item.actionId)
-          : keyHint(this.input, this.defaultActionId, item.index);
-        if (hint) button.append(el("kbd", { class: "gs-key", text: hint }));
+        const binding = item.actionId
+          ? rawBinding(this.input, item.actionId)
+          : rawBinding(this.input, this.defaultActionId, item.index);
+        if (binding) button.append(keyCap(binding));
         button.disabled = item.state === "disabled";
         button.addEventListener("click", () => this.onPick(item.index));
         return button;
@@ -163,7 +207,9 @@ export class CellGrid {
   }
 
   render(side: number, cells: CellState[]): void {
-    this.root.style.gridTemplateColumns = `repeat(${side}, minmax(38px, 62px))`;
+    // Размер ячейки задан стилями через общий множитель стимулов; виджет говорит
+    // только про число столбцов, иначе px из кода не подчинялись бы множителю.
+    this.root.style.setProperty("--gs-grid-side", String(side));
     this.root.replaceChildren(
       ...cells.map((cell) => {
         const button = el("button", {
@@ -173,8 +219,12 @@ export class CellGrid {
         });
         button.append(el("span", { class: "gs-cell-label", text: cell.label ?? "" }));
         // Клавиш хватает не на всякую сетку: подписываем только адресуемые ячейки.
-        const hint = keyHint(this.input, this.actionId, cell.index);
-        if (hint) button.append(el("kbd", { class: "gs-key gs-cell-key", text: hint }));
+        const binding = rawBinding(this.input, this.actionId, cell.index);
+        if (binding) {
+          const cap = keyCap(binding);
+          cap.classList.add("gs-cell-key");
+          button.append(cap);
+        }
         button.addEventListener("click", () => this.onPick(cell.index));
         return button;
       }),
@@ -245,11 +295,15 @@ export class ActionButton {
     this.sync();
   }
 
-  /** Привязка может смениться вместе с профилем раскладки. */
+  /** Привязка может смениться вместе с профилем ввода. */
   sync(): void {
-    const hint = keyHint(this.input, this.actionId);
-    this.key.textContent = hint ?? "";
-    this.key.style.display = hint ? "" : "none";
+    const binding = rawBinding(this.input, this.actionId);
+    this.key.replaceChildren();
+    this.key.style.display = binding ? "" : "none";
+    if (!binding) return;
+    this.key.append(el("span", { class: "gs-key-main", text: keyLabel(binding) }));
+    const legend = cyrillicLegend(binding);
+    if (legend) this.key.append(el("span", { class: "gs-key-legend", text: legend }));
   }
 
   flash(kind: "correct" | "wrong" | "press" = "press"): void {
@@ -262,5 +316,55 @@ export class HintLine {
   readonly root = el("div", { class: "gs-hint" });
   show(text: string): void {
     this.root.textContent = text;
+  }
+}
+
+/**
+ * Разбор ошибки словами. Ядро отдаёт «что требовалось» и «что пришло», фраза
+ * собирается здесь: три случая — не тот ответ, ответа не было, отвечать было не
+ * нужно, — и участник в обучении узнаёт, в чём именно ошибся.
+ */
+export function debriefText(debrief: TrialDebrief | null | undefined): string {
+  if (!debrief) return "";
+  const { expected, got } = debrief;
+  if (expected === null && got === null) return "";
+  if (expected === null) return "Здесь нажимать было не нужно.";
+  if (got === null) return `Ответа не было. Нужно было: ${expected}.`;
+  return `Вы выбрали ${got}, а нужно было ${expected}.`;
+}
+
+export type Verdict = "hit" | "miss" | null;
+
+const HIT_NAMES = new Set(["correct", "hit", "return", "resumed"]);
+
+/**
+ * Исход пробы к одному из двух знаков. Внутри модулей исходов больше — «мимо»,
+ * «пропуск», «не успел», — но участнику различать их не нужно и вредно: он
+ * начинает разбирать подпись вместо следующего стимула. Разбор ошибки — дело
+ * обучения, где на него есть время.
+ */
+export function verdictOf(feedback: string | null | undefined): Verdict {
+  if (!feedback) return null;
+  return HIT_NAMES.has(feedback) ? "hit" : "miss";
+}
+
+/**
+ * Знак вместо слова и без цвета. Цветная подпись в задаче про цвет — источник
+ * помех: зелёное «верно» рядом со стимулом Струпа само становится стимулом. По
+ * той же причине место под знак занято всегда, иначе строка дёргала бы сцену.
+ */
+export class FeedbackMark {
+  readonly root = el("div", { class: "gs-feedback" });
+  private readonly mark = el("span", { class: "gs-mark" });
+  private readonly reason = el("span", { class: "gs-mark-reason" });
+
+  constructor() {
+    this.root.append(this.mark, this.reason);
+  }
+
+  /** `reason` показывается только в обучении: в зачётном прогоне его не передают. */
+  show(verdict: Verdict, reason = ""): void {
+    this.mark.textContent = verdict === "hit" ? "✓" : verdict === "miss" ? "✗" : "";
+    this.reason.textContent = verdict ? reason : "";
   }
 }

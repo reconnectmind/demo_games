@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "min": 0,
+    "max": 8
+  },
+  "constants": {
+    "targetRate": 0.3
+  },
+  "axes": {
+    "n": {
+      "role": "depth",
+      "curves": {
+        "base": [
+          1,
+          1,
+          1,
+          2,
+          2,
+          3,
+          3,
+          4,
+          4
+        ]
+      }
+    },
+    "stimulusMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          1600,
+          1510,
+          1420,
+          1330,
+          1240,
+          1150,
+          1060,
+          970,
+          880
+        ]
+      }
+    },
+    "isiMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          500,
+          475,
+          450,
+          425,
+          400,
+          375,
+          350,
+          325,
+          300
+        ]
+      }
+    },
+    "blockLength": {
+      "role": "duration",
+      "curves": {
+        "base": [
+          18,
+          20,
+          22,
+          24,
+          26,
+          28,
+          30,
+          32,
+          34
+        ]
+      }
+    }
+  }
+}

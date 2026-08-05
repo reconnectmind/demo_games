@@ -21,7 +21,14 @@ import type { DurableSink } from "@gamespace/core";
 import { DomSurface, bindKeyboard, keyLabel } from "@gamespace/ui-web";
 import { protocolGames } from "@gamespace/games";
 import { race } from "@gamespace/race";
-import { SessionRunner, compileProtocol, pilotProtocol, plannedMs, type RunRecord } from "@gamespace/protocol";
+import {
+  SessionRunner,
+  compileProtocol,
+  pilotProtocol,
+  plannedMs,
+  type RunRecord,
+  type Screen,
+} from "@gamespace/protocol";
 
 /**
  * Заезд живёт в своём пакете: он один тянет за собой трёхмерный движок, и
@@ -56,17 +63,35 @@ app.innerHTML = `
     <div class="port-head">
       <h2 id="title">—</h2>
       <span class="pill" id="version"></span>
-      <button class="btn is-primary" id="start">Старт</button>
-      <button class="btn" id="stop" disabled>Стоп</button>
+      <div class="ops" id="ops">
+        <button class="btn is-primary" id="start">Старт</button>
+        <button class="btn" id="stop" disabled>Стоп</button>
+        <button class="btn" id="participantView" title="Оставить на экране только сцену (Esc — выйти)">Экран участника</button>
+        <button class="btn" id="operatorWindow" title="Перенести ручки оператора в отдельное окно">Окно оператора</button>
+        <select id="theme" title="Тема оформления" style="width:auto">
+          <option value="dark">Тема: обычная</option>
+          <option value="low-contrast">Тема: низкий контраст</option>
+        </select>
+      </div>
       <div class="keycast" id="keycast"></div>
       <div class="task"><b id="taskLabel">Задание</b> · <span id="task"></span></div>
     </div>
     <div class="port-body">
       <div class="stage-wrap">
+        <div class="stage-reminder" id="reminder"></div>
+        <div class="interstitial" id="interstitial" hidden>
+          <div class="interstitial-card">
+            <div class="interstitial-pos" id="interstitialPos"></div>
+            <h3 id="interstitialTitle"></h3>
+            <div id="interstitialBody"></div>
+            <div class="interstitial-foot" id="interstitialFoot"></div>
+            <button class="btn is-primary" id="interstitialNext">Дальше</button>
+          </div>
+        </div>
         <div class="stage" id="stage"></div>
         <div id="banner"></div>
       </div>
-      <div class="side">
+      <div class="side" id="side">
         <div id="protocolPanel" style="display:none">
           <h3>Протокол</h3>
           <div class="param">
@@ -106,6 +131,7 @@ app.innerHTML = `
           <button class="btn" id="exportJsonl">events.jsonl</button>
           <button class="btn" id="exportCsv">events.csv</button>
           <button class="btn" id="exportMarkers">markers.csv</button>
+          <button class="btn" id="exportCodebook">codebook.csv</button>
         </div>
       </div>
     </div>
@@ -114,12 +140,80 @@ app.innerHTML = `
 `;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+/**
+ * Экран участника: на нём не остаётся ни одной операторской ручки, а сцена
+ * оказывается в середине монитора. Иначе стимул всегда сдвинут влево на половину
+ * операторской панели, и «центр экрана» в протоколе — не центр.
+ */
+function setParticipantView(on: boolean): void {
+  document.body.classList.toggle("is-participant", on);
+  $("participantView").textContent = on ? "Вернуть панели" : "Экран участника";
+}
+
+document.addEventListener("keydown", (event) => {
+  // Выход — только Escape: у участника руки на Q W E, и его нажатия ничего не
+  // должны делать с самим экраном.
+  if (event.key === "Escape" && document.body.classList.contains("is-participant")) setParticipantView(false);
+});
 const stage = $("stage");
 const surface = new DomSurface({
   stage,
   task: $("task"),
   taskLabel: $("taskLabel"),
+  reminder: $("reminder"),
   stats: $("foot"),
+});
+
+$("participantView").addEventListener("click", () =>
+  setParticipantView(!document.body.classList.contains("is-participant")),
+);
+
+/**
+ * Второе место для операторских ручек. Панель не дублируется и не пересоздаётся —
+ * тот же узел переезжает в отдельное окно, поэтому все обработчики, ссылки и
+ * состояние остаются живыми. Оператору ручки нужны, участнику их видеть нельзя,
+ * и прятать флагом здесь недостаточно: нужны два экрана, а не один с флагом.
+ */
+let operatorWindow: Window | null = null;
+
+function openOperatorWindow(): void {
+  if (operatorWindow && !operatorWindow.closed) return operatorWindow.focus();
+  const opened = window.open("", "gamespace-operator", "width=420,height=900");
+  if (!opened) return banner("<b>Окно оператора не открылось.</b> Разрешите всплывающие окна для этой страницы.");
+  operatorWindow = opened;
+  const styles = [...document.querySelectorAll('style, link[rel="stylesheet"]')]
+    .map((node) => node.outerHTML)
+    .join("\n");
+  opened.document.write(
+    `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Оператор</title>${styles}</head><body class="is-operator"></body></html>`,
+  );
+  opened.document.close();
+  opened.document.documentElement.dataset.theme = document.documentElement.dataset.theme ?? "dark";
+  // Управление прогоном переезжает вместе с панелью: иначе «Старт» и «Стоп»
+  // остались бы на экране участника, где операторских кнопок быть не должно.
+  const ops = $("ops");
+  const panel = $("side");
+  opened.document.body.append(opened.document.adoptNode(ops), opened.document.adoptNode(panel));
+  document.body.classList.add("is-detached");
+  // Закрытие окна не должно оставлять оператора без ручек: узлы возвращаются на
+  // место, а не теряются вместе с окном.
+  opened.addEventListener("beforeunload", () => {
+    document.querySelector(".port-head")!.append(document.adoptNode(ops));
+    document.querySelector(".port-body")!.append(document.adoptNode(panel));
+    document.body.classList.remove("is-detached");
+    setParticipantView(false);
+    operatorWindow = null;
+  });
+  setParticipantView(true);
+}
+
+$("operatorWindow").addEventListener("click", openOperatorWindow);
+window.addEventListener("beforeunload", () => operatorWindow?.close());
+// Тема — свойство стенда, а не прогона: множитель размера и палитра живут в
+// переменных, поэтому переключение не пересобирает ни одну игру.
+$("theme").addEventListener("change", (event) => {
+  document.documentElement.dataset.theme = (event.target as HTMLSelectElement).value;
 });
 
 let current: Microgame<any, any> = games[0]!;
@@ -132,6 +226,34 @@ let blockOverride: Params = {};
 let mode: "game" | "protocol" = "game";
 let session: SessionRunner | null = null;
 let sessionSink: LoggedEvent[] | null = null;
+/** Место участка в расписании: номер части в отбивке подставляет расписание, а не текст. */
+let position = { index: 0, total: 0 };
+
+/**
+ * Отбивка перед участком. Пролистывает её оператор мышью: у участника руки на
+ * `Q W E`, и любая клавиша промотала бы инструкцию, которую он ещё не прочёл.
+ */
+function present(screen: Screen, _index: number, proceed: () => void): void {
+  const box = $("interstitial");
+  $("interstitialPos").textContent =
+    position.total > 0 ? `Часть ${position.index + 1} из ${position.total}` : "";
+  $("interstitialTitle").textContent = screen.title;
+  $("interstitialBody").replaceChildren(
+    ...screen.body.map((line) => {
+      const p = document.createElement("p");
+      p.textContent = line;
+      return p;
+    }),
+  );
+  $("interstitialFoot").textContent = screen.footer ?? "";
+  const next = $("interstitialNext") as HTMLButtonElement;
+  next.onclick = () => {
+    box.hidden = true;
+    next.onclick = null;
+    proceed();
+  };
+  box.hidden = false;
+}
 
 function renderCatalog(): void {
   const catalog = $("catalog");
@@ -471,8 +593,12 @@ function startProtocol(): void {
     seed: compiled.seed,
     sections: compiled.sections,
     sink: wrapped,
+    // Способ ответа объявлен документом протокола, а не выбран в витрине.
+    input: compiled.input,
     policyFor: (gameId) => compiled.policyFor(gameId),
+    present,
     onSectionStart: (section, index) => {
+      position = { index, total: compiled.sections.length };
       $("title").textContent = `${pilotProtocol.title} — ${section.id}`;
       $("version").textContent = `участок ${index + 1} из ${compiled.sections.length}`;
       stage.classList.remove("is-finished");
@@ -487,6 +613,11 @@ function startProtocol(): void {
     },
     onDone: () => {
       banner(`<b>Сценарий пройден.</b> прогонов всего: ${done.length}. Журнал можно выгрузить.`);
+      // Прощальный экран не принадлежит участку: сессия к этому моменту кончилась.
+      if (compiled.outro) {
+        position = { index: 0, total: 0 };
+        present(compiled.outro, 0, () => {});
+      }
       stage.classList.add("is-finished");
       ($("start") as HTMLButtonElement).disabled = false;
       ($("stop") as HTMLButtonElement).disabled = true;
@@ -633,6 +764,9 @@ $("compress").addEventListener("input", (e) => {
 $("exportJsonl").addEventListener("click", () => download("events.jsonl", exportLog("jsonl")));
 $("exportCsv").addEventListener("click", () => download("events.csv", exportLog("csv")));
 $("exportMarkers").addEventListener("click", () => download("markers.csv", markers.toCsv()));
+// Артинис не различает значения меток: расшифровка живёт отдельным файлом, и без
+// выгрузки книги поток меток нечем читать.
+$("exportCodebook").addEventListener("click", () => download("codebook.csv", markers.codebookCsv()));
 
 /** Ввод адресуется активной задаче: у сценария это игра текущего участка. */
 function activeInput() {

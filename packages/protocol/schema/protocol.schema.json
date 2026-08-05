@@ -13,6 +13,24 @@
     "seed": { "type": "integer", "description": "Общий seed сессии; при отсутствии выводится из participantId" },
     "locale": { "type": "string" },
     "difficulty": { "$ref": "#/definitions/difficulty" },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Чем участник отвечает во всём протоколе. Ёмкость ответа — свойство стенда, а не модуля: из неё выводится и раздача клавиш, и предел по оси числа вариантов",
+      "properties": {
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Клавиши ответа слева направо; при отсутствии действуют привязки из манифестов"
+        },
+        "pointer": {
+          "type": "string",
+          "enum": ["free", "task-only"],
+          "description": "task-only оставляет мышь только там, где указание — существо задачи (зрительный поиск)"
+        }
+      }
+    },
     "counterbalance": {
       "type": "object",
       "additionalProperties": false,
@@ -25,20 +43,53 @@
           "maxItems": 2,
           "items": { "type": "string" },
           "description": "Идентификаторы участков, которые меняются местами у половины участников"
-        }
+        },
+        "pause": { "$ref": "#/definitions/screen" }
+      }
+    },
+    "interstitials": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Экраны сессии в целом. Тексты живут в документе протокола, а не в коде: их правит тот, кто ведёт эксперимент",
+      "properties": {
+        "intro": { "$ref": "#/definitions/screen" },
+        "outro": { "$ref": "#/definitions/screen" }
+      }
+    },
+    "overrides": {
+      "type": "object",
+      "description": "Закрепления на весь протокол по идентификатору модуля, в том числе для дочерних задач составных игр. Участок вправе их переопределить",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": ["number", "string", "boolean"] }
       }
     },
     "sections": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/section" } }
   },
   "definitions": {
+    "screen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "body"],
+      "description": "Отбивка: экран между блоками — что кончилось, что начинается, сколько займёт, как себя вести. Листает оператор, а не участник: случайное нажатие не должно проматывать инструкцию. Пауза контрбалансированной пары привязана к позиции, а не к участку, потому что какой из двух блоков идёт вторым, решает жребий по участнику",
+      "properties": {
+        "title": { "type": "string" },
+        "body": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "footer": { "type": "string", "description": "Строка про то, кто продолжает; по умолчанию про оператора" }
+      }
+    },
     "difficulty": {
       "type": "object",
       "additionalProperties": false,
       "required": ["policy"],
       "properties": {
         "policy": { "type": "string", "enum": ["monotonic", "adaptive", "manual", "fixed"] },
-        "start": { "type": "integer", "minimum": 1 },
-        "min": { "type": "integer", "minimum": 1 },
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Нулевой уровень законен и означает обучающий: он объявлен в таблицах пресетов как шаг назад от первого"
+        },
+        "min": { "type": "integer", "minimum": 0 },
         "max": { "type": "integer", "minimum": 1 },
         "successesToAdvance": { "type": "integer", "minimum": 1 }
       }
@@ -56,6 +107,7 @@
           "description": "Одна игра или ротация: прогоны идут по кругу, пока участок не закончится"
         },
         "end": { "$ref": "#/definitions/termination" },
+        "interstitial": { "$ref": "#/definitions/screen" },
         "training": { "type": "boolean" },
         "difficulty": { "$ref": "#/definitions/difficulty" },
         "overrides": {
@@ -81,6 +133,13 @@
           "additionalProperties": false,
           "required": ["by", "count"],
           "properties": { "by": { "const": "runs" }, "count": { "type": "integer", "minimum": 1 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["by"],
+          "description": "Участок по покрытию: кончается, когда каждая объявленная задача прошла критерий допуска из своего манифеста или исчерпала попытки. Так задаётся обучение — задача предъявляется потому, что она в списке, а не потому, что до неё дошла очередь",
+          "properties": { "by": { "const": "coverage" } }
         },
         {
           "type": "object",

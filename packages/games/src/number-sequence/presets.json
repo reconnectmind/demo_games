@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "min": 0,
+    "max": 8
+  },
+  "axes": {
+    "gridCells": {
+      "role": "alternatives",
+      "curves": {
+        "base": [
+          9,
+          12,
+          15,
+          18,
+          21,
+          24,
+          27,
+          30,
+          33
+        ]
+      }
+    },
+    "sequenceLength": {
+      "role": "depth",
+      "curves": {
+        "base": [
+          5,
+          7,
+          9,
+          11,
+          13,
+          15,
+          17,
+          19,
+          21
+        ]
+      }
+    },
+    "deadlineMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          6000,
+          5550,
+          5100,
+          4650,
+          4200,
+          3750,
+          3300,
+          2850,
+          2400
+        ]
+      }
+    },
+    "reshuffleAfterEach": {
+      "role": "conflict",
+      "curves": {
+        "base": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    }
+  }
+}

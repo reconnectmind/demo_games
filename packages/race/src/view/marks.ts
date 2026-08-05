@@ -20,12 +20,12 @@
  * переполнения кольца доживают только следы, на которые уже некому смотреть.
  */
 
-import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
-import { Color3 } from "@babylonjs/core/Maths/math.color.js";
-import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
-import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
-import type { Scene } from "@babylonjs/core/scene.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
+import type { Scene } from "@babylonjs/core/scene";
 
 /** Сколько звеньев ленты помнится на каждое колесо. */
 const LINKS = 320;

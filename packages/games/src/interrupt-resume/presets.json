@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "min": 0,
+    "max": 6
+  },
+  "axes": {
+    "interruptions": {
+      "role": "depth",
+      "curves": {
+        "base": [
+          1,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    },
+    "backgroundRunMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          16000,
+          14200,
+          12400,
+          10600,
+          8800,
+          7000,
+          5200
+        ]
+      }
+    },
+    "interruptionMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          3000,
+          4200,
+          5400,
+          6600,
+          7800,
+          9000,
+          10200
+        ]
+      }
+    }
+  }
+}

@@ -1,6 +1,16 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+} from "@gamespace/core";
 import { DomSurface, el } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import {
   TASK_SLOT,
   adaptiveBatteryCore,
@@ -9,13 +19,10 @@ import {
   type AdaptiveBatteryView,
 } from "./core.js";
 
+const presets = asPresets(presetsJson);
+
 export function paramsForLevel(level: number): Params {
-  const params: AdaptiveBatteryParams = {
-    blocks: Math.min(10, 2 + level),
-    restMs: Math.max(500, 4000 - 450 * level),
-    poolSize: Math.min(5, 1 + Math.ceil(level / 2)),
-  };
-  return params;
+  return presetParams(presets, level) as AdaptiveBatteryParams;
 }
 
 const TITLES: Record<string, string> = {
@@ -56,6 +63,7 @@ class AdaptiveBatteryWebView implements GameView<AdaptiveBatteryView> {
 
 export const adaptiveBattery: Microgame<AdaptiveBatteryState, AdaptiveBatteryView> = {
   manifest: asManifest(manifest),
+  presets,
   core: adaptiveBatteryCore,
   paramsForLevel,
   createView: (ctx) => new AdaptiveBatteryWebView(ctx),

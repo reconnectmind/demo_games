@@ -4,6 +4,7 @@ export * from "./clock.js";
 export * from "./events.js";
 export * from "./sinks.js";
 export * from "./difficulty.js";
+export * from "./presets.js";
 export * from "./input.js";
 export * from "./markers.js";
 export * from "./registry.js";

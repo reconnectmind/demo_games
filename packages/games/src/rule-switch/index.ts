@@ -1,24 +1,29 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
-import { OptionRow, Stimulus, el } from "@gamespace/ui-web";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+} from "@gamespace/core";
+import { FeedbackMark, OptionRow, Stimulus, debriefText, el, verdictOf } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import { ruleSwitchCore, type RuleSwitchParams, type RuleSwitchState, type RuleSwitchView } from "./core.js";
 
+const presets = asPresets(presetsJson);
+
 export function paramsForLevel(level: number): Params {
-  const params: RuleSwitchParams = {
-    ruleCount: level >= 5 ? 3 : 2,
-    switchRate: Math.min(0.85, 0.4 + 0.05 * level),
-    deadlineMs: Math.max(900, 2600 - 170 * level),
-    cueLeadMs: Math.max(150, 800 - 70 * level),
-    blockLength: 24,
-  };
-  return params;
+  return presetParams(presets, level) as RuleSwitchParams;
 }
 
 class RuleSwitchWebView implements GameView<RuleSwitchView> {
   private readonly cue = el("div", { class: "gs-cue" });
   private readonly stimulus = new Stimulus();
   private readonly options: OptionRow;
-  private readonly feedback = el("div", { class: "gs-feedback" });
+  private readonly feedback = new FeedbackMark();
 
   constructor(private readonly ctx: GameContext) {
     this.options = new OptionRow(ctx.input, "choose");
@@ -27,7 +32,7 @@ class RuleSwitchWebView implements GameView<RuleSwitchView> {
 
   mount(surface: Surface): void {
     surface.setTask("Классифицируй число по текущему правилу. Правило меняется без предупреждения.", "Смена правила");
-    surface.stage.replaceChildren(this.cue, this.stimulus.root, this.options.root, this.feedback);
+    surface.stage.replaceChildren(this.cue, this.stimulus.root, this.options.root, this.feedback.root);
   }
 
   render(view: RuleSwitchView): void {
@@ -36,9 +41,9 @@ class RuleSwitchWebView implements GameView<RuleSwitchView> {
     this.stimulus.show(view.stimulus);
     this.options.render(view.options.map((label, index) => ({ label, index })));
     this.ctx.input.setOptionCount(view.options.length);
-    this.feedback.textContent =
-      view.feedback === "correct" ? "верно" : view.feedback === "wrong" ? "мимо" : view.feedback === "timeout" ? "не успел" : "";
-    this.feedback.className = `gs-feedback${view.feedback ? ` is-${view.feedback}` : ""}`;
+    // Разбор ошибки — только в обучении: в зачёте он отнимал бы время у
+    // следующего стимула и менял бы саму задачу.
+    this.feedback.show(verdictOf(view.feedback), this.ctx.training ? debriefText(view.debrief) : "");
     this.ctx.surface.setStats(view.stats);
   }
 
@@ -50,6 +55,7 @@ class RuleSwitchWebView implements GameView<RuleSwitchView> {
 
 export const ruleSwitch: Microgame<RuleSwitchState, RuleSwitchView> = {
   manifest: asManifest(manifest),
+  presets,
   core: ruleSwitchCore,
   paramsForLevel,
   createView: (ctx) => new RuleSwitchWebView(ctx),

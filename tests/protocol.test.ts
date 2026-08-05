@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { GameRegistry, GameRuntime, MemorySink, VirtualClock, headlessSurface } from "@gamespace/core";
+import {
+  GameRegistry,
+  GameRuntime,
+  MarkerDispatcher,
+  MemorySink,
+  NullMarkerSink,
+  VirtualClock,
+  headlessSurface,
+} from "@gamespace/core";
 import { protocolGames } from "@gamespace/games";
 import { ProtocolError, SessionRunner, compileProtocol, plannedMs, validateProtocol } from "@gamespace/protocol";
 import pilot from "../packages/protocol/examples/reconnect-pilot.json" with { type: "json" };
@@ -131,6 +139,51 @@ describe("протокол: исполнение", () => {
     // Сессия не растянулась и не схлопнулась: пять участков по расписанию.
     expect(finishedAtMs).toBeGreaterThanOrEqual(110 * 60_000);
     expect(finishedAtMs).toBeLessThan(111 * 60_000);
+  });
+
+  it("метки идут только по границам и укладываются в бюджет плотности", () => {
+    const reg = registry();
+    const clock = new VirtualClock();
+    const sink = new NullMarkerSink();
+    const markers = new MarkerDispatcher(sink);
+    const runtime = new GameRuntime({
+      registry: reg,
+      clock,
+      markers,
+      capabilities: ["keyboard", "pointer", "audio-output", "canvas"],
+      t0WallMs: 1_700_000_000_000,
+      wallNow: () => 1_700_000_000_000 + clock.now(),
+    });
+    const compiled = compileProtocol(pilot, { participantId: "p-11", registry: reg });
+    const session = new SessionRunner({
+      runtime,
+      surface: headlessSurface(),
+      headless: true,
+      sessionId: compiled.sessionId,
+      seed: compiled.seed,
+      sections: compiled.sections,
+      input: compiled.input,
+      policyFor: (gameId) => compiled.policyFor(gameId),
+    });
+    session.start();
+    clock.advance(115 * 60_000);
+
+    // Границы фаз доходят до потока: раньше это было невозможно структурно —
+    // участок писал в свой журнал, а диспетчер меток слушал только инстанс игры.
+    const labels = new Set(markers.records.map((r) => r.label));
+    expect(labels.has("section.start")).toBe(true);
+    expect(labels.has("section.end")).toBe(true);
+    expect(labels.has("run.start")).toBe(true);
+    // Стимулы, ответы, исходы проб и смены уровня в поток не идут.
+    for (const dropped of ["stimulus.presented", "response", "trial.outcome", "difficulty.changed", "block.start"]) {
+      expect(labels.has(dropped), `${dropped} не должен становиться меткой`).toBe(false);
+    }
+
+    // Бюджет: Артинис видит таймстемпы, и поток обязан оставаться разреженным.
+    // Для одного stroop прежняя книга давала 65–160 меток в минуту.
+    const perMinute = markers.records.length / (clock.now() / 60_000);
+    expect(perMinute).toBeLessThan(20);
+    expect(sink.published.length).toBe(markers.records.length);
   });
 
   it("участок покоя завершается по времени и отдаёт сводку", () => {

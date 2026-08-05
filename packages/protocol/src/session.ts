@@ -1,5 +1,5 @@
-import type { DifficultyPolicy, DurableSink, GameRuntime, Surface } from "@gamespace/core";
-import { SectionRunner, type RunRecord, type SectionSnapshot, type SectionSpec } from "./runner.js";
+import type { DifficultyPolicy, DurableSink, GameRuntime, InputProfile, Surface } from "@gamespace/core";
+import { SectionRunner, type RunRecord, type Screen, type SectionSnapshot, type SectionSpec } from "./runner.js";
 
 export interface SessionOptions {
   runtime: GameRuntime;
@@ -10,6 +10,10 @@ export interface SessionOptions {
   tickMs?: number;
   sink?: DurableSink;
   headless?: boolean;
+  /** Профиль ввода протокола: один на всю сессию, менять его между участками нельзя. */
+  input?: InputProfile;
+  /** Показ отбивок: тот же обработчик на все участки, листает оператор. */
+  present?(screen: Screen, index: number, proceed: () => void): void;
   /**
    * Политики сложности общие на всю сессию: уровень задачи переживает не только
    * перезапуск блока, но и переход между участками расписания.
@@ -79,6 +83,8 @@ export class SessionRunner {
       tickMs: this.opts.tickMs,
       sink: this.opts.sink,
       headless: this.opts.headless,
+      ...(this.opts.input ? { input: this.opts.input } : {}),
+      ...(this.opts.present ? { present: this.opts.present } : {}),
       ...(this.opts.policyFor ? { policyFor: (id: string) => this.policyFor(id)! } : {}),
       onDone: (records) => {
         this.opts.onSectionEnd?.(section, records);

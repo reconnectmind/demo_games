@@ -1,6 +1,7 @@
-import type { Manifest } from "./manifest.types.js";
+import type { Admission, Manifest } from "./manifest.types.js";
+import type { PresetTable } from "./presets.js";
 
-export type { Manifest };
+export type { Admission, Manifest };
 export type Params = Record<string, number | string | boolean>;
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
@@ -104,6 +105,19 @@ export type BlockOutcome = {
 
 export type Outcome = TrialOutcome | BlockOutcome;
 
+/**
+ * Разбор пробы для обучения: что требовалось и что пришло. Ядро отдаёт факты, а
+ * фразу собирает представление — иначе «мимо» так и осталось бы пометкой, из
+ * которой участник не узнаёт, в чём ошибся.
+ *
+ * `null` в поле значимо: пустое `expected` означает, что отвечать было не нужно,
+ * пустое `got` — что ответа не было вовсе.
+ */
+export interface TrialDebrief {
+  expected: string | null;
+  got: string | null;
+}
+
 export type ChildCommand =
   | { op: "mount"; slot: string; ref: PackageRef }
   | { op: "start"; slot: string }
@@ -112,6 +126,12 @@ export type ChildCommand =
   | { op: "suspend"; slot: string }
   /** mount + restore + start из ранее снятого снимка. */
   | { op: "resume"; slot: string }
+  /**
+   * Закрыть блок ребёнка тем же путём, которым это делает протокол: ребёнок
+   * доигрывает до собственного конца и отдаёт сводку. Отличается от `stop` тем,
+   * что `stop` — обрыв: сводки не будет, и блок в данных окажется незакрытым.
+   */
+  | { op: "finish"; slot: string }
   | { op: "unmount"; slot: string };
 
 export interface DeviceCommand {
@@ -162,6 +182,12 @@ export interface Microgame<S = Json, VM = Json> {
   manifest: Manifest;
   core: GameCore<S>;
   paramsForLevel(level: number): Params;
+  /**
+   * Таблица уровней как данные. Пока её нет, уровни считает `paramsForLevel` в
+   * коде — так живут модули вне протокола. С таблицей хост умеет большее: знать
+   * роли осей и растить сложность по свободным, когда протокол закрепил ось.
+   */
+  presets?: PresetTable;
   createView(ctx: GameContext): GameView<VM>;
   /**
    * Разовая подготовка модуля перед первым запуском: догрузить то, без чего ядро
@@ -213,12 +239,29 @@ export interface ActionEvent {
   source: "keyboard" | "pointer" | "signal-trigger" | "replay";
 }
 
-export type LayoutProfile = "default" | "fjdk";
+/**
+ * Чем участник отвечает в этом протоколе. Ёмкость ответа — свойство протокола,
+ * а не модуля: на лабораторном стенде это три клавиши верхнего ряда, на
+ * смартфоне палец по экрану, и модулю не положено знать, где его запустили.
+ *
+ * Пустой набор клавиш означает свободную сборку: действуют привязки из
+ * манифеста, как в витрине и одиночных запусках.
+ */
+export interface InputProfile {
+  /** Имя для журнала и операторского экрана. */
+  id: string;
+  /** Клавиши ответа слева направо. */
+  keys: string[];
+  /** `task-only`: мышь остаётся только там, где указание — существо задачи. */
+  pointer: "free" | "task-only";
+}
 
 export interface InputHandle {
   on(actionId: string, cb: (e: ActionEvent) => void): Handle;
+  /** Привязка пустая, если в этом профиле действие клавиши не получает. */
   bindings(): Array<{ id: string; label: string; binding: string }>;
-  setProfile(profile: LayoutProfile): void;
+  setProfile(profile: InputProfile): void;
+  profile(): InputProfile;
   /** Клавиши indexed-действия по порядку вариантов: подпись берёт виджет. */
   indexKeys(actionId: string): string[];
   /** Сколько вариантов показано сейчас: столько клавиш и активно. */
@@ -256,6 +299,12 @@ export interface GameContext {
   children?: ChildHost;
   device?: DeviceHandle;
   locale: string;
+  /**
+   * Обучающий прогон. Представлению это нужно затем, что разбор ошибки словами
+   * идёт только в обучении: в зачёте он отнимал бы время у следующего стимула и
+   * менял бы саму задачу.
+   */
+  training: boolean;
 }
 
 export interface RuntimeSnapshot {

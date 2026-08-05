@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "levels": { "min": 0, "max": 10 },
+  "constants": { "responseMode": "selection", "timeLimitMs": 60000 },
+  "axes": {
+    "optionCount": {
+      "role": "alternatives",
+      "curves": { "base": [3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5] }
+    },
+    "operandMax": {
+      "role": "depth",
+      "curves": {
+        "base": [8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48],
+        "steep": [8, 13, 18, 23, 28, 33, 38, 43, 48, 54, 60]
+      }
+    },
+    "operations": {
+      "role": "depth",
+      "curves": {
+        "base": [2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3],
+        "steep": [2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+      }
+    },
+    "operationSteps": {
+      "role": "depth",
+      "curves": {
+        "base": [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
+        "steep": [1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2]
+      }
+    },
+    "distractorDistance": {
+      "role": "conflict",
+      "curves": {
+        "base": [6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1],
+        "steep": [6, 5, 4, 3, 3, 2, 2, 1, 1, 1, 1]
+      }
+    }
+  },
+  "compensation": [
+    {
+      "whenFrozen": "optionCount",
+      "use": {
+        "operandMax": "steep",
+        "operations": "steep",
+        "operationSteps": "steep",
+        "distractorDistance": "steep"
+      }
+    }
+  ]
+}

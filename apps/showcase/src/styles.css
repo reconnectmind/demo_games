@@ -9,6 +9,46 @@
   --ok: #3fb950;
   --bad: #f85149;
   --warn: #d29922;
+
+  /* Чернила Струпа — часть палитры, а не ядра: ядро называет цвет словом,
+     пиксель выбирает тема. Иначе вторая тема до цвета стимула не дотянулась бы. */
+  --ink-red: #f85149;
+  --ink-blue: #5b9dff;
+  --ink-green: #3fb950;
+  --ink-yellow: #d29922;
+  --ink-purple: #a371f7;
+  --ink-cyan: #56d4dd;
+
+  /* Один множитель на все стимулы. Согласовано с экспериментатором: ×1.5. Все
+     размеры стимулов, вариантов и полей выражены через него, поэтому менять
+     масштаб можно здесь, а не в семи местах по стилям, виджетам и канвасам. */
+  --gs-scale: 1.5;
+}
+
+/*
+ * Вторая тема для длинных сессий: светло-серый фон и тёмно-серый шрифт. Высокий
+ * контраст на двух часах утомляет глаз сам по себе, и это утомление потом не
+ * отличить от утомления от нагрузки. Чернила приглушены вместе с фоном, но
+ * остаются различимыми между собой — иначе Струп перестанет быть Струпом.
+ */
+[data-theme="low-contrast"] {
+  --bg: #d8d8d4;
+  --panel: #d0d0cc;
+  --panel-2: #c8c8c4;
+  --border: #b4b4b0;
+  --text: #3a3a38;
+  --muted: #6b6b68;
+  --accent: #4a6a8a;
+  --ok: #4a6a4a;
+  --bad: #8a4a44;
+  --warn: #7a6a3a;
+
+  --ink-red: #9c3a34;
+  --ink-blue: #3a5a8c;
+  --ink-green: #3a6a3c;
+  --ink-yellow: #7a6620;
+  --ink-purple: #5c4482;
+  --ink-cyan: #2f6a70;
 }
 
 * { box-sizing: border-box; }
@@ -85,11 +125,19 @@ body {
 }
 
 .port-head h2 { margin: 0; font-size: 16px; }
+.ops { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Окно оператора: тот же лист стилей, но панель занимает окно целиком. */
+body.is-operator { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+body.is-operator .ops { flex: 0 0 auto; }
+body.is-operator .side { border: 1px solid var(--border); border-radius: 8px; max-height: none; flex: 1; }
 .task { color: var(--muted); flex-basis: 100%; }
 .task b { color: var(--text); }
 
 .port-body { display: grid; grid-template-columns: 1fr 320px; gap: 0; }
-.stage-wrap { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+/* Панель уехала в окно оператора: колонку под неё держать больше нечем. */
+body.is-detached .port-body { grid-template-columns: 1fr; }
+.stage-wrap { position: relative; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .stage {
   min-height: 320px;
   width: 100%;
@@ -101,6 +149,24 @@ body {
 }
 .stage > * { width: 100%; }
 .stage.is-finished { pointer-events: none; opacity: 0.4; }
+
+/*
+ * Экран участника: каталог, панель оператора, шапка и подвал уходят целиком, а
+ * сцена растягивается на весь монитор и центрируется по вертикали. Прятать
+ * ручки флагом мало — они занимают место, и стимул оставался бы сдвинутым.
+ */
+body.is-participant .catalog,
+body.is-participant .side,
+body.is-participant .port-head,
+body.is-participant .foot,
+body.is-participant #banner {
+  display: none;
+}
+body.is-participant #app { grid-template-columns: 1fr; }
+body.is-participant .port { grid-template-rows: 1fr; }
+body.is-participant .port-body { grid-template-columns: 1fr; }
+body.is-participant .stage-wrap { min-height: 100vh; justify-content: center; }
+body.is-participant .stage { min-height: 0; }
 
 .side {
   border-left: 1px solid var(--border);
@@ -154,8 +220,13 @@ select, input[type="range"], input[type="number"] {
 .param label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
 .param label b { color: var(--text); font-weight: 600; }
 
-.gs-stim { font-size: 64px; font-weight: 700; text-align: center; min-height: 84px; }
-.gs-cue { color: var(--warn); text-align: center; min-height: 22px; }
+.gs-stim {
+  font-size: calc(64px * var(--gs-scale));
+  font-weight: 700;
+  text-align: center;
+  min-height: calc(84px * var(--gs-scale));
+}
+.gs-cue { color: var(--warn); text-align: center; min-height: 22px; font-size: calc(14px * var(--gs-scale)); }
 .gs-cue.is-switched { color: var(--accent); font-weight: 600; }
 .gs-options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
 
@@ -167,8 +238,8 @@ select, input[type="range"], input[type="number"] {
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text);
-  padding: 12px 16px;
-  font-size: 16px;
+  padding: calc(12px * var(--gs-scale)) calc(16px * var(--gs-scale));
+  font-size: calc(16px * var(--gs-scale));
   cursor: pointer;
 }
 .gs-opt:hover { border-color: var(--accent); }
@@ -177,6 +248,9 @@ select, input[type="range"], input[type="number"] {
 .gs-opt.is-wrong { border-color: var(--bad); }
 
 .gs-key {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 1px 6px;
@@ -185,7 +259,18 @@ select, input[type="range"], input[type="number"] {
   background: var(--bg);
 }
 
-.gs-grid { display: grid; gap: 6px; justify-content: center; }
+/* На русской клавиатуре в этих местах напечатаны другие буквы: без второй
+   подписи участник искал бы Q, которой на клавише нет. */
+.gs-key-legend { font-size: 9px; opacity: 0.6; }
+
+/* Ячейки сетки масштабируются тем же множителем; сама сетка задаётся здесь, а
+   не в TS: раньше её px-размеры жили в виджете и множителю не подчинялись. */
+.gs-grid {
+  display: grid;
+  gap: calc(6px * var(--gs-scale));
+  justify-content: center;
+  grid-template-columns: repeat(var(--gs-grid-side, 3), minmax(calc(38px * var(--gs-scale)), calc(62px * var(--gs-scale))));
+}
 .gs-cell {
   aspect-ratio: 1;
   display: flex;
@@ -197,7 +282,7 @@ select, input[type="range"], input[type="number"] {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  font-size: 18px;
+  font-size: calc(18px * var(--gs-scale));
   cursor: pointer;
 }
 .gs-cell-key { padding: 0 4px; font-size: 9px; line-height: 1.4; }
@@ -214,12 +299,63 @@ select, input[type="range"], input[type="number"] {
 .gs-entry-input { max-width: 180px; text-align: center; }
 
 .gs-baseline-text { max-width: 420px; text-align: center; color: var(--muted); line-height: 1.6; }
-.gs-baseline-fixation { font-size: 44px; color: var(--fg); margin: 24px 0; }
+.gs-baseline-fixation { font-size: calc(44px * var(--gs-scale)); color: var(--text); margin: 24px 0; }
 .gs-baseline-timer { font-variant-numeric: tabular-nums; font-size: 20px; color: var(--muted); }
 
-.gs-feedback { min-height: 22px; text-align: center; color: var(--muted); }
-.gs-feedback.is-correct { color: var(--ok); }
-.gs-feedback.is-wrong, .gs-feedback.is-timeout { color: var(--bad); }
+/* Обратная связь по пробе — знак без цвета. Зелёное «верно» рядом со стимулом
+   Струпа само работает как цветовая помеха, а слово участник дочитывает вместо
+   того, чтобы смотреть на следующий стимул. Высота фиксирована: строка не должна
+   сдвигать сцену, когда знак появляется и гаснет. */
+.gs-feedback {
+  min-height: 26px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.gs-mark { font-size: calc(20px * var(--gs-scale)); line-height: 1.2; color: var(--text); }
+/* Разбор ошибки нужен только в обучении, поэтому в зачётном прогоне он пуст. */
+.gs-mark-reason { font-size: 13px; max-width: 34ch; text-align: left; }
+
+/* Отбивка закрывает сцену целиком: пока участник читает, стимулов быть не должно,
+   а листает экран оператор мышью — клавиши участника ничего не промотают. */
+.interstitial {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.interstitial-card {
+  max-width: 62ch;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.interstitial-card h3 { margin: 0; font-size: 22px; }
+.interstitial-card p { margin: 0; line-height: 1.6; }
+.interstitial-pos { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.interstitial-foot { color: var(--muted); font-size: 13px; font-style: italic; }
+.interstitial-card .btn { align-self: flex-end; }
+
+/* Напоминание о правиле — над сценой и мелким шрифтом: участник смотрит в центр,
+   а не в шапку оператора. */
+.stage-reminder {
+  align-self: center;
+  max-width: 60ch;
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 18px;
+}
 
 .gs-banner { text-align: center; color: var(--warn); min-height: 22px; margin-bottom: 8px; }
 .gs-banner.is-interruption { color: var(--bad); font-weight: 600; }

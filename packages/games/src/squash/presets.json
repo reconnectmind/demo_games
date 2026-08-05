@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "min": 0,
+    "max": 8
+  },
+  "constants": {
+    "blockMs": 90000,
+    "serveDelayMs": 600
+  },
+  "axes": {
+    "ballSpeed": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          0.205,
+          0.28,
+          0.355,
+          0.43,
+          0.505,
+          0.58,
+          0.655,
+          0.73,
+          0.805
+        ]
+      }
+    },
+    "ballCount": {
+      "role": "depth",
+      "curves": {
+        "base": [
+          1,
+          1,
+          1,
+          2,
+          2,
+          3,
+          3,
+          4,
+          4
+        ]
+      }
+    },
+    "paddleWidth": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          0.328,
+          0.3,
+          0.272,
+          0.244,
+          0.216,
+          0.188,
+          0.16,
+          0.132,
+          0.104
+        ]
+      }
+    }
+  }
+}

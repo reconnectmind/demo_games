@@ -4,6 +4,12 @@ export interface DomSurfaceElements {
   stage: HTMLElement;
   task?: HTMLElement;
   taskLabel?: HTMLElement;
+  /**
+   * Напоминание о задаче над самой сценой. Тот же текст, что в шапке, но шапка —
+   * место оператора: участник смотрит в центр экрана и до неё не дотягивается
+   * взглядом, а правило нужно ему там, где стимул.
+   */
+  reminder?: HTMLElement;
   hint?: HTMLElement;
   stats?: HTMLElement;
 }
@@ -19,6 +25,7 @@ export class DomSurface implements Surface {
   setTask(text: string, label = "Задание"): void {
     if (this.el.task) this.el.task.textContent = text;
     if (this.el.taskLabel) this.el.taskLabel.textContent = label;
+    if (this.el.reminder) this.el.reminder.textContent = text;
   }
 
   setHint(text: string): void {

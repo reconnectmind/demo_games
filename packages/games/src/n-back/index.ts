@@ -1,23 +1,29 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
-import { OptionRow, Stimulus, el } from "@gamespace/ui-web";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+  type TrialDebrief,
+} from "@gamespace/core";
+import { FeedbackMark, OptionRow, Stimulus, debriefText, verdictOf } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import { nbackCore, type NBackParams, type NBackState, type NBackView } from "./core.js";
 
+const presets = asPresets(presetsJson);
+
 export function paramsForLevel(level: number): Params {
-  const params: NBackParams = {
-    n: Math.min(4, 1 + Math.floor((level - 1) / 2)),
-    stimulusMs: Math.max(500, 1600 - 90 * level),
-    isiMs: Math.max(200, 500 - 25 * level),
-    targetRate: 0.3,
-    blockLength: Math.min(40, 18 + 2 * level),
-  };
-  return params;
+  return presetParams(presets, level) as NBackParams;
 }
 
 class NBackWebView implements GameView<NBackView> {
   private readonly stimulus = new Stimulus();
   private readonly options: OptionRow;
-  private readonly feedback = el("div", { class: "gs-feedback" });
+  private readonly feedback = new FeedbackMark();
 
   constructor(private readonly ctx: GameContext) {
     this.options = new OptionRow(ctx.input);
@@ -26,7 +32,7 @@ class NBackWebView implements GameView<NBackView> {
 
   mount(surface: Surface): void {
     surface.setTask("Нажми «Совпадение», если буква та же, что N шагов назад.", "N-back");
-    surface.stage.replaceChildren(this.stimulus.root, this.options.root, this.feedback);
+    surface.stage.replaceChildren(this.stimulus.root, this.options.root, this.feedback.root);
   }
 
   render(view: NBackView): void {
@@ -34,9 +40,7 @@ class NBackWebView implements GameView<NBackView> {
     this.options.render([{ label: `Совпадение · N = ${view.n}`, index: 0, actionId: "match" }]);
     // Действие не indexed: клавишу раздаёт хост по defaultBinding, вариантов для 1..9 нет.
     this.ctx.input.setOptionCount(0);
-    this.feedback.textContent =
-      view.feedback === "hit" ? "совпало" : view.feedback === "false-alarm" ? "мимо" : view.feedback === "miss" ? "пропуск" : "";
-    this.feedback.className = `gs-feedback${view.feedback ? ` is-${view.feedback}` : ""}`;
+    this.feedback.show(verdictOf(view.feedback), this.ctx.training ? debriefText(debrief(view.feedback)) : "");
     this.ctx.surface.setStats(view.stats);
   }
 
@@ -46,8 +50,19 @@ class NBackWebView implements GameView<NBackView> {
   }
 }
 
+/**
+ * Здесь исход сам себе разбор: пропуск и ложная тревога — это и есть «что
+ * требовалось» и «что пришло», значений сверх них у пробы нет.
+ */
+function debrief(feedback: NBackView["feedback"]): TrialDebrief | null {
+  if (feedback === "miss") return { expected: "отметить совпадение", got: null };
+  if (feedback === "false-alarm") return { expected: null, got: "нажатие" };
+  return null;
+}
+
 export const nback: Microgame<NBackState, NBackView> = {
   manifest: asManifest(manifest),
+  presets,
   core: nbackCore,
   paramsForLevel,
   createView: (ctx) => new NBackWebView(ctx),
@@ -64,4 +79,5 @@ export {
   nbackSummary,
   nbackView,
 } from "./core.js";
+
 export type { NBackFeedback, NBackParams, NBackState, NBackStream, NBackSummary, NBackView } from "./core.js";

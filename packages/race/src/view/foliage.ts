@@ -1,6 +1,6 @@
-import { MaterialPluginBase } from "@babylonjs/core/Materials/materialPluginBase.js";
-import type { Material } from "@babylonjs/core/Materials/material.js";
-import type { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer.js";
+import { MaterialPluginBase } from "@babylonjs/core/Materials/materialPluginBase";
+import type { Material } from "@babylonjs/core/Materials/material";
+import type { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer";
 
 /**
  * Просвет листа: свет, прошедший лист насквозь.

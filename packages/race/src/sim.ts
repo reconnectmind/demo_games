@@ -437,7 +437,9 @@ export function createSim(seed: number, stamps: readonly ShapeStamp[], save?: Si
   }
 
   function applyControls(controls: SimControls): void {
-    const speed = Math.abs(vehicle.currentVehicleSpeed());
+    // Скорость рулю отдаётся со знаком: стабилизация держится на следе пятна
+    // контакта, а он на заднем ходу работает наоборот (см. `steering.ts`).
+    const speed = vehicle.currentVehicleSpeed();
     // Клавиша — не угол, а усилие на ободе: угол считает сам руль (`steering.ts`).
     // Отсчитывается он от того, куда едет передняя ось, а не от кузова: в заносе
     // это и есть разница между «можно поймать» и «нельзя».

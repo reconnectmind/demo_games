@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "levels": { "min": 0, "max": 8 },
+  "constants": { "blockLength": 20 },
+  "axes": {
+    "colorCount": {
+      "role": "alternatives",
+      "curves": { "base": [3, 3, 4, 4, 5, 5, 6, 6, 6] }
+    },
+    "incongruentRate": {
+      "role": "conflict",
+      "curves": {
+        "base": [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9],
+        "steep": [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.9, 0.9, 0.9]
+      }
+    },
+    "deadlineMs": {
+      "role": "speed",
+      "curves": {
+        "base": [2600, 2420, 2240, 2060, 1880, 1700, 1520, 1340, 1160],
+        "steep": [2600, 2300, 2020, 1780, 1560, 1360, 1180, 1020, 880]
+      }
+    }
+  },
+  "compensation": [
+    {
+      "whenFrozen": "colorCount",
+      "use": { "incongruentRate": "steep", "deadlineMs": "steep" }
+    }
+  ]
+}

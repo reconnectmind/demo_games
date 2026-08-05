@@ -2,21 +2,56 @@
   "id": "org.reconnect.adaptive-battery",
   "version": "1.0.0",
   "schemaVersion": 1,
-  "title": { "ru": "Адаптивная батарея", "en": "Adaptive Task Battery" },
-  "domains": ["executive-control", "workload", "composite"],
+  "title": {
+    "ru": "Адаптивная батарея",
+    "en": "Adaptive Task Battery"
+  },
+  "domains": [
+    "executive-control",
+    "workload",
+    "composite"
+  ],
   "runtimeApi": ">=1.0 <2",
-  "requiredCapabilities": ["keyboard"],
+  "requiredCapabilities": [
+    "keyboard"
+  ],
   "optionalCapabilities": [],
   "parametersSchema": {
     "schemaVersion": 1,
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["blocks", "restMs", "poolSize"],
+      "required": [
+        "blocks",
+        "restMs",
+        "poolSize",
+        "switchEveryMs"
+      ],
       "properties": {
-        "blocks": { "type": "integer", "minimum": 2, "maximum": 10, "title": "Число блоков" },
-        "restMs": { "type": "integer", "minimum": 500, "maximum": 6000, "title": "Пауза между блоками" },
-        "poolSize": { "type": "integer", "minimum": 2, "maximum": 5, "title": "Задач в пуле" }
+        "blocks": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 10,
+          "title": "Число блоков"
+        },
+        "restMs": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 6000,
+          "title": "Пауза между блоками"
+        },
+        "poolSize": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 5,
+          "title": "Задач в пуле"
+        },
+        "switchEveryMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600000,
+          "title": "Шаг смены задач, мс (0 — по концу блока задачи)"
+        }
       }
     }
   },
@@ -24,41 +59,109 @@
     "schemaVersion": 1,
     "schema": {
       "type": "object",
-      "properties": { "type": { "enum": ["block.start", "block.end", "rest.start", "battery.end"] } }
+      "properties": {
+        "type": {
+          "enum": [
+            "block.start",
+            "block.end",
+            "rest.start",
+            "battery.end",
+            "switch.forced"
+          ]
+        }
+      }
     }
   },
   "resultSchema": {
     "schemaVersion": 1,
     "schema": {
       "type": "object",
-      "required": ["blocks", "meanAccuracy", "tasks"],
+      "required": [
+        "blocks",
+        "meanAccuracy",
+        "tasks"
+      ],
       "properties": {
-        "blocks": { "type": "integer" },
-        "meanAccuracy": { "type": "number" },
-        "tasks": { "type": "array", "items": { "type": "string" } }
+        "blocks": {
+          "type": "integer"
+        },
+        "meanAccuracy": {
+          "type": "number"
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     }
   },
-  "interaction": { "schemaVersion": 1, "actions": [], "signals": [] },
-  "timing": { "profile": "standard", "criticalOnsets": false, "toleranceMs": 24 },
-  "blockLength": { "param": "blocks", "unit": "count" },
+  "interaction": {
+    "schemaVersion": 1,
+    "actions": [],
+    "signals": []
+  },
+  "timing": {
+    "profile": "standard",
+    "criticalOnsets": false,
+    "toleranceMs": 24
+  },
+  "blockLength": {
+    "param": "blocks",
+    "unit": "count"
+  },
   "levels": {
     "count": 8,
     "monotonicAxes": [
-      { "param": "blocks", "direction": "increases" },
-      { "param": "poolSize", "direction": "increases" },
-      { "param": "restMs", "direction": "decreases" }
+      {
+        "param": "blocks",
+        "direction": "increases"
+      },
+      {
+        "param": "poolSize",
+        "direction": "increases"
+      },
+      {
+        "param": "restMs",
+        "direction": "decreases"
+      }
     ]
   },
   "resumable": false,
-  "training": { "available": true, "admissionCriterion": "по одному блоку каждой задачи пройдено" },
+  "training": {
+    "available": true,
+    "admissionCriterion": "по одному блоку каждой задачи пройдено",
+    "rule": {
+      "summary": "Знакомые задания идут одно за другим и сменяются сами. Никаких действий для перехода не нужно.",
+      "example": "Кончился блок Струпа — сразу начинается следующее задание; отвечайте на то, что видите.",
+      "mistake": "Правило текущего задания всё время висит строкой над содержанием."
+    }
+  },
   "assets": [],
-  "locales": ["ru"],
+  "locales": [
+    "ru"
+  ],
   "children": [
-    { "id": "org.reconnect.arithmetic", "version": "1.0.0" },
-    { "id": "org.reconnect.n-back", "version": "1.0.0" },
-    { "id": "org.reconnect.stroop", "version": "1.0.0" },
-    { "id": "org.reconnect.rule-switch", "version": "1.0.0" },
-    { "id": "org.reconnect.dual-load", "version": "1.0.0" }
+    {
+      "id": "org.reconnect.arithmetic",
+      "version": "1.0.0"
+    },
+    {
+      "id": "org.reconnect.n-back",
+      "version": "1.0.0"
+    },
+    {
+      "id": "org.reconnect.stroop",
+      "version": "1.0.0"
+    },
+    {
+      "id": "org.reconnect.rule-switch",
+      "version": "1.0.0"
+    },
+    {
+      "id": "org.reconnect.dual-load",
+      "version": "1.0.0"
+    }
   ]
 }

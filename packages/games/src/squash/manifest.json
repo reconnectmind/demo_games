@@ -2,17 +2,35 @@
   "id": "org.reconnect.squash",
   "version": "1.0.0",
   "schemaVersion": 1,
-  "title": { "ru": "Сквош", "en": "Squash" },
-  "domains": ["sustained-attention", "visuomotor", "tracking"],
+  "title": {
+    "ru": "Сквош",
+    "en": "Squash"
+  },
+  "domains": [
+    "sustained-attention",
+    "visuomotor",
+    "tracking"
+  ],
   "runtimeApi": ">=1.0 <2",
-  "requiredCapabilities": ["canvas", "keyboard"],
-  "optionalCapabilities": ["pointer"],
+  "requiredCapabilities": [
+    "canvas",
+    "keyboard"
+  ],
+  "optionalCapabilities": [
+    "pointer"
+  ],
   "parametersSchema": {
     "schemaVersion": 1,
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ballSpeed", "ballCount", "paddleWidth", "blockMs", "serveDelayMs"],
+      "required": [
+        "ballSpeed",
+        "ballCount",
+        "paddleWidth",
+        "blockMs",
+        "serveDelayMs"
+      ],
       "properties": {
         "ballSpeed": {
           "type": "number",
@@ -54,7 +72,15 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["block.start", "ball.served", "ball.bounced", "ball.returned", "ball.lost", "load.changed", "block.end"]
+          "enum": [
+            "block.start",
+            "ball.served",
+            "ball.bounced",
+            "ball.returned",
+            "ball.lost",
+            "load.changed",
+            "block.end"
+          ]
         }
       }
     }
@@ -74,17 +100,33 @@
         "playedMs"
       ],
       "properties": {
-        "returns": { "type": "integer" },
-        "losses": { "type": "integer" },
-        "accuracy": { "type": "number" },
-        "longestRally": { "type": "integer" },
-        "meanContactErrorFrac": { "type": "number" },
-        "meanBallsInPlay": { "type": "number", "description": "Средняя нагрузка: сколько шариков было в поле" },
+        "returns": {
+          "type": "integer"
+        },
+        "losses": {
+          "type": "integer"
+        },
+        "accuracy": {
+          "type": "number"
+        },
+        "longestRally": {
+          "type": "integer"
+        },
+        "meanContactErrorFrac": {
+          "type": "number"
+        },
+        "meanBallsInPlay": {
+          "type": "number",
+          "description": "Средняя нагрузка: сколько шариков было в поле"
+        },
         "crowdedLosses": {
           "type": "integer",
           "description": "Потери при живом конкуренте в нижней половине поля: цена деления внимания"
         },
-        "playedMs": { "type": "integer", "description": "Наигранное время блока без пауз" }
+        "playedMs": {
+          "type": "integer",
+          "description": "Наигранное время блока без пауз"
+        }
       }
     }
   },
@@ -107,22 +149,64 @@
         "holdable": true,
         "source": "participant"
       },
-      { "id": "aim", "label": "Наведение", "defaultBinding": "Pointer", "indexed": false, "source": "participant" }
+      {
+        "id": "aim",
+        "label": "Наведение",
+        "defaultBinding": "Pointer",
+        "indexed": false,
+        "source": "participant"
+      }
     ],
     "signals": []
   },
-  "timing": { "profile": "standard", "criticalOnsets": false, "toleranceMs": 20 },
-  "blockLength": { "param": "blockMs", "unit": "ms" },
+  "timing": {
+    "profile": "standard",
+    "criticalOnsets": false,
+    "toleranceMs": 20
+  },
+  "blockLength": {
+    "param": "blockMs",
+    "unit": "ms"
+  },
   "levels": {
     "count": 8,
     "monotonicAxes": [
-      { "param": "ballSpeed", "direction": "increases" },
-      { "param": "ballCount", "direction": "increases" },
-      { "param": "paddleWidth", "direction": "decreases" }
+      {
+        "param": "ballSpeed",
+        "direction": "increases"
+      },
+      {
+        "param": "ballCount",
+        "direction": "increases"
+      },
+      {
+        "param": "paddleWidth",
+        "direction": "decreases"
+      }
     ]
   },
+  "responseAlternatives": {
+    "count": 2,
+    "addressedBy": "keys"
+  },
   "resumable": true,
-  "training": { "available": true, "admissionCriterion": "accuracy >= 0.5 на уровне 1" },
+  "training": {
+    "available": true,
+    "admissionCriterion": "accuracy >= 0.5 на уровне 1",
+    "admission": {
+      "window": 10,
+      "minCorrect": 5,
+      "counts": "trial",
+      "maxAttempts": 3
+    },
+    "rule": {
+      "summary": "Держите ракетку под мячом: она двигается, пока клавиша нажата.",
+      "example": "Мяч идёт влево — держите левую клавишу, пока ракетка не окажется под ним.",
+      "mistake": "Клавиши нажимают не по разу, а удерживают: короткое нажатие почти не сдвинет ракетку."
+    }
+  },
   "assets": [],
-  "locales": ["ru"]
+  "locales": [
+    "ru"
+  ]
 }

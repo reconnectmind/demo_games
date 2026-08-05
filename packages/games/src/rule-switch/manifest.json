@@ -2,23 +2,62 @@
   "id": "org.reconnect.rule-switch",
   "version": "1.0.0",
   "schemaVersion": 1,
-  "title": { "ru": "Смена правила", "en": "Rule Switch" },
-  "domains": ["executive-control", "task-switching"],
+  "title": {
+    "ru": "Смена правила",
+    "en": "Rule Switch"
+  },
+  "domains": [
+    "executive-control",
+    "task-switching"
+  ],
   "runtimeApi": ">=1.0 <2",
-  "requiredCapabilities": ["keyboard"],
+  "requiredCapabilities": [
+    "keyboard"
+  ],
   "optionalCapabilities": [],
   "parametersSchema": {
     "schemaVersion": 1,
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ruleCount", "switchRate", "deadlineMs", "cueLeadMs", "blockLength"],
+      "required": [
+        "ruleCount",
+        "switchRate",
+        "deadlineMs",
+        "cueLeadMs",
+        "blockLength"
+      ],
       "properties": {
-        "ruleCount": { "type": "integer", "minimum": 2, "maximum": 3, "title": "Число правил" },
-        "switchRate": { "type": "number", "minimum": 0, "maximum": 0.85, "title": "Частота смены правила" },
-        "deadlineMs": { "type": "integer", "minimum": 900, "maximum": 3000, "title": "Дедлайн ответа" },
-        "cueLeadMs": { "type": "integer", "minimum": 150, "maximum": 900, "title": "Подсказка до стимула" },
-        "blockLength": { "type": "integer", "minimum": 4, "maximum": 60, "title": "Длина блока" }
+        "ruleCount": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 3,
+          "title": "Число правил"
+        },
+        "switchRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.85,
+          "title": "Частота смены правила"
+        },
+        "deadlineMs": {
+          "type": "integer",
+          "minimum": 900,
+          "maximum": 3000,
+          "title": "Дедлайн ответа"
+        },
+        "cueLeadMs": {
+          "type": "integer",
+          "minimum": 150,
+          "maximum": 900,
+          "title": "Подсказка до стимула"
+        },
+        "blockLength": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 60,
+          "title": "Длина блока"
+        }
       }
     }
   },
@@ -27,7 +66,15 @@
     "schema": {
       "type": "object",
       "properties": {
-        "type": { "enum": ["cue.presented", "stimulus.presented", "response", "block.start", "block.end"] }
+        "type": {
+          "enum": [
+            "cue.presented",
+            "stimulus.presented",
+            "response",
+            "block.start",
+            "block.end"
+          ]
+        }
       }
     }
   },
@@ -35,33 +82,93 @@
     "schemaVersion": 1,
     "schema": {
       "type": "object",
-      "required": ["trials", "correct", "meanRtMs", "switchCostMs"],
+      "required": [
+        "trials",
+        "correct",
+        "meanRtMs",
+        "switchCostMs"
+      ],
       "properties": {
-        "trials": { "type": "integer" },
-        "correct": { "type": "integer" },
-        "meanRtMs": { "type": "number" },
-        "switchCostMs": { "type": "number" }
+        "trials": {
+          "type": "integer"
+        },
+        "correct": {
+          "type": "integer"
+        },
+        "meanRtMs": {
+          "type": "number"
+        },
+        "switchCostMs": {
+          "type": "number"
+        }
       }
     }
   },
   "interaction": {
     "schemaVersion": 1,
-    "actions": [{ "id": "choose", "label": "Категория", "defaultBinding": "1", "indexed": true, "source": "participant" }],
+    "actions": [
+      {
+        "id": "choose",
+        "label": "Категория",
+        "defaultBinding": "1",
+        "indexed": true,
+        "source": "participant"
+      }
+    ],
     "signals": []
   },
-  "timing": { "profile": "strict", "criticalOnsets": true, "toleranceMs": 8 },
-  "blockLength": { "param": "blockLength", "unit": "count" },
+  "timing": {
+    "profile": "strict",
+    "criticalOnsets": true,
+    "toleranceMs": 8
+  },
+  "blockLength": {
+    "param": "blockLength",
+    "unit": "count"
+  },
   "levels": {
     "count": 8,
     "monotonicAxes": [
-      { "param": "ruleCount", "direction": "increases" },
-      { "param": "switchRate", "direction": "increases" },
-      { "param": "deadlineMs", "direction": "decreases" },
-      { "param": "cueLeadMs", "direction": "decreases" }
+      {
+        "param": "ruleCount",
+        "direction": "increases"
+      },
+      {
+        "param": "switchRate",
+        "direction": "increases"
+      },
+      {
+        "param": "deadlineMs",
+        "direction": "decreases"
+      },
+      {
+        "param": "cueLeadMs",
+        "direction": "decreases"
+      }
     ]
   },
+  "responseAlternatives": {
+    "count": 2,
+    "addressedBy": "keys"
+  },
   "resumable": true,
-  "training": { "available": true, "admissionCriterion": "10 верных подряд на одном правиле" },
+  "training": {
+    "available": true,
+    "admissionCriterion": "10 верных подряд на одном правиле",
+    "admission": {
+      "window": 10,
+      "minCorrect": 10,
+      "counts": "trial",
+      "maxAttempts": 3
+    },
+    "rule": {
+      "summary": "Правило написано над стимулом и время от времени меняется. Отвечать нужно по тому правилу, которое сейчас на экране.",
+      "example": "При правиле «чётность» на число 8 отвечают «чётное»; при правиле «величина» на то же число — «больше пяти».",
+      "mistake": "Обычная ошибка — ответить по прежнему правилу сразу после смены. После смены не спешите: первая проба всегда даётся труднее."
+    }
+  },
   "assets": [],
-  "locales": ["ru"]
+  "locales": [
+    "ru"
+  ]
 }

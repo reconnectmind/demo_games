@@ -1,6 +1,16 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+} from "@gamespace/core";
 import { DomSurface, el } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import {
   BACKGROUND_SLOT,
   INTERRUPT_SLOT,
@@ -10,14 +20,10 @@ import {
   type InterruptResumeView,
 } from "./core.js";
 
+const presets = asPresets(presetsJson);
+
 export function paramsForLevel(level: number): Params {
-  const params: InterruptResumeParams = {
-    interruptions: Math.min(6, level),
-    backgroundRunMs: Math.max(4000, 16000 - 1800 * level),
-    interruptionMs: Math.min(15000, 3000 + 1200 * level),
-    warningMs: Math.max(0, 1500 - 250 * level),
-  };
-  return params;
+  return presetParams(presets, level) as InterruptResumeParams;
 }
 
 class InterruptResumeWebView implements GameView<InterruptResumeView> {
@@ -54,6 +60,7 @@ class InterruptResumeWebView implements GameView<InterruptResumeView> {
 
 export const interruptResume: Microgame<InterruptResumeState, InterruptResumeView> = {
   manifest: asManifest(manifest),
+  presets,
   core: interruptResumeCore,
   paramsForLevel,
   createView: (ctx) => new InterruptResumeWebView(ctx),

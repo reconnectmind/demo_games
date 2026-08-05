@@ -93,6 +93,7 @@
         }
       }
     },
+    "responseAlternatives": { "$ref": "#/definitions/responseAlternatives" },
     "resumable": { "type": "boolean" },
     "training": {
       "type": "object",
@@ -100,7 +101,9 @@
       "required": ["available"],
       "properties": {
         "available": { "type": "boolean" },
-        "admissionCriterion": { "type": "string" }
+        "admissionCriterion": { "type": "string", "description": "Тот же критерий словами, для оператора и для отбивки" },
+        "admission": { "$ref": "#/definitions/admission" },
+        "rule": { "$ref": "#/definitions/rule" }
       }
     },
     "assets": {
@@ -153,6 +156,66 @@
       "properties": {
         "schemaVersion": { "type": "integer", "minimum": 1 },
         "schema": { "type": "object" }
+      }
+    },
+    "responseAlternatives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["addressedBy"],
+      "description": "Сколько вариантов ответа у модуля и чем они адресуются. Ёмкость ответа объявляет протокол, поэтому модуль обязан сказать, какая его ось этой ёмкостью ограничена",
+      "properties": {
+        "param": { "type": "string", "description": "Имя свойства из parametersSchema, задающего число вариантов" },
+        "count": { "type": "integer", "minimum": 1, "description": "Постоянное число вариантов, когда параметра для него нет" },
+        "addressedBy": {
+          "type": "string",
+          "enum": ["keys", "pointer"],
+          "description": "keys — вариант выбирается клавишей из объявленной ёмкости, pointer — указанием: ёмкость клавиш к таким вариантам не относится"
+        }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window", "minCorrect", "maxAttempts"],
+      "description": "Критерий допуска в проверяемом виде. Прозой он неисполним: нужно знать, что считается попыткой, сколько последних попыток берём и сколько из них должно быть верными",
+      "properties": {
+        "window": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Сколько последних зачётных исходов прогона берётся в окно"
+        },
+        "minCorrect": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Сколько из них должно быть верными. Проверяется по исходам, а не по сводке модуля"
+        },
+        "counts": {
+          "type": "string",
+          "enum": ["trial", "episode"],
+          "description": "Что считается попыткой: отдельная проба или эпизод механики — последовательность, блок, прерывание. Должно совпадать с зачётной единицей, которую модуль отдаёт исходом"
+        },
+        "minAccuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "При какой точности эпизод считается пройденным. Нужен там, где попытка — эпизод: у него нет «верно/неверно», есть доля"
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Сколько прогонов даётся на выполнение критерия. Дальше обучение идёт вперёд, а участок помечает задачу как непройденную: держать участника на одной задаче до победы нельзя"
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "example"],
+      "description": "Экран правила перед первым стимулом обучения. Раскладку ответов дописывает хост: клавиши принадлежат протоколу, а не модулю",
+      "properties": {
+        "summary": { "type": "string", "description": "Само правило, одной-двумя фразами" },
+        "example": { "type": "string", "description": "Пример стимула и правильного ответа" },
+        "mistake": { "type": "string", "description": "Типичная ошибка, которую стоит назвать заранее" }
       }
     },
     "monotonicAxis": {

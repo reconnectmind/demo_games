@@ -10,6 +10,17 @@ export interface SeriesState {
   elapsedMs: number;
   /** Сколько длится текущий прогон, мс; ноль, если между прогонами. */
   runElapsedMs: number;
+  /** Что из объявленного участком уже пройдено; пусто там, где покрытие не считается. */
+  coverage?: CoverageState[];
+}
+
+export interface CoverageState {
+  gameId: string;
+  attempts: number;
+  /** Критерий допуска выполнен хотя бы в одной попытке. */
+  passed: boolean;
+  /** Попытки исчерпаны: задача остаётся непройденной, но участок идёт дальше. */
+  exhausted: boolean;
 }
 
 export interface TerminationPolicy {
@@ -52,6 +63,23 @@ export function firstOf(...policies: TerminationPolicy[]): TerminationPolicy {
     id: `first-of:${policies.map((p) => p.id).join("+")}`,
     next: (s) => (policies.every((p) => p.next(s) === "run") ? "run" : "stop"),
     during: (s) => (policies.some((p) => p.during(s) === "finish") ? "finish" : "continue"),
+  };
+}
+
+/**
+ * Участок по покрытию: он кончается, когда каждая объявленная задача либо прошла
+ * критерий допуска, либо исчерпала попытки. Обучение задаётся именно так, а не
+ * временем ротации: задача предъявляется потому, что она в списке, а не потому,
+ * что до неё дошла очередь — иначе часть участников не увидит часть заданий, и
+ * это будет видно только из расчёта времени, а не из журнала.
+ */
+export function byCoverage(): TerminationPolicy {
+  const covered = (s: SeriesState): boolean =>
+    (s.coverage ?? []).every((c) => c.passed || c.exhausted);
+  return {
+    id: "by-coverage",
+    next: (s) => (covered(s) ? "stop" : "run"),
+    during: () => "continue",
   };
 }
 

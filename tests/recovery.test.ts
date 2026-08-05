@@ -59,14 +59,30 @@ describe("журнал и восстановление", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("порядок меток совпадает с порядком в журнале", () => {
-    const markers = new MarkerDispatcher(new NullMarkerSink());
+  it("порядок меток совпадает с порядком в журнале и с порядком отправок", () => {
+    const sink = new NullMarkerSink();
+    const markers = new MarkerDispatcher(sink);
     const run = headlessRun(protocolGames, "org.reconnect.stroop", { seed: 5, markers });
     run.instance.start();
     autoDrive(run, { seed: 2, maxSteps: 200 });
     const seqs = markers.records.map((r) => r.seq);
     expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
     expect(seqs.length).toBeGreaterThan(0);
+    // Проверять только свои записи недостаточно: разойтись могут именно они с
+    // фактическими отправками, а сверить это можно лишь по приёмнику.
+    expect(sink.published.map((r) => r.seq)).toEqual(seqs);
+    expect(markers.records.every((r) => r.sent)).toBe(true);
+  });
+
+  it("неудачная отправка попадает в запись, а не теряется", () => {
+    const markers = new MarkerDispatcher({
+      publish: () => ({ sent: false, error: "outlet closed" }),
+    });
+    const run = headlessRun(protocolGames, "org.reconnect.stroop", { seed: 5, markers });
+    run.instance.start();
+    expect(markers.records.length).toBeGreaterThan(0);
+    expect(markers.records.every((r) => !r.sent && r.error === "outlet closed")).toBe(true);
+    expect(markers.toCsv().split("\n")[1]).toMatch(/,0,,outlet closed$/);
   });
 
   it("входы после курсора снимка — ровно хвост журнала", () => {

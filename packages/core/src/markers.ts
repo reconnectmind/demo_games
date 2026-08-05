@@ -6,35 +6,52 @@ export interface MarkerRecord {
   label: string;
   tMs: number;
   wallMs: number;
+  /** Дошла ли метка до приёмника: без этого поля запись говорит только о намерении. */
+  sent: boolean;
+  /** Время приёмника, если он его вернул: в лаборатории это часы LSL. */
+  sinkTimeS: number | null;
+  /** Почему не ушла. */
+  error: string | null;
+}
+
+/** Что приёмник знает об отправке. Молчание считается успехом без своего времени. */
+export interface MarkerReceipt {
+  sent: boolean;
+  sinkTimeS?: number;
+  error?: string;
 }
 
 export interface MarkerSink {
   /** Публикация метки. В лаборатории — LSL outlet, в витрине — заглушка. */
-  publish(record: MarkerRecord): void;
+  publish(record: Omit<MarkerRecord, "sent" | "sinkTimeS" | "error">): MarkerReceipt | void;
 }
 
 export class NullMarkerSink implements MarkerSink {
   readonly published: MarkerRecord[] = [];
-  publish(record: MarkerRecord): void {
-    this.published.push(record);
+  publish(record: Omit<MarkerRecord, "sent" | "sinkTimeS" | "error">): MarkerReceipt {
+    this.published.push({ ...record, sent: true, sinkTimeS: null, error: null });
+    return { sent: true };
   }
 }
 
-/** Какие типы событий вообще становятся метками протокола. */
+/**
+ * Что становится меткой протокола: границы фаз расписания и границы задач внутри
+ * них. Стимулы, ответы, исходы проб и смены уровня в поток не идут — они
+ * остаются в журнале.
+ *
+ * Дело не только в пропускной способности Артиниса. Он вообще не различает
+ * значения меток: для него это таймстемпы, а расшифровка живёт отдельным файлом
+ * и сводится по порядку. Чем меньше метка несёт смысла, тем меньше в этом потоке
+ * смысла терять — поэтому в него идёт только то, по чему режут запись.
+ */
 export const DEFAULT_CODEBOOK: Record<string, number> = {
+  "section.start": 1,
+  "section.end": 2,
   "run.start": 10,
   "run.end": 11,
-  "phase.enter": 20,
-  "phase.leave": 21,
-  "block.start": 30,
-  "block.end": 31,
   "interruption.start": 40,
   "interruption.end": 41,
-  "resume": 42,
-  "stimulus.presented": 50,
-  "response": 51,
-  "trial.outcome": 52,
-  "difficulty.changed": 60,
+  resume: 42,
 };
 
 /**
@@ -52,19 +69,25 @@ export class MarkerDispatcher {
   consider(event: LoggedEvent): void {
     const code = this.codebook[event.type];
     if (code === undefined) return;
-    const record: MarkerRecord = {
-      seq: event.seq,
-      code,
-      label: event.type,
-      tMs: event.tMs,
-      wallMs: event.wallMs,
-    };
-    this.records.push(record);
-    this.sink.publish(record);
+    const head = { seq: event.seq, code, label: event.type, tMs: event.tMs, wallMs: event.wallMs };
+    const receipt = this.sink.publish(head) ?? { sent: true };
+    this.records.push({
+      ...head,
+      sent: receipt.sent,
+      sinkTimeS: receipt.sinkTimeS ?? null,
+      error: receipt.error ?? null,
+    });
   }
 
   toCsv(): string {
-    return ["seq,code,label,t_ms,wall_ms", ...this.records.map((r) => `${r.seq},${r.code},${r.label},${r.tMs.toFixed(3)},${r.wallMs.toFixed(0)}`)].join("\n");
+    return [
+      "seq,code,label,t_ms,wall_ms,sent,sink_time_s,error",
+      ...this.records.map(
+        (r) =>
+          `${r.seq},${r.code},${r.label},${r.tMs.toFixed(3)},${r.wallMs.toFixed(0)},${r.sent ? 1 : 0},` +
+          `${r.sinkTimeS === null ? "" : r.sinkTimeS.toFixed(6)},${r.error ?? ""}`,
+      ),
+    ].join("\n");
   }
 
   codebookCsv(): string {

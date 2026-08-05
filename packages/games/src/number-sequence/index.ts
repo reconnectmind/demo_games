@@ -1,6 +1,16 @@
-import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
-import { CellGrid, el } from "@gamespace/ui-web";
+import {
+  asManifest,
+  asPresets,
+  presetParams,
+  type GameContext,
+  type GameView,
+  type Microgame,
+  type Params,
+  type Surface,
+} from "@gamespace/core";
+import { CellGrid, FeedbackMark, debriefText, verdictOf } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
+import presetsJson from "./presets.json" with { type: "json" };
 import {
   numberSequenceCore,
   type NumberSequenceParams,
@@ -8,19 +18,15 @@ import {
   type NumberSequenceView,
 } from "./core.js";
 
+const presets = asPresets(presetsJson);
+
 export function paramsForLevel(level: number): Params {
-  const params: NumberSequenceParams = {
-    gridCells: Math.min(36, 9 + 3 * level),
-    sequenceLength: Math.min(25, 5 + 2 * level),
-    deadlineMs: Math.max(1500, 6000 - 450 * level),
-    reshuffleAfterEach: level >= 5,
-  };
-  return params;
+  return presetParams(presets, level) as NumberSequenceParams;
 }
 
 class NumberSequenceWebView implements GameView<NumberSequenceView> {
   private readonly grid: CellGrid;
-  private readonly feedback = el("div", { class: "gs-feedback" });
+  private readonly feedback = new FeedbackMark();
 
   constructor(private readonly ctx: GameContext) {
     this.grid = new CellGrid(ctx.input, "choose");
@@ -32,7 +38,7 @@ class NumberSequenceWebView implements GameView<NumberSequenceView> {
       "Нажимай числа по возрастанию: 1, 2, 3 и дальше по порядку. Клавиши подписаны на ячейках, остальные — мышью.",
       "Числа по порядку",
     );
-    surface.stage.replaceChildren(this.grid.root, this.feedback);
+    surface.stage.replaceChildren(this.grid.root, this.feedback.root);
   }
 
   render(view: NumberSequenceView): void {
@@ -41,9 +47,9 @@ class NumberSequenceWebView implements GameView<NumberSequenceView> {
       view.cells.map((cell) => ({ index: cell.index, label: cell.label, state: cell.state })),
     );
     this.ctx.input.setOptionCount(view.cells.length);
-    this.feedback.textContent =
-      view.feedback === "wrong" ? "не то число" : view.feedback === "timeout" ? "не успел" : "";
-    this.feedback.className = `gs-feedback${view.feedback && view.feedback !== "correct" ? ` is-${view.feedback}` : ""}`;
+    // Разбор ошибки — только в обучении: в зачёте он отнимал бы время у
+    // следующего стимула и менял бы саму задачу.
+    this.feedback.show(verdictOf(view.feedback), this.ctx.training ? debriefText(view.debrief) : "");
     this.ctx.surface.setStats(view.stats);
   }
 
@@ -54,6 +60,7 @@ class NumberSequenceWebView implements GameView<NumberSequenceView> {
 
 export const numberSequence: Microgame<NumberSequenceState, NumberSequenceView> = {
   manifest: asManifest(manifest),
+  presets,
   core: numberSequenceCore,
   paramsForLevel,
   createView: (ctx) => new NumberSequenceWebView(ctx),
@@ -66,3 +73,4 @@ export type {
   NumberSequenceParams,
   NumberSequenceCell,
 } from "./core.js";
+

@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://reconnect.org/gamespace/presets.schema.json",
+  "title": "Presets",
+  "description": "Таблица уровней модуля как данные: у каждой оси своя роль в нагрузке и одна или несколько именованных кривых. Оператор правит числа в файле, без пересборки.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "levels", "axes"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "description": "Уровни таблицы. min может быть нулём: обучение идёт ниже первого зачётного уровня",
+      "properties": {
+        "min": { "type": "integer", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "constants": {
+      "type": "object",
+      "description": "Параметры, не зависящие от уровня: они не оси и в рост сложности не участвуют",
+      "additionalProperties": { "type": ["number", "string", "boolean"] }
+    },
+    "axes": {
+      "type": "object",
+      "description": "Оси сложности по имени параметра из parametersSchema",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "curves"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["alternatives", "speed", "conflict", "depth", "duration"],
+            "description": "Чем ось нагружает: числом вариантов ответа, скоростью, долей конфликта или глубиной. duration — длина блока: она меняется по уровням, но сложностью не является, и рост уровня одной ею не оправдывается"
+          },
+          "curves": {
+            "type": "object",
+            "description": "Именованные кривые по уровням; base обязательна. Значение берётся по индексу level минус levels.min",
+            "required": ["base"],
+            "additionalProperties": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": ["number", "boolean"] }
+            }
+          }
+        }
+      }
+    },
+    "compensation": {
+      "type": "array",
+      "description": "Чем расти, когда протокол закрепил ось. Ничего не вычисляется на ходу: какая кривая берётся вместо базовой — записано здесь и правится руками",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["whenFrozen", "use"],
+        "properties": {
+          "whenFrozen": { "type": "string", "description": "Имя закреплённой протоколом оси" },
+          "use": {
+            "type": "object",
+            "description": "Ось → имя кривой, которая берётся вместо base",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

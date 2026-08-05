@@ -7,16 +7,17 @@ import {
   type Params,
   type ReduceResult,
   type RngState,
+  type TrialDebrief,
 } from "@gamespace/core";
 
-export const COLORS: Array<{ name: string; hex: string }> = [
-  { name: "красный", hex: "#f85149" },
-  { name: "синий", hex: "#5b9dff" },
-  { name: "зелёный", hex: "#3fb950" },
-  { name: "жёлтый", hex: "#d29922" },
-  { name: "фиолетовый", hex: "#a371f7" },
-  { name: "голубой", hex: "#56d4dd" },
-];
+/**
+ * Цвета задачи — имена, а не пиксели. Ядро решает, каким цветом написано слово и
+ * какой цвет верен; каким именно пикселем этот цвет показать, решает тема, иначе
+ * вторая тема до стимула не дотянулась бы, а ядро знало бы про экран.
+ */
+export const COLORS = ["красный", "синий", "зелёный", "жёлтый", "фиолетовый", "голубой"] as const;
+
+export type ColorName = (typeof COLORS)[number];
 
 export interface StroopParams extends Params {
   colorCount: number;
@@ -47,13 +48,17 @@ export interface StroopState {
   params: StroopParams | null;
   running: boolean;
   lastFeedback: "correct" | "wrong" | "timeout" | null;
+  lastDebrief: TrialDebrief | null;
 }
 
 export interface StroopView {
   word: string;
-  inkHex: string;
+  /** Имя цвета чернил: пиксель под это имя подбирает представление. */
+  ink: ColorName | null;
   options: string[];
   feedback: "correct" | "wrong" | "timeout" | null;
+  /** Разбор последней пробы: показывается только в обучении. */
+  debrief: TrialDebrief | null;
   stats: Array<[string, string | number]>;
   running: boolean;
 }
@@ -66,10 +71,11 @@ function view(state: StroopState): StroopView {
   const optionCount = params?.colorCount ?? 3;
   const pending = state.pending;
   return {
-    word: pending ? (COLORS[pending.wordIndex]?.name.toUpperCase() ?? "") : state.running ? "" : "—",
-    inkHex: pending ? (COLORS[pending.inkIndex]?.hex ?? "#fff") : "#8b949e",
-    options: COLORS.slice(0, optionCount).map((c) => c.name),
+    word: pending ? (COLORS[pending.wordIndex]?.toUpperCase() ?? "") : state.running ? "" : "—",
+    ink: pending ? (COLORS[pending.inkIndex] ?? null) : null,
+    options: COLORS.slice(0, optionCount).map((name) => name),
     feedback: state.lastFeedback,
+    debrief: state.lastDebrief,
     stats: [
       ["Проб", state.trial],
       ["Верно", state.correct],
@@ -107,6 +113,7 @@ export const stroopCore: GameCore<StroopState> = {
     params: (config.initialParams as StroopParams) ?? null,
     running: false,
     lastFeedback: null,
+    lastDebrief: null,
   }),
 
   reduce(state, input): ReduceResult<StroopState> {
@@ -181,7 +188,7 @@ function presentTrial(state: StroopState, input: CoreInput): ReduceResult<Stroop
     onsetMs: input.tMs,
     optionCount: params.colorCount,
   };
-  const next: StroopState = { ...state, rng, pending, lastFeedback: null, trial: state.trial + 1 };
+  const next: StroopState = { ...state, rng, pending, lastFeedback: null, lastDebrief: null, trial: state.trial + 1 };
   return {
     state: next,
     effects: [
@@ -191,8 +198,8 @@ function presentTrial(state: StroopState, input: CoreInput): ReduceResult<Stroop
         event: {
           type: "stimulus.presented",
           trial: next.trial,
-          ink: COLORS[inkIndex]?.name ?? "",
-          word: COLORS[wordIndex]?.name ?? "",
+          ink: COLORS[inkIndex] ?? "",
+          word: COLORS[wordIndex] ?? "",
           congruent: pending.congruent,
           plannedOnsetMs: input.tMs,
         },
@@ -222,6 +229,10 @@ function score(
     incongruentRtSum: state.incongruentRtSum + (!pending.congruent && rtMs !== null ? rtMs : 0),
     incongruentCount: state.incongruentCount + (!pending.congruent && rtMs !== null ? 1 : 0),
     lastFeedback: rtMs === null ? "timeout" : correct ? "correct" : "wrong",
+    // Разбор в терминах задачи: требовался цвет чернил, пришёл выбранный цвет.
+    lastDebrief: correct
+      ? null
+      : { expected: COLORS[pending.inkIndex] ?? null, got: chosen === null ? null : COLORS[chosen] ?? null },
   };
   const done = next.trial >= params.blockLength;
   return {

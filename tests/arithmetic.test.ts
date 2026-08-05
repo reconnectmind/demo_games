@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { headlessRun, Manual, type HeadlessRun } from "@gamespace/core";
-import { arithmetic } from "../packages/games/src/arithmetic/index.js";
+import { arithmetic, paramsForLevel } from "../packages/games/src/arithmetic/index.js";
 import type { ArithmeticState, ArithmeticView } from "../packages/games/src/arithmetic/index.js";
 import { describeContract } from "./contract-suite.js";
 
@@ -36,7 +36,10 @@ describe("арифметический спринт", () => {
 
   it("варианты содержат ответ ровно один раз и не повторяются", () => {
     const run = startRun();
-    const distance = 6;
+    // Число вариантов — ось из таблицы уровней, а не константа: закрепить её
+    // вправе протокол, и тест не должен знать за него.
+    const expected = paramsForLevel(1).optionCount as number;
+    const distance = paramsForLevel(1).distractorDistance as number;
     let checked = 0;
     for (let step = 0; step < 20; step++) {
       const pending = core(run).pending;
@@ -44,8 +47,8 @@ describe("арифметический спринт", () => {
         run.clock.advance(150);
         continue;
       }
-      expect(pending.options).toHaveLength(4);
-      expect(new Set(pending.options).size).toBe(4);
+      expect(pending.options).toHaveLength(expected);
+      expect(new Set(pending.options).size).toBe(expected);
       expect(pending.options.filter((v) => v === pending.answer)).toHaveLength(1);
       for (const option of pending.options) {
         if (option === pending.answer) continue;

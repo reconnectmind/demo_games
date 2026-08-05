@@ -2,22 +2,56 @@
   "id": "org.reconnect.number-sequence",
   "version": "1.0.0",
   "schemaVersion": 1,
-  "title": { "ru": "Числа по порядку", "en": "Numbers in order" },
-  "domains": ["visual-search", "working-memory", "resumption"],
+  "title": {
+    "ru": "Числа по порядку",
+    "en": "Numbers in order"
+  },
+  "domains": [
+    "visual-search",
+    "working-memory",
+    "resumption"
+  ],
   "runtimeApi": ">=1.0 <2",
-  "requiredCapabilities": ["pointer"],
-  "optionalCapabilities": ["keyboard"],
+  "requiredCapabilities": [
+    "pointer"
+  ],
+  "optionalCapabilities": [
+    "keyboard"
+  ],
   "parametersSchema": {
     "schemaVersion": 1,
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["gridCells", "sequenceLength", "deadlineMs", "reshuffleAfterEach"],
+      "required": [
+        "gridCells",
+        "sequenceLength",
+        "deadlineMs",
+        "reshuffleAfterEach"
+      ],
       "properties": {
-        "gridCells": { "type": "integer", "minimum": 9, "maximum": 36, "title": "Ячеек в поле" },
-        "sequenceLength": { "type": "integer", "minimum": 5, "maximum": 25, "title": "Длина последовательности" },
-        "deadlineMs": { "type": "integer", "minimum": 1200, "maximum": 8000, "title": "Окно на нажатие" },
-        "reshuffleAfterEach": { "type": "boolean", "title": "Переставлять после каждого верного" }
+        "gridCells": {
+          "type": "integer",
+          "minimum": 9,
+          "maximum": 36,
+          "title": "Ячеек в поле"
+        },
+        "sequenceLength": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 25,
+          "title": "Длина последовательности"
+        },
+        "deadlineMs": {
+          "type": "integer",
+          "minimum": 1200,
+          "maximum": 8000,
+          "title": "Окно на нажатие"
+        },
+        "reshuffleAfterEach": {
+          "type": "boolean",
+          "title": "Переставлять после каждого верного"
+        }
       }
     }
   },
@@ -26,7 +60,14 @@
     "schema": {
       "type": "object",
       "properties": {
-        "type": { "enum": ["stimulus.presented", "response", "block.start", "block.end"] }
+        "type": {
+          "enum": [
+            "stimulus.presented",
+            "response",
+            "block.start",
+            "block.end"
+          ]
+        }
       }
     }
   },
@@ -34,12 +75,25 @@
     "schemaVersion": 1,
     "schema": {
       "type": "object",
-      "required": ["sequences", "presses", "errors", "meanPressRtMs"],
+      "required": [
+        "sequences",
+        "presses",
+        "errors",
+        "meanPressRtMs"
+      ],
       "properties": {
-        "sequences": { "type": "integer" },
-        "presses": { "type": "integer" },
-        "errors": { "type": "integer" },
-        "meanPressRtMs": { "type": "number" }
+        "sequences": {
+          "type": "integer"
+        },
+        "presses": {
+          "type": "integer"
+        },
+        "errors": {
+          "type": "integer"
+        },
+        "meanPressRtMs": {
+          "type": "number"
+        }
       }
     }
   },
@@ -57,17 +111,51 @@
     ],
     "signals": []
   },
-  "timing": { "profile": "standard", "criticalOnsets": false, "toleranceMs": 16 },
+  "timing": {
+    "profile": "standard",
+    "criticalOnsets": false,
+    "toleranceMs": 16
+  },
   "levels": {
     "count": 8,
     "monotonicAxes": [
-      { "param": "gridCells", "direction": "increases" },
-      { "param": "sequenceLength", "direction": "increases" },
-      { "param": "deadlineMs", "direction": "decreases" }
+      {
+        "param": "gridCells",
+        "direction": "increases"
+      },
+      {
+        "param": "sequenceLength",
+        "direction": "increases"
+      },
+      {
+        "param": "deadlineMs",
+        "direction": "decreases"
+      }
     ]
   },
+  "responseAlternatives": {
+    "param": "gridCells",
+    "addressedBy": "pointer"
+  },
   "resumable": true,
-  "training": { "available": true, "admissionCriterion": "одна последовательность без пропусков по дедлайну" },
+  "training": {
+    "available": true,
+    "admissionCriterion": "одна последовательность без пропусков по дедлайну",
+    "admission": {
+      "window": 3,
+      "minCorrect": 2,
+      "counts": "episode",
+      "minAccuracy": 0.8,
+      "maxAttempts": 3
+    },
+    "rule": {
+      "summary": "На поле разбросаны числа. Находите и нажимайте их по порядку, начиная с наименьшего.",
+      "example": "Если на поле 1, 2, 3, начать нужно с 1, затем 2, затем 3.",
+      "mistake": "Это единственная задача, где отвечают мышью: клавиши здесь не понадобятся."
+    }
+  },
   "assets": [],
-  "locales": ["ru"]
+  "locales": [
+    "ru"
+  ]
 }

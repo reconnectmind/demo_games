@@ -7,6 +7,7 @@ import {
   type Params,
   type ReduceResult,
   type RngState,
+  type TrialDebrief,
 } from "@gamespace/core";
 
 export interface NumberSequenceParams extends Params {
@@ -54,6 +55,8 @@ export interface NumberSequenceView {
   cells: NumberSequenceCell[];
   options: string[];
   feedback: "correct" | "wrong" | "timeout" | null;
+  /** Разбор последней пробы: показывается только в обучении. */
+  debrief: TrialDebrief | null;
   stats: Array<[string, string | number]>;
   running: boolean;
 }
@@ -94,6 +97,15 @@ function view(state: NumberSequenceState): NumberSequenceView {
     cells,
     options: cells.map((cell) => cell.label),
     feedback: state.lastFeedback,
+    // Ожидание известно ядру и после ошибки не двигается: разбор называет само
+    // число, которое требовалось, а не «не то число».
+    debrief:
+      state.lastFeedback === "wrong" || state.lastFeedback === "timeout"
+        ? {
+            expected: String(state.expected),
+            got: state.lastFeedback === "timeout" ? null : String(state.layout[state.lastCell] ?? ""),
+          }
+        : null,
     stats: [
       ["Последовательность", `${Math.min(state.sequencesDone + 1, SEQUENCES_PER_RUN)} из ${SEQUENCES_PER_RUN}`],
       ["Ошибок", state.errors],

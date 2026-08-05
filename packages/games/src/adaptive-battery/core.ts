@@ -16,6 +16,11 @@ export interface AdaptiveBatteryParams extends Params {
   blocks: number;
   restMs: number;
   poolSize: number;
+  /**
+   * Через сколько батарея сама закрывает блок задачи. Ноль — как прежде: темп
+   * задаёт ребёнок своей длиной блока, и регулировать частоту смен нечем.
+   */
+  switchEveryMs: number;
 }
 
 export interface AdaptiveBatteryState {
@@ -39,6 +44,7 @@ export interface AdaptiveBatteryView {
 }
 
 const REST = "battery.rest";
+const SWITCH = "battery.switch";
 
 function refFor(id: string) {
   const found = POOL.find((c) => c.id === id);
@@ -126,6 +132,9 @@ export const adaptiveBatteryCore: GameCore<AdaptiveBatteryState> = {
           return {
             state: next,
             effects: [
+              // Ребёнок мог закончить сам, раньше шага смены: таймер снимается,
+              // иначе он закрыл бы уже следующую задачу.
+              { kind: "cancel", timerId: SWITCH },
               { kind: "emit", event: { type: "block.end", task, index: state.index + 1 } },
               { kind: "child", command: { op: "unmount", slot: TASK_SLOT } },
               { kind: "emit", event: { type: "rest.start", restMs: params.restMs } },
@@ -138,6 +147,18 @@ export const adaptiveBatteryCore: GameCore<AdaptiveBatteryState> = {
       }
 
       case "deadline": {
+        if (input.timerId === SWITCH) {
+          // Смена по расписанию батареи: ребёнок закрывается своей же командой
+          // протокола, поэтому блок в данных остаётся закрытым, а не оборванным.
+          if (state.resting || !state.running) return { state, effects: [] };
+          return {
+            state,
+            effects: [
+              { kind: "emit", event: { type: "switch.forced", task: state.order[state.index] ?? "unknown" } },
+              { kind: "child", command: { op: "finish", slot: TASK_SLOT } },
+            ],
+          };
+        }
         if (input.timerId !== REST) return { state, effects: [] };
         const next: AdaptiveBatteryState = { ...state, resting: false };
         return { state: next, effects: [...startBlock(next), { kind: "render", view: view(next) as never }] };
@@ -155,10 +176,14 @@ export const adaptiveBatteryCore: GameCore<AdaptiveBatteryState> = {
 function startBlock(state: AdaptiveBatteryState): ReduceResult<AdaptiveBatteryState>["effects"] {
   const task = state.order[state.index];
   if (!task) return [];
+  const switchEveryMs = state.params?.switchEveryMs ?? 0;
   return [
     { kind: "emit", event: { type: "block.start", task, index: state.index + 1 } },
     { kind: "child", command: { op: "mount", slot: TASK_SLOT, ref: refFor(task) } },
     { kind: "child", command: { op: "start", slot: TASK_SLOT } },
+    ...(switchEveryMs > 0
+      ? [{ kind: "schedule", timerId: SWITCH, afterMs: switchEveryMs } as const]
+      : []),
   ];
 }
 
@@ -169,6 +194,7 @@ function finish(state: AdaptiveBatteryState): ReduceResult<AdaptiveBatteryState>
     state: next,
     effects: [
       { kind: "cancel", timerId: REST },
+      { kind: "cancel", timerId: SWITCH },
       { kind: "child", command: { op: "unmount", slot: TASK_SLOT } },
       {
         kind: "outcome",

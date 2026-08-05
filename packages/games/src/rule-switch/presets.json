@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "min": 0,
+    "max": 8
+  },
+  "constants": {
+    "blockLength": 24
+  },
+  "axes": {
+    "ruleCount": {
+      "role": "depth",
+      "curves": {
+        "base": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          3
+        ]
+      }
+    },
+    "switchRate": {
+      "role": "conflict",
+      "curves": {
+        "base": [
+          0.4,
+          0.45,
+          0.5,
+          0.55,
+          0.6,
+          0.65,
+          0.7,
+          0.75,
+          0.8
+        ]
+      }
+    },
+    "deadlineMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          2600,
+          2430,
+          2260,
+          2090,
+          1920,
+          1750,
+          1580,
+          1410,
+          1240
+        ]
+      }
+    },
+    "cueLeadMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          800,
+          730,
+          660,
+          590,
+          520,
+          450,
+          380,
+          310,
+          240
+        ]
+      }
+    }
+  }
+}

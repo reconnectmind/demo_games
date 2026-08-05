@@ -2,23 +2,62 @@
   "id": "org.reconnect.n-back",
   "version": "1.0.0",
   "schemaVersion": 1,
-  "title": { "ru": "N-back", "en": "N-back" },
-  "domains": ["working-memory", "updating"],
+  "title": {
+    "ru": "N-back",
+    "en": "N-back"
+  },
+  "domains": [
+    "working-memory",
+    "updating"
+  ],
   "runtimeApi": ">=1.0 <2",
-  "requiredCapabilities": ["keyboard"],
+  "requiredCapabilities": [
+    "keyboard"
+  ],
   "optionalCapabilities": [],
   "parametersSchema": {
     "schemaVersion": 1,
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["n", "stimulusMs", "isiMs", "targetRate", "blockLength"],
+      "required": [
+        "n",
+        "stimulusMs",
+        "isiMs",
+        "targetRate",
+        "blockLength"
+      ],
       "properties": {
-        "n": { "type": "integer", "minimum": 1, "maximum": 4, "title": "Глубина N" },
-        "stimulusMs": { "type": "integer", "minimum": 500, "maximum": 1600, "title": "Время показа буквы" },
-        "isiMs": { "type": "integer", "minimum": 200, "maximum": 600, "title": "Пауза между буквами" },
-        "targetRate": { "type": "number", "minimum": 0.15, "maximum": 0.4, "title": "Доля совпадений" },
-        "blockLength": { "type": "integer", "minimum": 10, "maximum": 40, "title": "Длина блока" }
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "title": "Глубина N"
+        },
+        "stimulusMs": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 1600,
+          "title": "Время показа буквы"
+        },
+        "isiMs": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 600,
+          "title": "Пауза между буквами"
+        },
+        "targetRate": {
+          "type": "number",
+          "minimum": 0.15,
+          "maximum": 0.4,
+          "title": "Доля совпадений"
+        },
+        "blockLength": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 40,
+          "title": "Длина блока"
+        }
       }
     }
   },
@@ -27,7 +66,15 @@
     "schema": {
       "type": "object",
       "properties": {
-        "type": { "enum": ["stimulus.presented", "response", "trial.end", "block.start", "block.end"] }
+        "type": {
+          "enum": [
+            "stimulus.presented",
+            "response",
+            "trial.end",
+            "block.start",
+            "block.end"
+          ]
+        }
       }
     }
   },
@@ -35,35 +82,102 @@
     "schemaVersion": 1,
     "schema": {
       "type": "object",
-      "required": ["trials", "targets", "hits", "falseAlarms", "misses", "dPrimeApprox"],
+      "required": [
+        "trials",
+        "targets",
+        "hits",
+        "falseAlarms",
+        "misses",
+        "dPrimeApprox"
+      ],
       "properties": {
-        "trials": { "type": "integer" },
-        "targets": { "type": "integer" },
-        "hits": { "type": "integer" },
-        "falseAlarms": { "type": "integer" },
-        "misses": { "type": "integer" },
-        "dPrimeApprox": { "type": "number" }
+        "trials": {
+          "type": "integer"
+        },
+        "targets": {
+          "type": "integer"
+        },
+        "hits": {
+          "type": "integer"
+        },
+        "falseAlarms": {
+          "type": "integer"
+        },
+        "misses": {
+          "type": "integer"
+        },
+        "dPrimeApprox": {
+          "type": "number"
+        }
       }
     }
   },
   "interaction": {
     "schemaVersion": 1,
-    "actions": [{ "id": "match", "label": "Совпадение", "defaultBinding": "Space", "indexed": false, "source": "participant" }],
+    "actions": [
+      {
+        "id": "match",
+        "label": "Совпадение",
+        "defaultBinding": "Space",
+        "indexed": false,
+        "source": "participant"
+      }
+    ],
     "signals": []
   },
-  "timing": { "profile": "strict", "criticalOnsets": true, "toleranceMs": 8 },
-  "blockLength": { "param": "blockLength", "unit": "count" },
+  "timing": {
+    "profile": "strict",
+    "criticalOnsets": true,
+    "toleranceMs": 8
+  },
+  "blockLength": {
+    "param": "blockLength",
+    "unit": "count"
+  },
   "levels": {
     "count": 8,
     "monotonicAxes": [
-      { "param": "n", "direction": "increases" },
-      { "param": "stimulusMs", "direction": "decreases" },
-      { "param": "isiMs", "direction": "decreases" },
-      { "param": "blockLength", "direction": "increases" }
+      {
+        "param": "n",
+        "direction": "increases"
+      },
+      {
+        "param": "stimulusMs",
+        "direction": "decreases"
+      },
+      {
+        "param": "isiMs",
+        "direction": "decreases"
+      },
+      {
+        "param": "blockLength",
+        "direction": "increases"
+      }
     ]
   },
+  "responseAlternatives": {
+    "count": 1,
+    "addressedBy": "keys"
+  },
   "resumable": true,
-  "training": { "available": true, "admissionCriterion": "80% верных решений блока при N = 1" },
+  "training": {
+    "available": true,
+    "admissionCriterion": "80% верных решений блока при N = 1",
+    "admission": {
+      "window": 1,
+      "minCorrect": 1,
+      "counts": "episode",
+      "minAccuracy": 0.8,
+      "maxAttempts": 3
+    },
+    "rule": {
+      "summary": "Буквы идут по одной. Отвечать нужно только тогда, когда буква совпала с той, что была N шагов назад. Значение N написано на кнопке.",
+      "example": "При N = 1 в цепочке «К — К» на вторую букву нужно ответить, на первую — нет.",
+      "mistake": "Отвечать нужно не на каждую букву, а только на совпадение: молчание — тоже ответ."
+    }
+  },
   "assets": [],
-  "locales": ["ru"]
+  "locales": [
+    "ru"
+  ]
 }

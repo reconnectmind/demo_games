@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "min": 0,
+    "max": 1
+  },
+  "constants": {
+    "durationMs": 600000,
+    "showTimer": false,
+    "text": "Сидите спокойно, смотрите в центр экрана. Ничего делать не нужно."
+  },
+  "axes": {}
+}

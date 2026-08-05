@@ -1,7 +1,7 @@
-import { CascadedShadowGenerator } from "@babylonjs/core/Lights/Shadows/cascadedShadowGenerator.js";
-import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
-import type { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
-import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
+import { CascadedShadowGenerator } from "@babylonjs/core/Lights/Shadows/cascadedShadowGenerator";
+import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+import type { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 /**
  * Тени от солнца.

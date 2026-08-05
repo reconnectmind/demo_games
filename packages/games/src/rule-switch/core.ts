@@ -8,6 +8,7 @@ import {
   type Params,
   type ReduceResult,
   type RngState,
+  type TrialDebrief,
 } from "@gamespace/core";
 
 export type Rule = "parity" | "magnitude" | "prime";
@@ -53,6 +54,7 @@ export interface RuleSwitchState {
   params: RuleSwitchParams | null;
   running: boolean;
   lastFeedback: "correct" | "wrong" | "timeout" | null;
+  lastDebrief: TrialDebrief | null;
 }
 
 export interface RuleSwitchView {
@@ -61,6 +63,8 @@ export interface RuleSwitchView {
   options: string[];
   switched: boolean;
   feedback: "correct" | "wrong" | "timeout" | null;
+  /** Разбор последней пробы: показывается только в обучении. */
+  debrief: TrialDebrief | null;
   running: boolean;
   stats: Array<[string, string | number]>;
 }
@@ -84,6 +88,7 @@ function view(state: RuleSwitchState): RuleSwitchView {
     options: rule ? [...RULES[rule].options] : [],
     switched: active?.switched ?? false,
     feedback: state.lastFeedback,
+    debrief: state.lastDebrief,
     running: state.running,
     stats: [
       ["Проб", state.trial],
@@ -123,6 +128,7 @@ export const ruleSwitchCore: GameCore<RuleSwitchState> = {
     params: (config.initialParams as RuleSwitchParams) ?? null,
     running: false,
     lastFeedback: null,
+    lastDebrief: null,
   }),
 
   reduce(state, input): ReduceResult<RuleSwitchState> {
@@ -196,7 +202,7 @@ function presentCue(state: RuleSwitchState, input: CoreInput): ReduceResult<Rule
   }
 
   const cued: Pending = { rule, number: value, correctIndex: classify(rule, value), switched, onsetMs: 0 };
-  const next: RuleSwitchState = { ...state, rng, cued, pending: null, lastFeedback: null };
+  const next: RuleSwitchState = { ...state, rng, cued, pending: null, lastFeedback: null, lastDebrief: null };
   return {
     state: next,
     effects: [
@@ -260,6 +266,14 @@ function score(
     repeatRtSum: state.repeatRtSum + (counted && !pending.switched ? rtMs : 0),
     repeatRtCount: state.repeatRtCount + (counted && !pending.switched ? 1 : 0),
     lastFeedback: rtMs === null ? "timeout" : correct ? "correct" : "wrong",
+    // Разбор называет категорию правила, а не номер варианта: ошибка здесь почти
+    // всегда в том, что ответ дан по прежнему правилу.
+    lastDebrief: correct
+      ? null
+      : {
+          expected: RULES[pending.rule].options[pending.correctIndex] ?? null,
+          got: chosen === null ? null : RULES[pending.rule].options[chosen] ?? null,
+        },
   };
   return {
     state: next,

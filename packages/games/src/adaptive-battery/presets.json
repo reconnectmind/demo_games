@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "min": 0,
+    "max": 8
+  },
+  "axes": {
+    "blocks": {
+      "role": "duration",
+      "curves": {
+        "base": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ]
+      }
+    },
+    "restMs": {
+      "role": "speed",
+      "curves": {
+        "base": [
+          4000,
+          3550,
+          3100,
+          2650,
+          2200,
+          1750,
+          1300,
+          850,
+          500
+        ]
+      }
+    },
+    "poolSize": {
+      "role": "depth",
+      "curves": {
+        "base": [
+          2,
+          2,
+          2,
+          3,
+          3,
+          4,
+          4,
+          5,
+          5
+        ]
+      }
+    },
+    "switchEveryMs": {
+      "role": "duration",
+      "curves": {
+        "base": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  }
+}

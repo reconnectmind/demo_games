@@ -12,6 +12,7 @@ import {
   type GameContext,
   type GameInstance,
   type GameView,
+  type InputProfile,
   type Json,
   type Microgame,
   type Outcome,
@@ -31,6 +32,7 @@ import {
   type DifficultyPolicy,
 } from "./difficulty.js";
 import { InputController, type SignalSource } from "./input.js";
+import { freeAxes, presetParams } from "./presets.js";
 import { MarkerDispatcher, NullMarkerSink } from "./markers.js";
 import { GameRegistry } from "./registry.js";
 import { preflight, preflightChildren, type ValidationReport } from "./validation.js";
@@ -62,12 +64,20 @@ export interface MountOptions {
   policy?: DifficultyPolicy;
   overrides?: Params;
   training?: boolean;
+  /**
+   * Закрепления для дочерних задач по идентификатору модуля. Протокол объявляет
+   * «цветов строго три» про `stroop`, а запускается при этом батарея: без этого
+   * пути закрепление до самой задачи не доходит.
+   */
+  childOverrides?: Record<string, Params>;
   locale?: string;
   requireResumable?: boolean;
   /** Запуск без представления: повтор журнала, soak-тесты, проверка ядра. */
   headless?: boolean;
   /** Место запуска в расписании: проставляет раннер участка, игра о нём не знает. */
   section?: { id: string; runIndex: number };
+  /** Чем отвечает участник: объявлено протоколом, наследуется дочерними задачами. */
+  input?: InputProfile;
   signalSource?: SignalSource;
   device?: DeviceHandle;
   onPhase?(phase: Phase): void;
@@ -85,6 +95,8 @@ export interface RuntimeOptions {
   /** Счётчик событий сессии; по умолчанию свой у каждого runtime. */
   seq?: SeqCounter;
   markers?: MarkerDispatcher;
+  /** Профиль ввода хоста: протокол задаёт его на всю сессию. */
+  input?: InputProfile;
   /** Абсолютное время t0: связывает журнал с записью Artinis. */
   t0WallMs?: number;
   wallNow?(): number;
@@ -161,10 +173,19 @@ export class GameInstanceImpl implements GameInstance {
       });
 
     const policy = opts.policy ?? new AdaptiveStaircase({ max: game.manifest.levels.count });
+    // Что протокол закрепил, то политике расти не даёт: рост уходит на свободные
+    // оси по кривым из таблицы компенсаций, а не пропадает молча.
+    const frozen = game.presets
+      ? Object.keys(opts.overrides ?? {}).filter((axis) => game.presets!.axes[axis])
+      : [];
+    const free = game.presets ? freeAxes(game.presets, frozen) : [];
     this.difficulty = new DifficultyController({
       policy,
-      paramsForLevel: (level) => game.paramsForLevel(level),
+      paramsForLevel: (level) =>
+        game.presets ? presetParams(game.presets, level, frozen) : game.paramsForLevel(level),
       overrides: opts.overrides,
+      frozen,
+      free,
       training: opts.training,
       onOutcome: (outcome, before, after) => {
         // Канонический исход пишет runtime: игра утверждает факт один раз.
@@ -172,7 +193,9 @@ export class GameInstanceImpl implements GameInstance {
         this.opts.onOutcome?.(outcome);
       },
       onChanged: (level, params) => {
-        this.emitRuntime("difficulty.changed", { level, params } as unknown as Json);
+        // Степени свободы идут рядом с уровнем: без них запись «уровень вырос»
+        // не отличить от записи «уровень вырос, а расти было нечем».
+        this.emitRuntime("difficulty.changed", { level, params, frozen, free } as unknown as Json);
         this.opts.onDifficultyChanged?.(level, params);
       },
     });
@@ -184,6 +207,10 @@ export class GameInstanceImpl implements GameInstance {
       signals: game.manifest.interaction.signals,
       now: () => this.clock.now(),
       signalSource: opts.signalSource,
+      // Ёмкость ответа приходит из протокола, а какая ось ею ограничена — из
+      // манифеста: модуль не знает, на каком стенде его запустили.
+      profile: opts.input ?? runtime.options.input,
+      ...(game.manifest.responseAlternatives ? { alternatives: game.manifest.responseAlternatives } : {}),
       onAction: (e: ActionEvent) => {
         if (this._phase !== "main" && this._phase !== "intro") return;
         this.apply({ kind: "action", actionId: e.actionId, payload: e.payload });
@@ -207,6 +234,7 @@ export class GameInstanceImpl implements GameInstance {
       children: childHost,
       device: opts.device,
       locale: opts.locale ?? "ru",
+      training: Boolean(opts.training),
     };
 
     const config: RunConfig = {
@@ -439,6 +467,12 @@ export class GameInstanceImpl implements GameInstance {
         this.apply({ kind: "child", slot: command.slot, event: { type: "started" } });
         break;
       }
+      case "finish": {
+        // Ребёнок закрывается своей же командой протокола: сводка и `block.end`
+        // остаются на месте, а оркестратор узнаёт об этом обычным `completed`.
+        this.childInstances.get(command.slot)?.protocol({ type: "finish" });
+        break;
+      }
       case "unmount": {
         this.childInstances.get(command.slot)?.stop();
         this.childInstances.delete(command.slot);
@@ -452,9 +486,10 @@ export class GameInstanceImpl implements GameInstance {
     const surface = this.slotSurfaces.get(slot) ?? (this.opts.headless ? nullSurface() : undefined);
     if (!surface) throw new Error(`Слот ${slot} не зарегистрирован представлением оркестратора`);
     const game = this.runtime.registry.resolve(ref);
+    const overrides = this.opts.childOverrides?.[ref.id];
     const report = preflight({
       manifest: game.manifest,
-      params: game.paramsForLevel(1),
+      params: { ...game.paramsForLevel(1), ...(overrides ?? {}) },
       capabilities: this.runtime.capabilities,
     });
     if (!report.ok) throw new PreflightError(report);
@@ -475,10 +510,13 @@ export class GameInstanceImpl implements GameInstance {
         runId: this.runId,
         seed: (this.opts.seed ?? 1) + slot.length * 7919,
         policy,
+        ...(overrides ? { overrides } : {}),
+        ...(this.opts.childOverrides ? { childOverrides: this.opts.childOverrides } : {}),
         training: this.opts.training,
         locale: this.ctx.locale,
         signalSource: this.opts.signalSource,
         headless: this.opts.headless,
+        ...(this.opts.input ? { input: this.opts.input } : {}),
       },
       this.log,
       slot,

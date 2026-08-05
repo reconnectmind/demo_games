@@ -7,6 +7,7 @@ import {
   type Params,
   type ReduceResult,
   type RngState,
+  type TrialDebrief,
 } from "@gamespace/core";
 
 export type ResponseMode = "selection" | "text-entry";
@@ -41,6 +42,7 @@ export interface ArithmeticState {
   rtSum: number;
   rtCount: number;
   lastFeedback: "correct" | "wrong" | null;
+  lastDebrief: TrialDebrief | null;
 }
 
 export interface ArithmeticView {
@@ -48,6 +50,8 @@ export interface ArithmeticView {
   options: string[];
   responseMode: ResponseMode;
   feedback: "correct" | "wrong" | null;
+  /** Разбор последней пробы: показывается только в обучении. */
+  debrief: TrialDebrief | null;
   stats: Array<[string, string | number]>;
   running: boolean;
 }
@@ -105,6 +109,7 @@ function view(state: ArithmeticState): ArithmeticView {
     options: pending ? pending.options.map((v) => String(v)) : [],
     responseMode: mode,
     feedback: state.lastFeedback,
+    debrief: state.lastDebrief,
     stats: [
       ["Проб", state.trials],
       ["Верно", state.correct],
@@ -148,6 +153,7 @@ export const arithmeticCore: GameCore<ArithmeticState> = {
     rtSum: 0,
     rtCount: 0,
     lastFeedback: null,
+    lastDebrief: null,
   }),
 
   reduce(state, input): ReduceResult<ArithmeticState> {
@@ -233,6 +239,7 @@ function present(state: ArithmeticState, input: CoreInput): ReduceResult<Arithme
     rng: r2,
     pending,
     lastFeedback: null,
+    lastDebrief: null,
     trials: state.trials + 1,
   };
   return {
@@ -271,6 +278,7 @@ function score(
     rtSum: state.rtSum + rtMs,
     rtCount: state.rtCount + 1,
     lastFeedback: correct ? "correct" : "wrong",
+    lastDebrief: correct ? null : { expected: String(pending.answer), got: String(answered) },
   };
   return {
     state: next,

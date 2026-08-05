@@ -19,10 +19,9 @@ export interface InterruptResumeParams extends Params {
   interruptions: number;
   backgroundRunMs: number;
   interruptionMs: number;
-  warningMs: number;
 }
 
-export type Stage = "idle" | "background" | "warning" | "interruption" | "finished";
+export type Stage = "idle" | "background" | "interruption" | "finished";
 
 export interface InterruptResumeState {
   rng: RngState;
@@ -50,20 +49,17 @@ export interface InterruptResumeView {
 }
 
 const RUN = "ir.run";
-const WARN = "ir.warn";
 const BACK = "ir.back";
 
 function view(state: InterruptResumeState): InterruptResumeView {
   const banner =
-    state.stage === "warning"
-      ? "Сейчас прервут — запомни, где остановился"
-      : state.stage === "interruption"
-        ? "Побочная задача"
-        : state.stage === "background"
-          ? "Основная задача"
-          : state.stage === "finished"
-            ? "Готово"
-            : "";
+    state.stage === "interruption"
+      ? "Побочная задача"
+      : state.stage === "background"
+        ? "Основная задача"
+        : state.stage === "finished"
+          ? "Готово"
+          : "";
   return {
     stage: state.stage,
     done: state.done,
@@ -133,18 +129,12 @@ export const interruptResumeCore: GameCore<InterruptResumeState> = {
         const params = state.params;
         if (!params) return { state, effects: [] };
         if (input.timerId === RUN) {
+          // Прерывание начинается без предупреждения: внезапность перехода — часть
+          // задачи, а не грубость интерфейса. Предупреждать значило бы дать время
+          // подготовиться, то есть измерять уже не то.
           if (state.done >= params.interruptions) return finish(state);
-          const next: InterruptResumeState = { ...state, stage: "warning" };
-          return {
-            state: next,
-            effects: [
-              { kind: "emit", event: { type: "interruption.warning", index: state.done + 1 } },
-              { kind: "render", view: view(next) as never },
-              { kind: "schedule", timerId: WARN, afterMs: params.warningMs },
-            ],
-          };
+          return beginInterruption(state);
         }
-        if (input.timerId === WARN) return beginInterruption(state, input);
         if (input.timerId === BACK) return returnToBackground(state, input);
         return { state, effects: [] };
       }
@@ -192,7 +182,7 @@ export const interruptResumeCore: GameCore<InterruptResumeState> = {
   },
 };
 
-function beginInterruption(state: InterruptResumeState, input: CoreInput): ReduceResult<InterruptResumeState> {
+function beginInterruption(state: InterruptResumeState): ReduceResult<InterruptResumeState> {
   const params = state.params;
   if (!params) return { state, effects: [] };
   const [index, rng] = rngInt(state.rng, 0, INTERRUPTERS.length - 1);
@@ -242,7 +232,6 @@ function finish(state: InterruptResumeState): ReduceResult<InterruptResumeState>
     state: next,
     effects: [
       { kind: "cancel", timerId: RUN },
-      { kind: "cancel", timerId: WARN },
       { kind: "cancel", timerId: BACK },
       { kind: "child", command: { op: "unmount", slot: INTERRUPT_SLOT } },
       { kind: "child", command: { op: "unmount", slot: BACKGROUND_SLOT } },
