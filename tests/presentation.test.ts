@@ -97,6 +97,30 @@ describe("предъявление стимулов", () => {
     expect(rules).toMatch(/body\.is-participant \.port-body \{[^}]*grid-template-columns: 1fr/);
   });
 
+  it("скрытая отбивка не остаётся поверх сцены", () => {
+    // `hidden` у карточки с `display: flex` сам по себе не действует: правило
+    // класса сильнее браузерного. Из-за этого отбивка висела над сценой с
+    // текстом прошлого экрана, а «Дальше» уже ничего не делало.
+    const style = document.createElement("style");
+    style.textContent = css;
+    const box = document.createElement("div");
+    box.className = "interstitial";
+    document.head.replaceChildren(style);
+    document.body.replaceChildren(box);
+    expect(getComputedStyle(box).display).toBe("flex");
+    box.hidden = true;
+    expect(getComputedStyle(box).display).toBe("none");
+    // Стили подключены только на время проверки: иначе тема протекла бы в
+    // соседние тесты, которые считают её отсутствующей.
+    style.remove();
+  });
+
+  it("крестик фиксации стоит в середине сцены", () => {
+    // Сцена растягивает детей на всю ширину, поэтому выравнивание обязательно.
+    const fixation = css.slice(css.indexOf(".gs-baseline-fixation"));
+    expect(fixation.slice(0, fixation.indexOf("}"))).toMatch(/text-align:\s*center/);
+  });
+
   it("без темы множитель равен единице, а не ломает безголовый прогон", () => {
     // В jsdom переменная темы не подключена: канвасы обязаны это пережить.
     expect(stimulusScale()).toBe(1);

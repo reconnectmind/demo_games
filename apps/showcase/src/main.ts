@@ -601,6 +601,8 @@ function startProtocol(): void {
       position = { index, total: compiled.sections.length };
       $("title").textContent = `${pilotProtocol.title} — ${section.id}`;
       $("version").textContent = `участок ${index + 1} из ${compiled.sections.length}`;
+      // Итог прошлого участка не должен висеть под сценой следующего.
+      $("banner").replaceChildren();
       stage.classList.remove("is-finished");
     },
     onSectionEnd: (section, records) => {

@@ -299,8 +299,15 @@ select, input[type="range"], input[type="number"] {
 .gs-entry-input { max-width: 180px; text-align: center; }
 
 .gs-baseline-text { max-width: 420px; text-align: center; color: var(--muted); line-height: 1.6; }
-.gs-baseline-fixation { font-size: calc(44px * var(--gs-scale)); color: var(--text); margin: 24px 0; }
-.gs-baseline-timer { font-variant-numeric: tabular-nums; font-size: 20px; color: var(--muted); }
+/* Крестик фиксации обязан стоять в середине: сцена растягивает детей на всю
+   ширину, поэтому без выравнивания он оказывался у левого края. */
+.gs-baseline-fixation {
+  font-size: calc(44px * var(--gs-scale));
+  color: var(--text);
+  margin: 24px 0;
+  text-align: center;
+}
+.gs-baseline-timer { font-variant-numeric: tabular-nums; font-size: 20px; color: var(--muted); text-align: center; }
 
 /* Обратная связь по пробе — знак без цвета. Зелёное «верно» рядом со стимулом
    Струпа само работает как цветовая помеха, а слово участник дочитывает вместо
@@ -329,6 +336,10 @@ select, input[type="range"], input[type="number"] {
   justify-content: center;
   background: var(--bg);
 }
+/* Без этого `hidden` не действует: `display: flex` из правила класса сильнее
+   стиля браузера, и отбивка оставалась бы на экране поверх сцены — с текстом
+   прошлого экрана и мёртвой кнопкой. */
+.interstitial[hidden] { display: none; }
 .interstitial-card {
   max-width: 62ch;
   padding: 28px 32px;
