@@ -9,6 +9,12 @@ export interface BaselineParams extends Params {
   durationMs: number;
   showTimer: boolean;
   text: string;
+  /**
+   * Крестик фиксации. Покою он нужен: взгляд закреплён, движения глаз не гуляют
+   * по экрану. Перерыву — мешает: там участнику как раз разрешено отвести глаза,
+   * и точка фиксации превратила бы отдых в ещё одно задание.
+   */
+  fixation: boolean;
 }
 
 export interface BaselineState {
@@ -25,6 +31,7 @@ export interface BaselineState {
 export interface BaselineView {
   text: string;
   showTimer: boolean;
+  fixation: boolean;
   remainingMs: number;
   elapsedMs: number;
   running: boolean;
@@ -60,6 +67,8 @@ export function baselineView(state: BaselineState): BaselineView {
   return {
     text: state.params?.text ?? "",
     showTimer: state.params?.showTimer ?? false,
+    // Крестик по умолчанию есть: покой — основное употребление модуля.
+    fixation: state.params?.fixation ?? true,
     remainingMs: remaining,
     elapsedMs: state.elapsedMs,
     running: state.running,

@@ -7,6 +7,7 @@ import {
   type Params,
   type ReduceResult,
   type RngState,
+  type TrialDebrief,
 } from "@gamespace/core";
 
 /**
@@ -80,6 +81,10 @@ export interface SquashState {
   crowdedLosses: number;
   feedback: SquashFeedback;
   feedbackUntilMs: number;
+  /** Разбор промаха: в какую сторону надо было вести площадку. Только в обучении. */
+  lastDebrief: TrialDebrief | null;
+  /** Обучающий прогон: знак ошибки держится дольше, и к нему добавляется разбор. */
+  training: boolean;
 }
 
 export interface SquashViewBall {
@@ -97,6 +102,7 @@ export interface SquashView {
   running: boolean;
   finished: boolean;
   feedback: SquashFeedback;
+  debrief: TrialDebrief | null;
   ballSpeed: number;
   /** Сколько шариков требует текущий уровень: в поле их может быть меньше между подачами. */
   ballCount: number;
@@ -136,6 +142,21 @@ export function squashSummary(state: SquashState): SquashSummary {
 
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
+}
+
+/**
+ * Разбор промаха: где ушёл мяч и куда надо было вести площадку. Ошибка здесь —
+ * не выбранный вариант, а недоведённое движение, поэтому фраза про сторону, а не
+ * про «вы выбрали».
+ */
+function missDebrief(ballX: number, paddleX: number): TrialDebrief {
+  const side = ballX < paddleX ? "слева" : "справа";
+  const where = ballX < paddleX ? "влево" : "вправо";
+  return {
+    expected: where,
+    got: null,
+    hint: `Мяч ушёл ${side}. Площадку нужно было вести ${where} — держите клавишу, пока она не окажется под мячом.`,
+  };
 }
 
 /** Подача сверху со случайным углом вниз: одинаковый заход подряд не повторяется. */
@@ -178,6 +199,7 @@ export function squashView(state: SquashState): SquashView {
     running: state.running,
     finished: state.finished,
     feedback: state.feedback,
+    debrief: state.lastDebrief,
     ballSpeed: params?.ballSpeed ?? 0,
     ballCount: params?.ballCount ?? 1,
     progress: { playedMs: state.playedMs, blockMs: params?.blockMs ?? 0 },
@@ -218,6 +240,8 @@ export const squashCore: GameCore<SquashState> = {
     crowdedLosses: 0,
     feedback: null,
     feedbackUntilMs: 0,
+    lastDebrief: null,
+    training: config.training,
   }),
 
   reduce(state, input): ReduceResult<SquashState> {
@@ -364,6 +388,7 @@ function step(state: SquashState, tMs: number): ReduceResult<SquashState> {
   let contactErrorSum = next.contactErrorSum;
   let feedback = next.feedback;
   let feedbackUntilMs = next.feedbackUntilMs;
+  let lastDebrief = next.lastDebrief;
   const survivors: Ball[] = [];
   /** Исходы шага: true — мяч отбит, false — потерян. */
   const resolutions: boolean[] = [];
@@ -383,6 +408,7 @@ function step(state: SquashState, tMs: number): ReduceResult<SquashState> {
       contactErrorSum += moved.contactError;
       feedback = "return";
       feedbackUntilMs = tMs + 180;
+      lastDebrief = null;
       resolutions.push(true);
       effects.push({
         kind: "emit",
@@ -394,12 +420,18 @@ function step(state: SquashState, tMs: number): ReduceResult<SquashState> {
     resolved += 1;
     rally = 0;
     feedback = "loss";
-    feedbackUntilMs = tMs + 320;
+    // В обучении знак ошибки держится дольше: разбор надо успеть прочесть, а
+    // триста миллисекунд — это меньше, чем взгляд переводится на строку.
+    feedbackUntilMs = tMs + (next.training ? 1400 : 320);
+    lastDebrief = next.training ? missDebrief(ball.x, next.paddleX) : null;
     resolutions.push(false);
     effects.push({ kind: "emit", event: { type: "ball.lost", ball: ball.id, x: ball.x } });
   }
 
-  if (feedback && tMs > feedbackUntilMs) feedback = null;
+  if (feedback && tMs > feedbackUntilMs) {
+    feedback = null;
+    lastDebrief = null;
+  }
 
   // Потеря при живом конкуренте внизу — это цена деления внимания, а не
   // промах по одному шарику: такие потери считаются отдельно.
@@ -427,6 +459,7 @@ function step(state: SquashState, tMs: number): ReduceResult<SquashState> {
     crowdedLosses: next.crowdedLosses + crowded,
     feedback,
     feedbackUntilMs,
+    lastDebrief,
   };
 
   // Зачётная единица — один мяч: в аркаде уровень обязан догонять участника

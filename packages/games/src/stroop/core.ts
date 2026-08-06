@@ -1,4 +1,5 @@
 import {
+  HOLD_MS,
   createRngState,
   rngInt,
   rngNext,
@@ -49,6 +50,9 @@ export interface StroopState {
   running: boolean;
   lastFeedback: "correct" | "wrong" | "timeout" | null;
   lastDebrief: TrialDebrief | null;
+  training: boolean;
+  /** Обучение стоит на разборе и ждёт участника: следующая проба сама не придёт. */
+  holding: boolean;
 }
 
 export interface StroopView {
@@ -59,6 +63,7 @@ export interface StroopView {
   feedback: "correct" | "wrong" | "timeout" | null;
   /** Разбор последней пробы: показывается только в обучении. */
   debrief: TrialDebrief | null;
+  holding: boolean;
   stats: Array<[string, string | number]>;
   running: boolean;
 }
@@ -76,6 +81,7 @@ function view(state: StroopState): StroopView {
     options: COLORS.slice(0, optionCount).map((name) => name),
     feedback: state.lastFeedback,
     debrief: state.lastDebrief,
+    holding: state.holding,
     stats: [
       ["Проб", state.trial],
       ["Верно", state.correct],
@@ -114,6 +120,8 @@ export const stroopCore: GameCore<StroopState> = {
     running: false,
     lastFeedback: null,
     lastDebrief: null,
+    training: Boolean(config.training),
+    holding: false,
   }),
 
   reduce(state, input): ReduceResult<StroopState> {
@@ -141,6 +149,10 @@ export const stroopCore: GameCore<StroopState> = {
       }
 
       case "action": {
+        // Разбор снимает сам участник — и любым из своих ответов, не только
+        // кнопкой: третьей руки у него нет, а отдельная клавиша означала бы, что
+        // в обучении раскладка другая, чем в зачёте.
+        if (state.holding) return release(state);
         const pending = state.pending;
         if (!pending || input.actionId !== "choose") return { state, effects: [] };
         const index = input.payload.index ?? -1;
@@ -149,7 +161,7 @@ export const stroopCore: GameCore<StroopState> = {
       }
 
       case "deadline": {
-        if (input.timerId === ITI) return presentNext(state);
+        if (input.timerId === ITI) return release(state);
         if (input.timerId !== DEADLINE || !state.pending) return { state, effects: [] };
         return score(state, state.pending, null, null);
       }
@@ -218,8 +230,12 @@ function score(
   const params = state.params;
   if (!params) return { state, effects: [] };
   const correct = chosen === pending.inkIndex;
+  // В обучении проба с ошибкой заканчивается разбором, а не следующим словом:
+  // промежуток между пробами — треть секунды, прочитать за неё нельзя ничего.
+  const holding = state.training && !correct;
   const next: StroopState = {
     ...state,
+    holding,
     pending: null,
     correct: state.correct + (correct ? 1 : 0),
     rtSum: state.rtSum + (rtMs ?? 0),
@@ -234,7 +250,6 @@ function score(
       ? null
       : { expected: COLORS[pending.inkIndex] ?? null, got: chosen === null ? null : COLORS[chosen] ?? null },
   };
-  const done = next.trial >= params.blockLength;
   return {
     state: next,
     effects: [
@@ -245,11 +260,17 @@ function score(
         outcome: { kind: "trial", scored: true, correct, rtMs, paramsUsed: { ...params } },
       },
       { kind: "render", view: view(next) as never },
-      done
-        ? { kind: "schedule", timerId: ITI, afterMs: 350 }
-        : { kind: "schedule", timerId: ITI, afterMs: 350 },
+      // Ожидание разбора всё равно ограничено: участник мог отвернуться, а блок
+      // обязан кончиться сам.
+      { kind: "schedule", timerId: ITI, afterMs: holding ? HOLD_MS : 350 },
     ],
   };
+}
+
+/** Участник прочитал разбор: дальше блок идёт как обычно, со следующей пробы. */
+function release(state: StroopState): ReduceResult<StroopState> {
+  const result = presentNext({ ...state, holding: false, lastFeedback: null, lastDebrief: null });
+  return { state: result.state, effects: [{ kind: "cancel", timerId: ITI }, ...result.effects] };
 }
 
 function presentNext(state: StroopState): ReduceResult<StroopState> {
@@ -262,7 +283,7 @@ function presentNext(state: StroopState): ReduceResult<StroopState> {
 
 function finish(state: StroopState): ReduceResult<StroopState> {
   const result = summary(state);
-  const next: StroopState = { ...state, running: false, pending: null };
+  const next: StroopState = { ...state, running: false, pending: null, holding: false };
   return {
     state: next,
     effects: [

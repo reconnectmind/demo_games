@@ -1,6 +1,7 @@
 import Ajv from "ajv";
 import manifestSchema from "../schema/manifest.schema.json" with { type: "json" };
 import { RUNTIME_API_VERSION, type Manifest, type Params } from "./contracts.js";
+import { clampParams, isPinned, type Bounds } from "./difficulty.js";
 import { freeAxes, presetParams, type PresetTable } from "./presets.js";
 
 export type PreflightCode =
@@ -150,25 +151,33 @@ export function checkDifficultyFreedom(input: {
   manifest: Manifest;
   presets?: PresetTable;
   overrides?: Params;
+  /** Границы значений: верхняя граница ограничивает ось так же, как закрепление. */
+  bounds?: Bounds;
   /** Сколько клавиш объявил протокол; без объявления ограничения нет. */
   keyCapacity?: number;
   /** Где это закрепление объявлено: попадёт в текст ошибки. */
   where?: string;
 }): ValidationReport {
-  const { manifest, presets, overrides = {}, keyCapacity, where } = input;
+  const { manifest, presets, overrides = {}, bounds, keyCapacity, where } = input;
   const at = where ? `${where}: ` : "";
   const issues: ValidationIssue[] = [];
   const alternatives = manifest.responseAlternatives;
 
   // Ёмкость проверяется и без пресетов: число вариантов может быть постоянным.
   if (alternatives?.addressedBy === "keys" && keyCapacity !== undefined) {
+    const bound = alternatives.param ? bounds?.[alternatives.param] : undefined;
     const pinned = alternatives.param ? overrides[alternatives.param] : undefined;
     const counts =
       typeof pinned === "number"
         ? [pinned]
-        : alternatives.param && presets?.axes[alternatives.param]
-          ? levelsOf(presets).map((level) => presetParams(presets, level)[alternatives.param!])
-          : [alternatives.count ?? 1];
+        : // Верхняя граница — обещание участку: выше значение не поднимется, и
+          // проверять по таблице пресетов уровни, до которых оно не дойдёт, не
+          // нужно. Это и есть смысл диапазона: сузить ось, не переписывая её.
+          bound?.max !== undefined
+          ? [bound.max]
+          : alternatives.param && presets?.axes[alternatives.param]
+            ? levelsOf(presets).map((level) => presetParams(presets, level)[alternatives.param!])
+            : [alternatives.count ?? 1];
     for (const count of counts) {
       if (typeof count === "number" && count > keyCapacity) {
         issues.push({
@@ -182,7 +191,10 @@ export function checkDifficultyFreedom(input: {
 
   if (!presets) return fail(issues);
 
-  const frozen = Object.keys(overrides).filter((axis) => presets.axes[axis]);
+  const pinnedByBounds = Object.entries(bounds ?? {})
+    .filter(([, bound]) => isPinned(bound))
+    .map(([axis]) => axis);
+  const frozen = [...new Set([...Object.keys(overrides), ...pinnedByBounds])].filter((axis) => presets.axes[axis]);
   const free = freeAxes(presets, frozen);
   const loadAxes = freeAxes(presets, []);
 
@@ -218,7 +230,7 @@ export function checkDifficultyFreedom(input: {
   }
 
   for (const level of levels) {
-    const params = { ...presetParams(presets, level, frozen), ...overrides };
+    const params = clampParams({ ...presetParams(presets, level, frozen), ...overrides }, bounds);
     issues.push(
       ...validateParams(manifest, params).issues.map((issue) => ({
         ...issue,

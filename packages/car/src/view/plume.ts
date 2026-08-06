@@ -13,7 +13,7 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { SurfaceKind } from "../track.js";
+import type { SurfaceKind } from "@gamespace/env";
 import { PUFFS, RATE_MAX, dustRate, type Puff } from "./dust.js";
 
 /** Сколько частиц на колесо держится в памяти: срок жизни на полный шаг, с запасом. */

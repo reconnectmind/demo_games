@@ -326,6 +326,7 @@ export class HintLine {
  */
 export function debriefText(debrief: TrialDebrief | null | undefined): string {
   if (!debrief) return "";
+  if (debrief.hint) return debrief.hint;
   const { expected, got } = debrief;
   if (expected === null && got === null) return "";
   if (expected === null) return "Здесь нажимать было не нужно.";
@@ -357,14 +358,31 @@ export class FeedbackMark {
   readonly root = el("div", { class: "gs-feedback" });
   private readonly mark = el("span", { class: "gs-mark" });
   private readonly reason = el("span", { class: "gs-mark-reason" });
+  private readonly next = el("button", { class: "btn gs-mark-next", type: "button" });
+  private onNext: (() => void) | null = null;
 
   constructor() {
-    this.root.append(this.mark, this.reason);
+    this.next.append(
+      el("span", { class: "gs-opt-label", text: "Дальше" }),
+      // Клавиша не подписана намеренно: разбор снимает любой из ответов, и
+      // называть одну из трёх значило бы сказать, что остальные не годятся.
+      el("span", { class: "gs-mark-next-hint", text: "или любая клавиша ответа" }),
+    );
+    this.next.hidden = true;
+    this.next.addEventListener("click", () => this.onNext?.());
+    this.root.append(this.mark, this.reason, this.next);
   }
 
-  /** `reason` показывается только в обучении: в зачётном прогоне его не передают. */
-  show(verdict: Verdict, reason = ""): void {
+  /**
+   * `reason` показывается только в обучении: в зачётном прогоне его не передают.
+   * `next` превращает разбор в остановку: пока участник не нажмёт, следующего
+   * стимула не будет. Без этого объяснение живёт ровно до следующей пробы —
+   * треть секунды, за которую его нельзя прочитать.
+   */
+  show(verdict: Verdict, reason = "", next?: (() => void) | null): void {
     this.mark.textContent = verdict === "hit" ? "✓" : verdict === "miss" ? "✗" : "";
     this.reason.textContent = verdict ? reason : "";
+    this.onNext = next ?? null;
+    this.next.hidden = !next;
   }
 }

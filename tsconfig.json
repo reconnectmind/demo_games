@@ -23,8 +23,14 @@
       "@gamespace/games": ["packages/games/src/index.ts"],
       "@gamespace/games/*": ["packages/games/src/*"],
       "@gamespace/race": ["packages/race/src/index.ts"],
-      "@gamespace/race/lab": ["packages/race/src/lab/garden.ts"],
       "@gamespace/race/*": ["packages/race/src/*"],
+      "@gamespace/env": ["packages/env/src/index.ts"],
+      "@gamespace/env/*": ["packages/env/src/*"],
+      "@gamespace/car": ["packages/car/src/index.ts"],
+      "@gamespace/car/*": ["packages/car/src/*"],
+      "@gamespace/flora": ["packages/flora/src/index.ts"],
+      "@gamespace/flora/lab": ["packages/flora/src/lab/garden.ts"],
+      "@gamespace/flora/*": ["packages/flora/src/*"],
       "@gamespace/protocol": ["packages/protocol/src/index.ts"],
       "@gamespace/protocol/*": ["packages/protocol/src/*"]
     }

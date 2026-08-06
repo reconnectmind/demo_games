@@ -1,8 +1,8 @@
 import { asManifest, type GameContext, type GameView, type Microgame, type Params, type Surface } from "@gamespace/core";
-import { ActionButton, el } from "@gamespace/ui-web";
+import { ActionButton, FeedbackMark, debriefText, el } from "@gamespace/ui-web";
+import { preparePhysics } from "@gamespace/env";
 import manifest from "./manifest.json" with { type: "json" };
 import { raceCore, type RaceParams, type RaceState, type RaceView } from "./core.js";
-import { prepareSim } from "./sim.js";
 import { RaceHud } from "./view/hud.js";
 import type { RaceScene } from "./view/scene.js";
 
@@ -33,6 +33,8 @@ class RaceWebView implements GameView<RaceView> {
   private readonly canvas = el("canvas", { class: "race-canvas" }) as HTMLCanvasElement;
   private readonly notice = el("div", { class: "race-notice", text: "сцена загружается…" });
   private readonly hud = new RaceHud();
+  /** Итог сектора и разбор словами: только в обучении, в зачётном заезде их нет. */
+  private readonly feedback = new FeedbackMark();
   private readonly controls = el("div", { class: "gs-options race-controls" });
   private readonly sound = el("button", {
     class: "race-sound",
@@ -77,7 +79,7 @@ class RaceWebView implements GameView<RaceView> {
 
   mount(surface: Surface): void {
     surface.setTask(TASK, "Заезд");
-    surface.stage.replaceChildren(this.wrap, this.controls);
+    surface.stage.replaceChildren(this.wrap, ...(this.ctx.training ? [this.feedback.root] : []), this.controls);
     if (typeof ResizeObserver !== "undefined") {
       this.observer = new ResizeObserver(() => this.scene?.resize());
       this.observer.observe(this.wrap);
@@ -89,6 +91,12 @@ class RaceWebView implements GameView<RaceView> {
     this.last = view;
     this.hud.render(view);
     this.scene?.update(view);
+    if (this.ctx.training) {
+      this.feedback.show(
+        view.sector === "clean" ? "hit" : view.sector === "dirty" ? "miss" : null,
+        debriefText(view.debrief),
+      );
+    }
     this.ctx.surface.setStats(view.stats);
     // Блок закрылся, а клавиша может остаться зажатой: «up» придёт уже мимо игры,
     // поэтому подсветку удержания снимаем сами, иначе кнопка врёт.
@@ -150,7 +158,7 @@ export const race: Microgame<RaceState, RaceView> = {
   createView: (ctx) => new RaceWebView(ctx),
   // Физику считает WASM: без него ядру нечем шагать, поэтому у заезда, в отличие
   // от плоских игр витрины, есть подготовка.
-  prepare: prepareSim,
+  prepare: preparePhysics,
 };
 
 export {
@@ -173,31 +181,8 @@ export {
   ratioFor,
 } from "./core.js";
 export type { RaceParams, RaceState, RaceSummary, RaceView } from "./core.js";
-export {
-  FINAL_DRIVE,
-  REVERSE_RATIO,
-  engineSettle,
-  engineStep,
-  geometricRpm,
-  pumpingNm,
-  ratiosFor,
-  torqueAt,
-} from "./drivetrain.js";
-export { RIDE_HEIGHT_M, createSim, prepareSim, simReady } from "./sim.js";
-export type { SimFrame, SimSave } from "./sim.js";
-export { STEER_LOCK, steerLimit, steerStep } from "./steering.js";
-export {
-  BODY_SCALE,
-  MASS_KG,
-  MODEL,
-  SUSPENSION_LOADED_M,
-  WHEEL_MOUNTS,
-  WHEEL_RADIUS_M,
-  WHEELBASE_M,
-  WHEEL_BACK_Z,
-  WHEEL_FRONT_Z,
-  WHEEL_X,
-} from "./geometry.js";
+export { createSim } from "./sim.js";
+export type { SimControls, SimFrame, SimSave } from "./sim.js";
 export {
   Centerline,
   FINE_M,
@@ -208,10 +193,10 @@ export {
   STAMP_LEAD_SEGMENTS,
   corridorHalfWidth,
   crossSection,
-  hash01,
   sectorIndexAt,
   segmentIndexAt,
   shapeAt,
+  surfaceAt,
   trackAt,
 } from "./track.js";
 export type { FinePoint, ShapeStamp, TrackSegment, TrackShape } from "./track.js";

@@ -220,3 +220,79 @@ describe("протокол: исполнение", () => {
     expect((summaries[0] as { actualMs: number }).actualMs).toBeGreaterThanOrEqual(19_000);
   });
 });
+
+describe("протокол: повтор внутри участка", () => {
+  /** Пауза на пять секунд внутри участка на тридцать: разница и проверяется. */
+  const doc = (over: Record<string, unknown> = {}) => ({
+    protocolVersion: "1.0",
+    id: "pause-doc",
+    title: "Пауза",
+    locale: "ru",
+    difficulty: { policy: "fixed", start: 1 },
+    sections: [
+      {
+        id: "micro",
+        games: ["org.reconnect.baseline"],
+        end: { by: "time", ms: 30_000 },
+        overrides: {
+          "org.reconnect.baseline": { durationMs: 5000, showTimer: true, fixation: false, text: "Пауза." },
+        },
+        ...over,
+      },
+    ],
+  });
+
+  const play = (protocol: unknown, durations?: Record<string, number>) => {
+    const reg = registry();
+    const clock = new VirtualClock();
+    const runtime = new GameRuntime({
+      registry: reg,
+      clock,
+      capabilities: [],
+      t0WallMs: 1_700_000_000_000,
+      wallNow: () => 1_700_000_000_000 + clock.now(),
+    });
+    const compiled = compileProtocol(protocol, { participantId: "p-3", registry: reg, ...(durations ? { durations } : {}) });
+    let endedAtMs = 0;
+    let runs = 0;
+    const session = new SessionRunner({
+      runtime,
+      surface: headlessSurface(),
+      headless: true,
+      sessionId: "s",
+      seed: 1,
+      sections: compiled.sections,
+      onSectionEnd: (_s, records) => (runs = records.length),
+      onDone: () => (endedAtMs = clock.now()),
+    });
+    session.start();
+    clock.advance(90_000);
+    return { compiled, session, endedAtMs, runs };
+  };
+
+  it("блок с повтором добивает время участка перезапусками", () => {
+    // Это поведение по умолчанию и оно осмысленно для зачётного блока: игра
+    // короче участка, значит идёт следующий блок той же игры.
+    const { session, runs } = play(doc());
+    expect(session.finished).toBe(true);
+    expect(runs).toBeGreaterThan(1);
+  });
+
+  it("блок без повтора кончается вместе со своим модулем", () => {
+    // Пауза сама себе отмеряет время: без этого свойства время участка
+    // перекрывало объявленные секунды и пауза на пять секунд шла шесть раз.
+    const { session, endedAtMs, runs } = play(doc({ repeat: false }));
+    expect(session.finished).toBe(true);
+    expect(runs).toBe(1);
+    expect(endedAtMs).toBeGreaterThanOrEqual(5000);
+    expect(endedAtMs).toBeLessThan(8000);
+  });
+
+  it("репетиция участки укорачивает, а не выравнивает по себе", () => {
+    // Оператор обещал «участки укорочены»: пятисекундная пауза не обязана
+    // растягиваться до выбранных тридцати секунд.
+    const { compiled } = play(doc({ repeat: false, end: { by: "time", ms: 5000 } }), { micro: 30_000 });
+    expect(compiled.sections[0]!.end.id).toContain("by-time:5000");
+    expect(compiled.sections[0]!.end.id).not.toContain("by-time:30000");
+  });
+});

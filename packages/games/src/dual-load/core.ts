@@ -226,7 +226,15 @@ function forwardToPrimary(state: DualLoadState, input: CoreInput): ReduceResult<
 
 export const dualLoadCore: GameCore<DualLoadState> = {
   init: (config) => ({
-    primary: nbackCore.init({ ...config, initialParams: toNBackParams(config.initialParams ?? {}) }),
+    // Центральная задача внутри совмещения на разборе не останавливается: смысл
+    // модуля — одновременность, и пауза в одном потоке при живом другом учила бы
+    // не тому. Поэтому обучающий флаг до неё не доходит, а разбор остаётся
+    // коротким, как в зачёте.
+    primary: nbackCore.init({
+      ...config,
+      training: false,
+      initialParams: toNBackParams(config.initialParams ?? {}),
+    }),
     secondary: freshSecondary(),
     rng: createRngState(config.seed ^ SECONDARY_SEED_MIX),
     params: (config.initialParams as DualLoadParams) ?? null,

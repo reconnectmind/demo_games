@@ -139,6 +139,51 @@ describe("отбивки между участками", () => {
   });
 });
 
+describe("подпись места в расписании", () => {
+  it("номер части приходит с экраном, а не пишется в его заголовке", () => {
+    const { compiled } = session("p-200");
+    // Раньше номер жил в тексте отбивки: «Часть 1 из 5» в заголовке переставало
+    // быть правдой, стоило убрать блок, а витрина подставляла номер участка
+    // любому экрану — включая правило задания.
+    for (const section of compiled.sections) {
+      for (const screen of section.screens ?? []) expect(screen.title).not.toMatch(/Часть \d+ из \d+/);
+    }
+    const training = compiled.sections.find((s) => s.id === "training")!;
+    expect(training.screens?.[0]?.position).toBe("Часть 2 из 5");
+  });
+
+  it("вступление, пауза и прощание номера части не получают", () => {
+    const { compiled } = session("p-201");
+    const intro = compiled.sections[0]!.screens![0]!;
+    expect(intro.title).toBe("Что будет дальше");
+    expect(intro.position).toBeUndefined();
+    expect(compiled.outro?.position).toBeUndefined();
+    const pause = compiled.sections.flatMap((s) => s.screens ?? []).find((x) => x.title === "Короткая пауза")!;
+    expect(pause.position).toBeUndefined();
+  });
+
+  it("микропауза частью сессии не считается", () => {
+    // Участнику о ней не сообщают вовсе, поэтому обещать «часть 3 из 6» там, где
+    // для него частей пять, значило бы считать вслух не то, что он видит.
+    const reg = registry();
+    const doc = {
+      ...pilot,
+      sections: [
+        pilot.sections[0]!,
+        { id: "micro", games: ["org.reconnect.baseline"], end: { by: "time", ms: 20_000 }, overrides: { "org.reconnect.baseline": { durationMs: 20_000, fixation: false, showTimer: true, text: "Небольшая пауза." } } },
+        ...pilot.sections.slice(1),
+      ],
+      counterbalance: undefined,
+    };
+    const compiled = compileProtocol(doc, { participantId: "p-202", registry: reg });
+    const positions = compiled.sections.flatMap((s) => (s.screens ?? []).map((x) => x.position));
+    expect(compiled.sections.find((s) => s.id === "micro")?.screens).toBeUndefined();
+    expect(positions).toContain("Часть 1 из 5");
+    expect(positions).toContain("Часть 5 из 5");
+    expect(positions.join(" ")).not.toContain("из 6");
+  });
+});
+
 describe("обратная связь по пробе", () => {
   it("исходы сводятся к двум знакам без слов", () => {
     expect(verdictOf("correct")).toBe("hit");

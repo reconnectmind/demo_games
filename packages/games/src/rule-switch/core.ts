@@ -1,9 +1,11 @@
 import {
+  HOLD_MS,
   createRngState,
   rngInt,
   rngNext,
   rngPick,
   type CoreInput,
+  type Effect,
   type GameCore,
   type Params,
   type ReduceResult,
@@ -55,6 +57,9 @@ export interface RuleSwitchState {
   running: boolean;
   lastFeedback: "correct" | "wrong" | "timeout" | null;
   lastDebrief: TrialDebrief | null;
+  training: boolean;
+  /** Обучение стоит на разборе и ждёт участника: следующая проба сама не придёт. */
+  holding: boolean;
 }
 
 export interface RuleSwitchView {
@@ -65,6 +70,7 @@ export interface RuleSwitchView {
   feedback: "correct" | "wrong" | "timeout" | null;
   /** Разбор последней пробы: показывается только в обучении. */
   debrief: TrialDebrief | null;
+  holding: boolean;
   running: boolean;
   stats: Array<[string, string | number]>;
 }
@@ -89,6 +95,7 @@ function view(state: RuleSwitchState): RuleSwitchView {
     switched: active?.switched ?? false,
     feedback: state.lastFeedback,
     debrief: state.lastDebrief,
+    holding: state.holding,
     running: state.running,
     stats: [
       ["Проб", state.trial],
@@ -129,6 +136,8 @@ export const ruleSwitchCore: GameCore<RuleSwitchState> = {
     running: false,
     lastFeedback: null,
     lastDebrief: null,
+    training: Boolean(config.training),
+    holding: false,
   }),
 
   reduce(state, input): ReduceResult<RuleSwitchState> {
@@ -149,16 +158,16 @@ export const ruleSwitchCore: GameCore<RuleSwitchState> = {
 
       case "deadline": {
         if (input.timerId === CUE) return presentStimulus(state, input);
-        if (input.timerId === ITI) {
-          const params = state.params;
-          if (!params) return { state, effects: [] };
-          return state.trial >= params.blockLength ? finish(state) : { state, effects: [{ kind: "requestParams" }] };
-        }
+        if (input.timerId === ITI) return release(state);
         if (input.timerId === DEADLINE && state.pending) return score(state, state.pending, null, null);
         return { state, effects: [] };
       }
 
       case "action": {
+        // Разбор снимает сам участник — и любым из своих ответов, не только
+        // кнопкой: третьей руки у него нет, а отдельная клавиша означала бы, что
+        // в обучении раскладка другая, чем в зачёте.
+        if (state.holding) return release(state);
         if (input.actionId !== "choose" || !state.pending) return { state, effects: [] };
         const index = input.payload.index ?? -1;
         if (index !== 0 && index !== 1) return { state, effects: [] };
@@ -254,9 +263,13 @@ function score(
   if (!params) return { state, effects: [] };
   const correct = chosen === pending.correctIndex;
   const counted = rtMs !== null && correct;
+  // В обучении проба с ошибкой заканчивается разбором, а не следующим числом:
+  // промежуток между пробами — треть секунды, прочитать за неё нельзя ничего.
+  const holding = state.training && !correct;
   const next: RuleSwitchState = {
     ...state,
     pending: null,
+    holding,
     correct: state.correct + (correct ? 1 : 0),
     rtSum: state.rtSum + (rtMs ?? 0),
     rtCount: state.rtCount + (rtMs === null ? 0 : 1),
@@ -282,14 +295,32 @@ function score(
       { kind: "emit", event: { type: "response", chosen, correct, rtMs, switched: pending.switched } },
       { kind: "outcome", outcome: { kind: "trial", scored: true, correct, rtMs, paramsUsed: { ...params } } },
       { kind: "render", view: view(next) as never },
-      { kind: "schedule", timerId: ITI, afterMs: 320 },
+      // Ожидание разбора всё равно ограничено: участник мог отвернуться, а блок
+      // обязан кончиться сам.
+      { kind: "schedule", timerId: ITI, afterMs: holding ? HOLD_MS : 320 },
     ],
+  };
+}
+
+/** Участник прочитал разбор: дальше блок идёт как обычно, со следующей пробы. */
+function release(state: RuleSwitchState): ReduceResult<RuleSwitchState> {
+  const params = state.params;
+  const next: RuleSwitchState = { ...state, holding: false, lastFeedback: null, lastDebrief: null };
+  const cancel: Effect = { kind: "cancel", timerId: ITI };
+  if (!params) return { state: next, effects: [cancel, { kind: "render", view: view(next) as never }] };
+  if (next.trial >= params.blockLength) {
+    const ended = finish(next);
+    return { state: ended.state, effects: [cancel, ...ended.effects] };
+  }
+  return {
+    state: next,
+    effects: [cancel, { kind: "render", view: view(next) as never }, { kind: "requestParams" }],
   };
 }
 
 function finish(state: RuleSwitchState): ReduceResult<RuleSwitchState> {
   const result = summary(state);
-  const next: RuleSwitchState = { ...state, running: false, pending: null, cued: null };
+  const next: RuleSwitchState = { ...state, running: false, pending: null, cued: null, holding: false };
   return {
     state: next,
     effects: [

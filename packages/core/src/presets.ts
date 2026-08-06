@@ -56,6 +56,31 @@ export function asPresets(data: unknown): PresetTable {
  * множество — не курьёз, а ошибка: уровень тогда не значит ничего, хотя политика
  * продолжает его повышать, а журнал — писать `difficulty.changed`.
  */
+/**
+ * Состав дочерних задач составной игры. Параметры протокола скалярны, поэтому
+ * список приходит строкой имён через запятую и тем же путём, что все прочие
+ * закрепления, — иначе для него пришлось бы заводить второй канал настройки.
+ * Пустая строка означает прежнее правило: первые `poolSize` из манифеста.
+ * Неизвестное имя — ошибка на месте: молча выкинуть задачу из состава хуже, чем
+ * не запуститься, потому что расхождение обнаружится только в записи.
+ */
+export function childSet(
+  pool: readonly { id: string }[],
+  tasks: string | undefined,
+  poolSize: number,
+): string[] {
+  const names = (tasks ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  if (names.length === 0) return pool.slice(0, poolSize).map((child) => child.id);
+  return names.map((name) => {
+    const found = pool.find((child) => child.id === name || child.id.endsWith(`.${name}`));
+    if (!found) throw new Error(`Задача «${name}» не объявлена дочерней у этого модуля`);
+    return found.id;
+  });
+}
+
 export function freeAxes(table: PresetTable, frozen: readonly string[]): string[] {
   return Object.keys(table.axes).filter(
     (axis) => !frozen.includes(axis) && LOAD_ROLES.includes(table.axes[axis]!.role),

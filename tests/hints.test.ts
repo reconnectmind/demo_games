@@ -27,6 +27,16 @@ function cap(node: Element | null | undefined): string {
   return node?.querySelector(".gs-key-main")?.textContent ?? node?.textContent ?? "";
 }
 
+/**
+ * Кнопки, которые участник действительно видит. Скрытые в счёт не идут: кнопка
+ * «Дальше» из разбора ошибки живёт в поле всегда, но появляется только когда
+ * обучение остановилось на объяснении, и клавиши у неё нет намеренно — разбор
+ * снимает любой из ответов.
+ */
+function visible(stage: HTMLElement): HTMLButtonElement[] {
+  return [...stage.querySelectorAll("button")].filter((button) => !button.hidden);
+}
+
 function mount(id: string, level = 1, input?: InputProfile) {
   const registry = new GameRegistry();
   for (const game of games) registry.register(game);
@@ -60,7 +70,7 @@ describe("подписи клавиш на кнопках", () => {
     for (const level of [1, levels]) {
       it(`${id}: уровень ${level} — у каждой кнопки есть подпись клавиши`, () => {
         const { stage, instance } = mount(id, level);
-        const buttons = [...stage.querySelectorAll("button")];
+        const buttons = visible(stage);
         expect(buttons.length).toBeGreaterThan(0);
 
         for (const button of buttons) {
@@ -89,7 +99,7 @@ describe("подписи клавиш на кнопках", () => {
 
   it("клавиша с подсказки адресует именно свою ячейку большого поля", () => {
     const { stage, instance } = mount("org.reconnect.number-sequence", 8);
-    const cells = [...stage.querySelectorAll("button")];
+    const cells = visible(stage);
     // Поле верхнего уровня заведомо больше цифрового ряда: там и жил баг.
     expect(cells.length).toBeGreaterThan(10);
 

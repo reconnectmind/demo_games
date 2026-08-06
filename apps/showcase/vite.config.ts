@@ -15,5 +15,9 @@ export default defineConfig({
       "@gamespace/protocol": resolve("../../packages/protocol/src/index.ts"),
     },
   },
+  // Порт закреплён: витрину открывают по ссылке и по ней же присылают замечания,
+  // а перезапуск с автоподбором порта уводил адрес то на 5173, то на следующий
+  // свободный. strictPort — чтобы падать вслух, а не тихо переехать.
+  server: { port: 5199, strictPort: true },
   build: { outDir: "dist", emptyOutDir: true },
 });

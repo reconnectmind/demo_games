@@ -18,7 +18,7 @@
  * сама резина, и дым другой — светлый, редкий и лезущий вверх, а не в стороны.
  */
 
-import type { SurfaceKind } from "../track.js";
+import type { SurfaceKind } from "@gamespace/env";
 
 /** Как ведёт себя то, что поднимается из-под колеса на этом покрытии. */
 export interface Puff {

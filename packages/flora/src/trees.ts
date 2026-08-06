@@ -8,21 +8,22 @@ import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 // Побочный импорт: без него у Mesh нет тонких экземпляров.
 import "@babylonjs/core/Meshes/thinInstanceMesh.js";
+import type { Wind } from "@gamespace/env";
 import { LeafGlowPlugin } from "./foliage.js";
 import { WindPlugin, SWAY_KIND, PIVOT_KIND } from "./wind.js";
 import { LEAF_VERTS, leafPivots } from "./sway.js";
-import birchBarkUrl from "../assets/bark-birch.jpg";
-import oakBarkUrl from "../assets/bark-oak.jpg";
-import pineBarkUrl from "../assets/bark-pine.jpg";
-import aspenLeafUrl from "../assets/leaf-aspen.png";
-import ashLeafUrl from "../assets/leaf-ash.png";
-import oakLeafUrl from "../assets/leaf-oak.png";
-import pineLeafUrl from "../assets/leaf-pine.png";
-import aspenBumpUrl from "../assets/leaf-aspen-bump.png";
-import ashBumpUrl from "../assets/leaf-ash-bump.png";
-import oakBumpUrl from "../assets/leaf-oak-bump.png";
-import pineBumpUrl from "../assets/leaf-pine-bump.png";
-import treesUrl from "../assets/trees.json?url";
+import birchBarkUrl from "./assets/bark-birch.jpg";
+import oakBarkUrl from "./assets/bark-oak.jpg";
+import pineBarkUrl from "./assets/bark-pine.jpg";
+import aspenLeafUrl from "./assets/leaf-aspen.png";
+import ashLeafUrl from "./assets/leaf-ash.png";
+import oakLeafUrl from "./assets/leaf-oak.png";
+import pineLeafUrl from "./assets/leaf-pine.png";
+import aspenBumpUrl from "./assets/leaf-aspen-bump.png";
+import ashBumpUrl from "./assets/leaf-ash-bump.png";
+import oakBumpUrl from "./assets/leaf-oak-bump.png";
+import pineBumpUrl from "./assets/leaf-pine-bump.png";
+import treesUrl from "./assets/trees.json?url";
 
 /**
  * Деревья пришли из ez-tree, но не как библиотека, а как испечённая геометрия:
@@ -80,7 +81,7 @@ interface TreesAsset {
   leafUv: number[];
 }
 
-/** Место дерева на трассе: сцена считает его от точки осевой линии. */
+/** Место дерева в мире: где его посадить — решает тот, кто сажает. */
 export interface TreeSpot {
   x: number;
   y: number;
@@ -107,10 +108,16 @@ export interface TreeField {
   /** Все сетки леса: сцене они нужны, чтобы записать их в отбрасывающие тень. */
   meshes: readonly Mesh[];
   place(spots: readonly TreeSpot[]): void;
-  /** Сила ветра в долях высоты дерева и его сторона в радианах. */
-  setWind(strength: number, directionRad: number): void;
-  /** Ход времени: качание считается от него, а не от номера кадра. */
-  animate(elapsedS: number): void;
+  /**
+   * Качание по ветру, который дует в мире прямо сейчас.
+   *
+   * Ветра лес не придумывает: и силу, и сторону, и фазу бегущей волны считает
+   * среда (`@gamespace/env`). Раньше половина ветра была здесь — порывы и ход
+   * волны жили в лесу, — и из этого выходило, что мир не мог сказать, дует ли,
+   * спросить можно было только у деревьев. Лесу остаётся его собственное дело:
+   * во сколько ему обходится единица ветра.
+   */
+  animate(wind: Wind): void;
   dispose(): void;
 }
 
@@ -744,10 +751,6 @@ export async function loadTreeField(scene: Scene): Promise<TreeField> {
     }
   }
 
-  /** Ход волны: медленнее секунды на размах, иначе лес не качается, а трясётся. */
-  const WIND_RATE = 1.15;
-  /** Порывы: сила ходит вокруг средней с периодом в полминуты. */
-  const GUST_RATE = 0.21;
   /**
    * Во что обходится единица ветра: доля высоты дерева, на которую уходит вершина.
    * Пять сотых — это метр у пятнадцатиметрового дерева на сильном порыве. Две с
@@ -758,33 +761,21 @@ export async function loadTreeField(scene: Scene): Promise<TreeField> {
    * качающимся, а поваленным.
    */
   const WIND_BEND = 0.05;
-  let windStrength = 0;
-  let windLevel = 0;
-  let windDirX = 1;
-  let windDirZ = 0;
 
-  function setWind(strength: number, directionRad: number): void {
-    windStrength = strength * WIND_BEND;
-    windLevel = strength;
-    windDirX = Math.cos(directionRad);
-    windDirZ = Math.sin(directionRad);
-  }
-
-  function animate(elapsedS: number): void {
-    const gust = 0.75 + 0.25 * Math.sin(elapsedS * GUST_RATE);
+  function animate(wind: Wind): void {
     // Камера нужна шейдеру, чтобы решить, насколько мелкие звенья дерева стоит
     // шевелить: вдали хватает ветки, вблизи оживают прутья и лист (`sway.ts`).
     const eye = scene.activeCamera?.globalPosition;
-    for (const wind of winds) {
-      wind.phase = elapsedS * WIND_RATE;
-      wind.strength = windStrength * gust;
-      wind.live = windLevel * gust;
-      wind.dirX = windDirX;
-      wind.dirZ = windDirZ;
+    for (const uniform of winds) {
+      uniform.phase = wind.phase;
+      uniform.strength = wind.force * WIND_BEND;
+      uniform.live = wind.force;
+      uniform.dirX = wind.dirX;
+      uniform.dirZ = wind.dirZ;
       if (eye) {
-        wind.eyeX = eye.x;
-        wind.eyeY = eye.y;
-        wind.eyeZ = eye.z;
+        uniform.eyeX = eye.x;
+        uniform.eyeY = eye.y;
+        uniform.eyeZ = eye.z;
       }
     }
   }
@@ -793,7 +784,6 @@ export async function loadTreeField(scene: Scene): Promise<TreeField> {
     variants: species.map((entry) => entry.id),
     meshes: species.flatMap((entry) => entry.forms.flatMap((form) => [form.branches, form.leaves])),
     place,
-    setWind,
     animate,
     dispose: () => {
       for (const entry of species) {

@@ -90,29 +90,34 @@ describe("предъявление стимулов", () => {
 
   it("экран участника убирает операторскую обвязку и центрирует сцену", () => {
     const rules = css.slice(css.indexOf("body.is-participant"));
-    for (const hidden of [".catalog", ".side", ".port-head", ".foot"]) {
+    for (const hidden of [".side", ".port-head", ".foot"]) {
       expect(rules).toContain(`body.is-participant ${hidden}`);
     }
     expect(rules).toMatch(/body\.is-participant \.stage-wrap \{[^}]*justify-content: center/);
     expect(rules).toMatch(/body\.is-participant \.port-body \{[^}]*grid-template-columns: 1fr/);
   });
 
-  it("скрытая отбивка не остаётся поверх сцены", () => {
-    // `hidden` у карточки с `display: flex` сам по себе не действует: правило
-    // класса сильнее браузерного. Из-за этого отбивка висела над сценой с
-    // текстом прошлого экрана, а «Дальше» уже ничего не делало.
+  it("`hidden` выключает элемент при любом правиле класса", () => {
+    // Правило класса с `display` сильнее браузерного стиля для `hidden`. Из-за
+    // этого отбивка висела над сценой с текстом прошлого экрана и мёртвой
+    // кнопкой, а экран настройки оставался поверх сессии участника.
     const style = document.createElement("style");
     style.textContent = css;
-    const box = document.createElement("div");
-    box.className = "interstitial";
     document.head.replaceChildren(style);
-    document.body.replaceChildren(box);
-    expect(getComputedStyle(box).display).toBe("flex");
-    box.hidden = true;
-    expect(getComputedStyle(box).display).toBe("none");
-    // Стили подключены только на время проверки: иначе тема протекла бы в
-    // соседние тесты, которые считают её отсутствующей.
-    style.remove();
+    try {
+      for (const className of ["interstitial", "setup", "debrief", "port"]) {
+        const box = document.createElement("div");
+        box.className = className;
+        document.body.replaceChildren(box);
+        expect(getComputedStyle(box).display, `.${className} без hidden`).not.toBe("none");
+        box.hidden = true;
+        expect(getComputedStyle(box).display, `.${className} с hidden`).toBe("none");
+      }
+    } finally {
+      // Стили подключены только на время проверки: иначе тема протекла бы в
+      // соседние тесты, которые считают её отсутствующей.
+      style.remove();
+    }
   });
 
   it("крестик фиксации стоит в середине сцены", () => {

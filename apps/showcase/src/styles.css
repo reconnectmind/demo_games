@@ -60,27 +60,156 @@ body {
   font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-#app { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
-#app.is-collapsed { grid-template-columns: 44px 1fr; }
-#app.is-collapsed .catalog-body { display: none; }
+#app { min-height: 100vh; }
 
-.catalog {
-  border-right: 1px solid var(--border);
-  background: var(--panel);
+/*
+ * Экран настройки. Всё, что оператор выбирает, он выбирает здесь и до старта:
+ * во время сессии на мониторе участника ручек нет вовсе, а не спрятаны флагом.
+ */
+.setup { display: grid; grid-template-rows: auto 1fr auto; min-height: 100vh; }
+.setup-head {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
 }
+.setup-head h1 { margin: 0; font-size: 18px; flex: 1; }
+.setup-tabs { display: flex; gap: 6px; }
+.tab {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+.tab.is-active { border-color: var(--accent); color: var(--text); }
+.setup-body { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; padding: 24px; align-items: start; }
+.setup-main { max-width: 560px; display: flex; flex-direction: column; gap: 4px; }
+.setup-main h3,
+.setup-aside h3 { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+.setup-main h3:first-child { margin-top: 0; }
+.setup-aside {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 16px;
+  max-height: calc(100vh - 190px);
+  overflow: auto;
+}
+.setup-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.setup-foot .note { flex: 1; }
+.note { color: var(--muted); font-size: 12px; line-height: 1.6; margin-top: 8px; }
+.btn.is-big { padding: 12px 24px; font-size: 15px; }
+.schedule { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.schedule b { color: var(--text); }
 
-.catalog-head {
+.catalog-body { max-height: calc(100vh - 320px); overflow: auto; }
+
+/*
+ * Конструктор сценария. Слева расписание целиком, справа ручки выбранного
+ * блока: сессия читается сверху вниз одним взглядом, а настройки не растягивают
+ * её на несколько экранов. Внутри блока сначала то, что участник увидит и
+ * прочтёт, потом то, чем это управляется: текст блока такой же предмет
+ * настройки, как темп и диапазоны, и прятать его под параметрами значило бы
+ * считать его оформлением.
+ */
+.setup.is-wide .setup-body { grid-template-columns: minmax(0, 1fr); }
+.setup.is-wide .setup-main { max-width: none; }
+.setup.is-wide .setup-aside { display: none; }
+.builder { display: flex; flex-direction: column; gap: 16px; }
+.builder-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.builder-status { flex-basis: 100%; font-size: 12px; line-height: 1.6; }
+.builder-status.is-ok { color: var(--muted); }
+.builder-status.is-bad { color: var(--bad, #e2a0a0); }
+.builder-body { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.builder-list { display: flex; flex-direction: column; gap: 6px; }
+.builder-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 13px;
 }
-
-.catalog-head h1 { font-size: 14px; margin: 0; flex: 1; }
-.catalog-body { padding: 8px; overflow: auto; }
+.builder-row:hover { background: var(--panel-2); }
+.builder-row.is-picked { border-color: var(--accent); background: var(--panel-2); }
+.builder-row.is-baseline { border-left-color: #4f7a94; }
+.builder-row.is-training { border-left-color: #8a7a4f; }
+.builder-row.is-game { border-left-color: var(--accent); }
+.builder-row.is-pause { border-left-color: #6b6b6b; }
+.builder-row.is-micro { border-left-color: #3d4a55; }
+.builder-row.is-session { border-left-color: transparent; }
+/* Строка задачи живёт внутри панели блока: тот же список, но без номера части. */
+.builder-row.is-task { border-left-color: transparent; padding: 5px 8px; }
+.builder-row.is-task b { font-weight: 500; }
+.builder-tasks { display: flex; flex-direction: column; gap: 4px; }
+.builder-row b { white-space: nowrap; }
+.builder-row .pill { flex: none; }
+.builder-row-id { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.builder-row-time { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.builder-row-ops { display: flex; gap: 4px; }
+.builder-row-ops .btn { padding: 2px 8px; }
+.builder-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 12px 14px;
+}
+.builder-block.is-baseline { border-left-color: #4f7a94; }
+.builder-block.is-training { border-left-color: #8a7a4f; }
+.builder-block.is-game { border-left-color: var(--accent); }
+.builder-block.is-pause { border-left-color: #6b6b6b; }
+.builder-block-head { display: flex; align-items: center; gap: 8px; }
+.builder-block-head input[type="text"] { flex: 1; }
+.builder-block h5,
+.builder-session h5 { margin: 12px 0 4px; font-size: 11px; text-transform: uppercase; color: var(--muted); }
+.builder-session {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 14px;
+}
+.builder-session h4 { margin: 0 0 10px; font-size: 14px; }
+.builder-add { display: flex; flex-wrap: wrap; gap: 6px; }
+.builder-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.builder-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+.builder-bound { display: grid; grid-template-columns: 1fr 80px 12px 80px auto; align-items: center; gap: 6px; }
+.builder-bound label { font-size: 12px; color: var(--muted); }
+.builder-bounds { display: flex; flex-direction: column; gap: 4px; }
+.builder textarea,
+.builder input[type="text"],
+.builder input[type="number"],
+.builder select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+.builder textarea { resize: vertical; line-height: 1.5; }
+.builder .param { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.builder .param label { font-size: 12px; color: var(--muted); }
 
 .game-item {
   display: block;
@@ -94,9 +223,10 @@ body {
   color: var(--text);
   cursor: pointer;
 }
-/* Ссылка на прежнюю витрину: прижата к низу панели, не мешает списку. */
+/* Ссылка на прежнюю витрину: под списком модулей, не мешает выбору. */
 .catalog-link {
-  margin: auto 8px 8px;
+  display: block;
+  margin: 12px 0 0;
   padding: 10px 12px;
   border: 1px dashed var(--border);
   border-radius: 8px;
@@ -106,7 +236,6 @@ body {
 }
 .catalog-link:hover { border-color: var(--accent); color: var(--text); }
 .catalog-link small { display: block; font-size: 11px; }
-#app.is-collapsed .catalog-link { display: none; }
 
 .game-item:hover { border-color: var(--border); }
 .game-item.is-active { border-color: var(--accent); }
@@ -127,16 +256,10 @@ body {
 .port-head h2 { margin: 0; font-size: 16px; }
 .ops { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-/* Окно оператора: тот же лист стилей, но панель занимает окно целиком. */
-body.is-operator { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
-body.is-operator .ops { flex: 0 0 auto; }
-body.is-operator .side { border: 1px solid var(--border); border-radius: 8px; max-height: none; flex: 1; }
 .task { color: var(--muted); flex-basis: 100%; }
 .task b { color: var(--text); }
 
 .port-body { display: grid; grid-template-columns: 1fr 320px; gap: 0; }
-/* Панель уехала в окно оператора: колонку под неё держать больше нечем. */
-body.is-detached .port-body { grid-template-columns: 1fr; }
 .stage-wrap { position: relative; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .stage {
   min-height: 320px;
@@ -151,22 +274,34 @@ body.is-detached .port-body { grid-template-columns: 1fr; }
 .stage.is-finished { pointer-events: none; opacity: 0.4; }
 
 /*
- * Экран участника: каталог, панель оператора, шапка и подвал уходят целиком, а
- * сцена растягивается на весь монитор и центрируется по вертикали. Прятать
- * ручки флагом мало — они занимают место, и стимул оставался бы сдвинутым.
+ * Сессия участника: панель, шапка и подвал уходят целиком, а сцена растягивается
+ * на весь монитор и центрируется по вертикали. Прятать ручки флагом мало — они
+ * занимают место, и стимул оставался бы сдвинутым влево на половину панели.
  */
-body.is-participant .catalog,
 body.is-participant .side,
 body.is-participant .port-head,
 body.is-participant .foot,
 body.is-participant #banner {
   display: none;
 }
-body.is-participant #app { grid-template-columns: 1fr; }
 body.is-participant .port { grid-template-rows: 1fr; }
 body.is-participant .port-body { grid-template-columns: 1fr; }
 body.is-participant .stage-wrap { min-height: 100vh; justify-content: center; }
 body.is-participant .stage { min-height: 0; }
+
+/* Сводка: операторский экран после сессии, участнику он уже не показывается. */
+.debrief { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+.debrief-card {
+  width: min(720px, 100%);
+  padding: 28px 32px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.debrief-card h1 { margin: 0 0 12px; font-size: 22px; }
+.debrief-card h3 { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 20px 0 8px; }
+.debrief-exports { display: flex; gap: 8px; flex-wrap: wrap; }
+.debrief-foot { margin-top: 24px; display: flex; justify-content: flex-end; }
 
 .side {
   border-left: 1px solid var(--border);
@@ -324,6 +459,9 @@ select, input[type="range"], input[type="number"] {
 .gs-mark { font-size: calc(20px * var(--gs-scale)); line-height: 1.2; color: var(--text); }
 /* Разбор ошибки нужен только в обучении, поэтому в зачётном прогоне он пуст. */
 .gs-mark-reason { font-size: 13px; max-width: 34ch; text-align: left; }
+/* Кнопка появляется вместе с разбором: пока она на экране, стимулы не идут. */
+.gs-mark-next { display: inline-flex; align-items: baseline; gap: 6px; }
+.gs-mark-next-hint { font-size: 11px; color: var(--muted); }
 
 /* Отбивка закрывает сцену целиком: пока участник читает, стимулов быть не должно,
    а листает экран оператор мышью — клавиши участника ничего не промотают. */
@@ -336,10 +474,6 @@ select, input[type="range"], input[type="number"] {
   justify-content: center;
   background: var(--bg);
 }
-/* Без этого `hidden` не действует: `display: flex` из правила класса сильнее
-   стиля браузера, и отбивка оставалась бы на экране поверх сцены — с текстом
-   прошлого экрана и мёртвой кнопкой. */
-.interstitial[hidden] { display: none; }
 .interstitial-card {
   max-width: 62ch;
   padding: 28px 32px;
@@ -351,6 +485,9 @@ select, input[type="range"], input[type="number"] {
   border-radius: 14px;
 }
 .interstitial-card h3 { margin: 0; font-size: 22px; }
+/* Абзацы разделены зримо: слипшийся текст инструкции читают по диагонали, а
+   инструкция — единственное, что участник получает перед блоком. */
+#interstitialBody { display: flex; flex-direction: column; gap: 12px; }
 .interstitial-card p { margin: 0; line-height: 1.6; }
 .interstitial-pos { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
 .interstitial-foot { color: var(--muted); font-size: 13px; font-style: italic; }
@@ -414,3 +551,8 @@ select, input[type="range"], input[type="number"] {
   background: rgba(63, 185, 80, 0.08);
   text-align: center;
 }
+
+/* Последним правилом и с запасом: `hidden` обязан выключать элемент при любом
+   `display` из класса. Иначе «скрытый» узел остаётся на мониторе — так отбивка
+   висела поверх сцены с мёртвой кнопкой, а настройка перекрывала сессию. */
+[hidden] { display: none !important; }

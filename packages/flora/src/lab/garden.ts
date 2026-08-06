@@ -8,10 +8,18 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/core/Meshes/Builders/groundBuilder.js";
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
-import { applyWorldUv, asphaltSurface, grassSurface, gravelSurface, type Surface } from "../view/ground.js";
-import { createSky, type Sky } from "../view/sky.js";
-import { SPECIES } from "../view/species.js";
-import { loadTreeField, type TreeField, type TreeSpot } from "../view/trees.js";
+import {
+  applyWorldUv,
+  asphaltSurface,
+  createSky,
+  grassSurface,
+  gravelSurface,
+  windAt,
+  type Sky,
+  type SurfaceSkin,
+} from "@gamespace/env";
+import { SPECIES } from "../species.js";
+import { loadTreeField, type TreeField, type TreeSpot } from "../trees.js";
 
 /**
  * Стенд для деревьев: та же дорога, то же небо, тот же лес, но без машины, без физики
@@ -132,7 +140,7 @@ export async function mountGarden(canvas: HTMLCanvasElement, hud: HTMLElement): 
   camera.maxZ = 2200;
   camera.fov = 1.0;
 
-  const textured = (name: string, surface: Surface): StandardMaterial => {
+  const textured = (name: string, surface: SurfaceSkin): StandardMaterial => {
     const material = new StandardMaterial(name, scene);
     material.diffuseColor = Color3.White();
     material.specularColor = Color3.Black();
@@ -147,7 +155,7 @@ export async function mountGarden(canvas: HTMLCanvasElement, hud: HTMLElement): 
 
   const lastBayZ = FIRST_BAY_M + (SPECIES.length - 1) * BAY_M;
   const alleyLength = lastBayZ + 120;
-  const strip = (name: string, halfWidth: number, y: number, surface: Surface): Mesh => {
+  const strip = (name: string, halfWidth: number, y: number, surface: SurfaceSkin): Mesh => {
     const mesh = MeshBuilder.CreateGround(name, { width: halfWidth * 2, height: alleyLength, subdivisions: 1 }, scene);
     mesh.position.z = alleyLength / 2 - 40;
     mesh.position.y = y;
@@ -161,8 +169,19 @@ export async function mountGarden(canvas: HTMLCanvasElement, hud: HTMLElement): 
   const shoulder = strip("garden-shoulder", ROAD_HALF_M + SHOULDER_M, 0.01, gravelSurface(scene));
   const road = strip("garden-road", ROAD_HALF_M, 0.02, asphaltSurface(scene));
 
-  /** Погода стенда: постоянная, и меняется только руками. */
-  const weather = { elevation: 42 * (Math.PI / 180), azimuth: 2.4, turbidity: 3, cover: 0.22 };
+  /**
+   * Погода стенда: постоянная, и меняется только руками. Ветер тут не порыв
+   * посева, а ступенька с клавиатуры: сравнивать два снимка можно лишь тогда,
+   * когда между ними изменилось ровно одно.
+   */
+  const weather = {
+    elevation: 42 * (Math.PI / 180),
+    azimuth: 2.4,
+    turbidity: 3,
+    cover: 0.22,
+    wind: WIND_STEPS[1]!,
+    windRad: 0.7,
+  };
   let sky: Sky = createSky(scene, 1, weather);
 
   let field: TreeField | null = null;
@@ -249,7 +268,7 @@ export async function mountGarden(canvas: HTMLCanvasElement, hud: HTMLElement): 
       case "ц":
       case "Ц":
         windStep = (windStep + 1) % WIND_STEPS.length;
-        field?.setWind(WIND_STEPS[windStep]!, 0.7);
+        weather.wind = WIND_STEPS[windStep]!;
         break;
       case "c":
       case "C":
@@ -280,7 +299,7 @@ export async function mountGarden(canvas: HTMLCanvasElement, hud: HTMLElement): 
   const drawFrame = (): void => {
     const elapsedS = (performance.now() - started) / 1000;
     sky.drift(elapsedS);
-    field?.animate(elapsedS);
+    field?.animate(windAt(weather, elapsedS));
     scene.render();
   };
   engine.runRenderLoop(drawFrame);
@@ -298,7 +317,6 @@ export async function mountGarden(canvas: HTMLCanvasElement, hud: HTMLElement): 
   });
   field.place(spots);
   for (const mesh of field.meshes) sky.shadows.cast(mesh);
-  field.setWind(WIND_STEPS[windStep]!, 0.7);
   report();
 
   return {

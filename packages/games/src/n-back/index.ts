@@ -7,7 +7,6 @@ import {
   type Microgame,
   type Params,
   type Surface,
-  type TrialDebrief,
 } from "@gamespace/core";
 import { FeedbackMark, OptionRow, Stimulus, debriefText, verdictOf } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
@@ -40,7 +39,11 @@ class NBackWebView implements GameView<NBackView> {
     this.options.render([{ label: `Совпадение · N = ${view.n}`, index: 0, actionId: "match" }]);
     // Действие не indexed: клавишу раздаёт хост по defaultBinding, вариантов для 1..9 нет.
     this.ctx.input.setOptionCount(0);
-    this.feedback.show(verdictOf(view.feedback), this.ctx.training ? debriefText(debrief(view.feedback)) : "");
+    this.feedback.show(
+      verdictOf(view.feedback),
+      this.ctx.training ? debriefText(view.debrief) : "",
+      view.holding ? () => this.ctx.input.submit("match", {}, "pointer") : null,
+    );
     this.ctx.surface.setStats(view.stats);
   }
 
@@ -48,16 +51,6 @@ class NBackWebView implements GameView<NBackView> {
     this.options.clear();
     this.stimulus.clear();
   }
-}
-
-/**
- * Здесь исход сам себе разбор: пропуск и ложная тревога — это и есть «что
- * требовалось» и «что пришло», значений сверх них у пробы нет.
- */
-function debrief(feedback: NBackView["feedback"]): TrialDebrief | null {
-  if (feedback === "miss") return { expected: "отметить совпадение", got: null };
-  if (feedback === "false-alarm") return { expected: null, got: "нажатие" };
-  return null;
 }
 
 export const nback: Microgame<NBackState, NBackView> = {

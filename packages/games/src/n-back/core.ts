@@ -1,4 +1,5 @@
 import {
+  HOLD_MS,
   createRngState,
   rngNext,
   rngPick,
@@ -8,6 +9,7 @@ import {
   type Params,
   type ReduceResult,
   type RngState,
+  type TrialDebrief,
 } from "@gamespace/core";
 
 /** Буквы без похожих по звучанию пар: путаница на слух не должна попадать в ошибки памяти. */
@@ -53,6 +55,11 @@ export interface NBackState {
   rtSum: number;
   rtCount: number;
   feedback: NBackFeedback;
+  training: boolean;
+  /** Разбор ошибки: в нём названы буквы, иначе «нажимать было не нужно» ничего не объясняет. */
+  lastDebrief: TrialDebrief | null;
+  /** Обучение стоит на разборе и ждёт участника: следующая буква сама не придёт. */
+  holding: boolean;
 }
 
 export interface NBackView {
@@ -62,6 +69,8 @@ export interface NBackView {
   running: boolean;
   finished: boolean;
   feedback: NBackFeedback;
+  debrief: TrialDebrief | null;
+  holding: boolean;
   stats: Array<[string, string | number]>;
 }
 
@@ -142,6 +151,8 @@ export function nbackView(state: NBackState): NBackView {
     running: state.running,
     finished: state.finished,
     feedback: state.feedback,
+    debrief: state.lastDebrief,
+    holding: state.holding,
     stats: [
       ["Проб", state.trials],
       ["Совпадений", `${state.hits}/${state.targets}`],
@@ -157,6 +168,33 @@ export function isTargetTrial(state: NBackState): boolean {
 
 function render(state: NBackState): Effect {
   return { kind: "render", view: nbackView(state) as unknown as Json };
+}
+
+/**
+ * Разбор пробы называет буквы. «Здесь нажимать было не нужно» участник и сам
+ * видит по кресту; понять, почему не нужно, можно только сравнив букву с той,
+ * что была n шагов назад, — поэтому обе буквы в разборе названы.
+ */
+function trialDebrief(state: NBackState, missed: boolean): TrialDebrief {
+  const n = state.params?.n ?? 1;
+  const now = state.stream[state.index] ?? "";
+  const back = state.stream[state.index - n];
+  const ago = `${n} ${n === 1 ? "шаг" : "шага"} назад`;
+  if (missed) {
+    return {
+      expected: "отметить совпадение",
+      got: null,
+      hint: `Это было совпадение: сейчас ${now} и ${ago} тоже ${now}. Здесь нужно было нажать.`,
+    };
+  }
+  return {
+    expected: null,
+    got: "нажатие",
+    hint:
+      back === undefined
+        ? `Совпадать было не с чем: ${ago} буквы ещё не было. Нажимают только на повтор.`
+        : `Совпадения не было: сейчас ${now}, а ${ago} была ${back}. Нажимают только на повтор.`,
+  };
 }
 
 export const nbackCore: GameCore<NBackState> = {
@@ -180,6 +218,9 @@ export const nbackCore: GameCore<NBackState> = {
     rtSum: 0,
     rtCount: 0,
     feedback: null,
+    training: Boolean(config.training),
+    lastDebrief: null,
+    holding: false,
   }),
 
   reduce(state, input): ReduceResult<NBackState> {
@@ -212,13 +253,17 @@ export const nbackCore: GameCore<NBackState> = {
         return startBlock(state, input.effective as NBackParams, input.tMs);
 
       case "action": {
+        // Разбор снимает сам участник — и любым из своих ответов, не только
+        // кнопкой: третьей руки у него нет, а отдельная клавиша означала бы, что
+        // в обучении раскладка другая, чем в зачёте.
+        if (state.holding) return release(state, input.tMs);
         if (input.actionId !== "match") return { state, effects: [] };
         return respond(state, input.tMs);
       }
 
       case "deadline": {
         if (input.timerId === NB_STIM) return hide(state);
-        if (input.timerId === NB_ISI) return advance(state, input.tMs);
+        if (input.timerId === NB_ISI) return release(state, input.tMs);
         return { state, effects: [] };
       }
 
@@ -257,6 +302,8 @@ function startBlock(state: NBackState, params: NBackParams, tMs: number): Reduce
     rtSum: 0,
     rtCount: 0,
     feedback: null,
+    lastDebrief: null,
+    holding: false,
   };
   return present(fresh, tMs);
 }
@@ -323,12 +370,18 @@ function hide(state: NBackState): ReduceResult<NBackState> {
   const target = state.targetFlags[state.index] === true;
   const missed = target && !state.responded;
   const rejected = !target && !state.responded;
+  const wrong = missed || (!target && state.responded);
+  // В обучении проба с ошибкой заканчивается разбором, а не следующей буквой:
+  // пауза между стимулами — треть секунды, прочитать за неё нельзя ничего.
+  const holding = state.training && wrong;
   const next: NBackState = {
     ...state,
     visible: false,
     misses: state.misses + (missed ? 1 : 0),
     correctRejections: state.correctRejections + (rejected ? 1 : 0),
     feedback: missed ? "miss" : state.feedback,
+    holding,
+    lastDebrief: holding ? trialDebrief(state, missed) : null,
   };
   return {
     state: next,
@@ -345,9 +398,17 @@ function hide(state: NBackState): ReduceResult<NBackState> {
         },
       },
       render(next),
-      { kind: "schedule", timerId: NB_ISI, afterMs: params.isiMs },
+      // Ожидание разбора всё равно ограничено: участник мог отвернуться, а блок
+      // обязан кончиться сам.
+      { kind: "schedule", timerId: NB_ISI, afterMs: holding ? HOLD_MS : params.isiMs },
     ],
   };
+}
+
+/** Участник прочитал разбор: дальше поток идёт как обычно, со следующей буквы. */
+function release(state: NBackState, tMs: number): ReduceResult<NBackState> {
+  const result = advance({ ...state, holding: false, feedback: null, lastDebrief: null }, tMs);
+  return { state: result.state, effects: [{ kind: "cancel", timerId: NB_ISI }, ...result.effects] };
 }
 
 function advance(state: NBackState, tMs: number): ReduceResult<NBackState> {
@@ -364,7 +425,15 @@ function advance(state: NBackState, tMs: number): ReduceResult<NBackState> {
 function endBlock(state: NBackState, scored: boolean): ReduceResult<NBackState> {
   if (state.finished) return { state, effects: [] };
   const params = state.params;
-  const next: NBackState = { ...state, running: false, finished: true, visible: false, feedback: null };
+  const next: NBackState = {
+    ...state,
+    running: false,
+    finished: true,
+    visible: false,
+    feedback: null,
+    holding: false,
+    lastDebrief: null,
+  };
   const result = nbackSummary(next);
   const effects: Effect[] = [
     { kind: "cancel", timerId: NB_STIM },

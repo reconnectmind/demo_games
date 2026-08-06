@@ -37,6 +37,7 @@ class BaselineWebView implements GameView<BaselineView> {
     this.text.textContent = view.finished ? "Участок завершён." : view.text;
     this.timer.textContent = view.showTimer ? fmt(view.remainingMs) : "";
     this.timer.style.display = view.showTimer ? "" : "none";
+    this.fixation.style.display = view.fixation ? "" : "none";
     this.fixation.style.opacity = view.finished ? "0.2" : "1";
     this.ctx.surface.setStats(view.stats);
   }

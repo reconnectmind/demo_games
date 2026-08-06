@@ -5,7 +5,7 @@
  * Vite отдаёт её в режиме разработки по имени файла, а `vite build` собирает только
  * `index.html`.
  */
-import { mountGarden } from "@gamespace/race/lab";
+import { mountGarden } from "@gamespace/flora/lab";
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
 const hud = document.getElementById("hud") as HTMLElement;

@@ -29,6 +29,9 @@ import { EventLog, MemorySink, SeqCounter, type DurableSink } from "./events.js"
 import {
   AdaptiveStaircase,
   DifficultyController,
+  clampParams,
+  isPinned,
+  type Bounds,
   type DifficultyPolicy,
 } from "./difficulty.js";
 import { InputController, type SignalSource } from "./input.js";
@@ -63,6 +66,8 @@ export interface MountOptions {
   seed?: number;
   policy?: DifficultyPolicy;
   overrides?: Params;
+  /** Границы значений: диапазон, внутри которого политике разрешено двигать ось. */
+  bounds?: Bounds;
   training?: boolean;
   /**
    * Закрепления для дочерних задач по идентификатору модуля. Протокол объявляет
@@ -70,6 +75,8 @@ export interface MountOptions {
    * пути закрепление до самой задачи не доходит.
    */
   childOverrides?: Record<string, Params>;
+  /** Границы дочерних задач: тот же путь, что у закреплений, только диапазонами. */
+  childBounds?: Record<string, Bounds>;
   locale?: string;
   requireResumable?: boolean;
   /** Запуск без представления: повтор журнала, soak-тесты, проверка ядра. */
@@ -175,8 +182,14 @@ export class GameInstanceImpl implements GameInstance {
     const policy = opts.policy ?? new AdaptiveStaircase({ max: game.manifest.levels.count });
     // Что протокол закрепил, то политике расти не даёт: рост уходит на свободные
     // оси по кривым из таблицы компенсаций, а не пропадает молча.
+    // Сомкнутый диапазон закрепляет ось так же, как прямое переопределение:
+    // расти по ней некуда, и политика обязана знать об этом одинаково в обоих
+    // случаях, иначе рост уходит в затёртое значение.
+    const pinned = Object.entries(opts.bounds ?? {})
+      .filter(([, bound]) => isPinned(bound))
+      .map(([axis]) => axis);
     const frozen = game.presets
-      ? Object.keys(opts.overrides ?? {}).filter((axis) => game.presets!.axes[axis])
+      ? [...new Set([...Object.keys(opts.overrides ?? {}), ...pinned])].filter((axis) => game.presets!.axes[axis])
       : [];
     const free = game.presets ? freeAxes(game.presets, frozen) : [];
     this.difficulty = new DifficultyController({
@@ -184,6 +197,7 @@ export class GameInstanceImpl implements GameInstance {
       paramsForLevel: (level) =>
         game.presets ? presetParams(game.presets, level, frozen) : game.paramsForLevel(level),
       overrides: opts.overrides,
+      ...(opts.bounds ? { bounds: opts.bounds } : {}),
       frozen,
       free,
       training: opts.training,
@@ -487,9 +501,10 @@ export class GameInstanceImpl implements GameInstance {
     if (!surface) throw new Error(`Слот ${slot} не зарегистрирован представлением оркестратора`);
     const game = this.runtime.registry.resolve(ref);
     const overrides = this.opts.childOverrides?.[ref.id];
+    const bounds = this.opts.childBounds?.[ref.id];
     const report = preflight({
       manifest: game.manifest,
-      params: { ...game.paramsForLevel(1), ...(overrides ?? {}) },
+      params: clampParams({ ...game.paramsForLevel(1), ...(overrides ?? {}) }, bounds),
       capabilities: this.runtime.capabilities,
     });
     if (!report.ok) throw new PreflightError(report);
@@ -511,7 +526,9 @@ export class GameInstanceImpl implements GameInstance {
         seed: (this.opts.seed ?? 1) + slot.length * 7919,
         policy,
         ...(overrides ? { overrides } : {}),
+        ...(bounds ? { bounds } : {}),
         ...(this.opts.childOverrides ? { childOverrides: this.opts.childOverrides } : {}),
+        ...(this.opts.childBounds ? { childBounds: this.opts.childBounds } : {}),
         training: this.opts.training,
         locale: this.ctx.locale,
         signalSource: this.opts.signalSource,
@@ -634,7 +651,10 @@ export class GameRuntime {
   mount(ref: PackageRef | string, options: MountOptions): GameInstanceImpl {
     const game = this.registry.resolve(ref);
     const packageRef = { id: game.manifest.id, version: game.manifest.version };
-    const initialParams = { ...game.paramsForLevel(options.policy?.current() ?? 1), ...(options.overrides ?? {}) };
+    const initialParams = clampParams(
+      { ...game.paramsForLevel(options.policy?.current() ?? 1), ...(options.overrides ?? {}) },
+      options.bounds,
+    );
     const report = preflight({
       manifest: game.manifest,
       params: initialParams,

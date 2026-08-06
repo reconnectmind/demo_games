@@ -1,4 +1,5 @@
 import {
+  childSet,
   createRngState,
   rngShuffle,
   type GameCore,
@@ -16,6 +17,8 @@ export interface AdaptiveBatteryParams extends Params {
   blocks: number;
   restMs: number;
   poolSize: number;
+  /** Состав задач: имена через запятую. Пусто — первые `poolSize` из манифеста. */
+  tasks: string;
   /**
    * Через сколько батарея сама закрывает блок задачи. Ноль — как прежде: темп
    * задаёт ребёнок своей длиной блока, и регулировать частоту смен нечем.
@@ -97,9 +100,10 @@ export const adaptiveBatteryCore: GameCore<AdaptiveBatteryState> = {
       }
 
       case "params": {
-        const params = input.effective as AdaptiveBatteryParams;
+        // Состав задач необязателен: без него действует прежнее правило пула.
+        const params = { tasks: "", ...input.effective } as AdaptiveBatteryParams;
         if (state.order.length > 0) return { state: { ...state, params }, effects: [] };
-        const [shuffled, rng] = rngShuffle(state.rng, POOL.slice(0, params.poolSize).map((c) => c.id));
+        const [shuffled, rng] = rngShuffle(state.rng, childSet(POOL, params.tasks, params.poolSize));
         // Пул перемешивается один раз и затем повторяется циклом: так порядок
         // задач воспроизводится по seed, а блоков может быть больше, чем задач.
         const order = Array.from({ length: params.blocks }, (_, i) => shuffled[i % shuffled.length] as string);

@@ -1,55 +1,33 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Manual, headlessRun, type LoggedEvent } from "@gamespace/core";
+import {
+  MASS_KG,
+  RIDE_HEIGHT_M,
+  SUSPENSION_LOADED_M,
+  TIRE_COLD_C,
+  engineSettle,
+  engineStep,
+  pumpingNm,
+} from "@gamespace/car";
+import { hash01 } from "@gamespace/env";
 import {
   GEAR_NEUTRAL,
   GEAR_REVERSE,
   LIMP_THROTTLE,
-  MASS_KG,
-  MODEL,
-  RIDE_HEIGHT_M,
   RPM_IDLE,
   RPM_MAX,
-  STEER_LOCK,
   STUCK_LIMIT_MS,
-  SUSPENSION_LOADED_M,
-  WHEEL_RADIUS_M,
   Centerline,
   corridorHalfWidth,
   crossSection,
-  engineSettle,
-  engineStep,
-  geometricRpm,
-  hash01,
-  pumpingNm,
+  gearLabel,
   race,
   raceStuck,
   ratioFor,
-  ratiosFor,
-  REVERSE_RATIO,
-  gearLabel,
-  steerLimit,
-  steerStep,
-  torqueAt,
   trackAt,
-  WHEELBASE_M,
   type RaceState,
 } from "@gamespace/race";
-// Прямо файлом, а не через пакет: тест сверяет габариты физики с обмерами модели,
-// и смотреть он обязан именно в тот файл, который печатает `bake-car.mjs`.
-import carAsset from "../packages/race/src/assets/car.json";
-// Испечённый лес и таблица пород: расстановка сводит их по имени породы, и
-// разъезжаются они молча — на трассе просто не окажется четверти деревьев.
-import treesAsset from "../packages/race/src/assets/trees.json";
-import { SURFACES, TIRE_COLD_C, flashC, markAt, smearAt, tireSlope } from "../packages/race/src/tire.js";
-// Прямо файлом: снос — внутреннее дело руля, публичному API его знать незачем.
-import { steerNeutral } from "../packages/race/src/steering.js";
-import { SPECIES } from "../packages/race/src/view/species.js";
-import { JOINT_FAR_M, JOINT_NEAR_M, LEAF_VERTS, jointDetail, leafPivots } from "../packages/race/src/view/sway.js";
 import { cameraFollow } from "../packages/race/src/view/follow.js";
-import { PUFFS, RATE_MAX, dustRate } from "../packages/race/src/view/dust.js";
 import { describeContract } from "./contract-suite.js";
 
 describeContract([race], race);
@@ -411,46 +389,6 @@ describe("заезд: физика", () => {
     expect(Math.abs(height - RIDE_HEIGHT_M)).toBeLessThan(0.08);
   });
 
-  it("колея и клиренс физики взяты из самой модели, а не подобраны на глаз", () => {
-    // Обмеры пишет печать модели (`tools/bake-car.mjs`), а физика читает их из
-    // `geometry.ts`. Разъехавшись, колёса поедут рядом с арками.
-    expect(MODEL).toMatchObject(carAsset.model);
-    // Модель обмеряна в метрах и в натуральную величину: масштабировать нечего.
-    expect(WHEEL_RADIUS_M).toBeCloseTo(carAsset.model.wheelRadius, 6);
-    // Ось колеса на высоте радиуса: колесо стоит на дороге, а не висит над ней.
-    expect(carAsset.model.hubY).toBeCloseTo(carAsset.model.wheelRadius, 3);
-    // База несимметрична, и перед стоит дальше от середины, чем зад: у прежней
-    // модели-купе оси стояли ровно, и печать писала на обе одно число.
-    expect(carAsset.model.hubFrontZ).toBeGreaterThan(carAsset.model.hubBackZ);
-    // Габариты — настоящего Cayenne: 4.8 м в длину, 2.9 м база, колесо в 74 см.
-    const length = carAsset.model.bodyMax[2]! - carAsset.model.bodyMin[2]!;
-    expect(length).toBeGreaterThan(4.5);
-    expect(length).toBeLessThan(5.1);
-    expect(carAsset.model.hubFrontZ + carAsset.model.hubBackZ).toBeCloseTo(2.85, 1);
-    // Зеркала торчат за кузов, и коллайдер строится не по габариту, а по корпусу:
-    // иначе машина цепляется зеркалами за то, что зрительно проходит мимо.
-    expect(carAsset.model.hullX).toBeLessThan(carAsset.model.bodyMax[0]!);
-    expect(carAsset.model.hullX).toBeGreaterThan(carAsset.model.bodyMax[0]! * 0.8);
-    // Колея уже корпуса, но не вдвое: иначе машину валит в вираже.
-    expect(carAsset.model.wheelX).toBeGreaterThan(carAsset.model.hullX * 0.7);
-  });
-
-  it("остекление затемнено при печати: белой заплаты на крыше нет", () => {
-    // У модели стёкла честно прозрачные, вид им добирает то, что видно насквозь. У
-    // нас материал без прозрачности, и белёсое стекло выходило бы самым ярким пятном
-    // в кадре — ярче разметки, хотя камера весь заезд смотрит машине в затылок.
-    const colors = Buffer.from(carAsset.body.colors, "base64");
-    const packed = Buffer.from(carAsset.body.positions, "base64");
-    const positions = new Int16Array(packed.buffer, packed.byteOffset, packed.byteLength / 2);
-    let bright = 0;
-    for (let v = 0; v < carAsset.body.vertexCount; v++) {
-      const y = positions[v * 3 + 1]! * carAsset.body.scale;
-      const darkest = Math.min(colors[v * 3]!, colors[v * 3 + 1]!, colors[v * 3 + 2]!);
-      if (y > 0.65 && darkest > 200) bright++;
-    }
-    expect(bright).toBe(0);
-  });
-
   it("руль не круче семи десятых g: иначе машина уходит в разворот, а не в поворот", () => {
     // Раньше предел руля был постоянным, и на пятидесяти километрах в час полный
     // вылет давал радиус поворота в три метра — два g в бок. Машина не поворачивала,
@@ -524,37 +462,6 @@ describe("заезд: физика", () => {
     );
   });
 
-  it("след оставляет не проскальзывание, а горячая резина под нагрузкой", () => {
-    // Чёрная полоса — это плёнка стёртой резины, а не царапина. Значит нужны обе
-    // вещи сразу: работа трения, которая отрывает резину от протектора, и
-    // температура, которая заставляет оторванное мазать, а не крошиться в пыль.
-    const asphalt = SURFACES.asphalt!;
-    // Срыв: пятно скользит целиком.
-    const loose = 3;
-    // Свежей шине нужен настоящий срыв: поверхность пятна разогревает сам поток
-    // трения, и слабого скольжения на это не хватает.
-    expect(markAt(3_000, TIRE_COLD_C, asphalt, loose)).toBe(0);
-    expect(markAt(20_000, TIRE_COLD_C, asphalt, loose)).toBeGreaterThan(0.5);
-    // А прогретой хватает и слабого: толща уже горячая, поверхности недалеко.
-    expect(markAt(3_000, 90, asphalt, loose)).toBeGreaterThan(0.1);
-    expect(flashC(20, 20_000)).toBeGreaterThan(flashC(20, 3_000));
-    // Холодная поверхность стирается тоже, но следа не оставляет: пыль уносит.
-    expect(smearAt(20)).toBe(0);
-    expect(smearAt(120)).toBe(1);
-    expect(smearAt(75)).toBeGreaterThan(0);
-    expect(smearAt(75)).toBeLessThan(1);
-    // Проскальзывание без нагрузки не стирает ничего: работы нет.
-    expect(markAt(0, 120, asphalt, loose)).toBe(0);
-    // Держащее пятно не мажет, сколько бы работы через него ни шло: на скорости
-    // и три процента проскальзывания дают киловатты, но там ничего не скользит.
-    expect(markAt(20_000, 120, asphalt, 0.03)).toBe(0);
-    // И мазать надо по чему-то: трава след не держит, гравий почти не держит.
-    expect(markAt(20_000, 120, SURFACES.grass!, loose)).toBe(0);
-    expect(markAt(20_000, 120, SURFACES.gravel!, loose)).toBeLessThan(
-      markAt(20_000, 120, asphalt, loose) * 0.3,
-    );
-  });
-
   it("буксующая шина чернит асфальт, катящаяся — нет", () => {
     // Сорванные в заносе задние чернят дорогу, и чернят вместе с тем, как
     // греются: это тот самый след, который остаётся после силового заноса.
@@ -580,17 +487,6 @@ describe("заезд: физика", () => {
     const rolling = straight(4);
     rolling.clock.advance(12_000);
     for (const wheel of state(rolling).frame!.wheels) expect(wheel.mark).toBe(0);
-  });
-
-  it("наклон кривой сцепления падает до нуля на пике и уходит в минус за ним", () => {
-    // Это и есть то число, из-за которого шина не срывалась: неявный шаг брал
-    // наклон в нуле на любом проскальзывании и держал колесо там, где держать
-    // уже нечем.
-    expect(tireSlope(0)).toBeGreaterThan(20);
-    expect(tireSlope(0.13)).toBeLessThan(1);
-    expect(tireSlope(0.13)).toBeGreaterThan(-1);
-    expect(tireSlope(0.4)).toBeLessThan(0);
-    expect(tireSlope(0.02)).toBeGreaterThan(tireSlope(0.08));
   });
 
   it("зад уходит в занос, и руль сам перекладывается в контрруль", () => {
@@ -885,31 +781,9 @@ describe("заезд: физика", () => {
 });
 
 describe("заезд: коробка передач", () => {
-  it("низкая передача умножает момент, высокая экономит обороты", () => {
-    const gears = 6;
-    let previous = Infinity;
-    for (let gear = 1; gear <= gears; gear++) {
-      const ratio = ratioFor(gear, gears);
-      expect(ratio).toBeLessThan(previous);
-      previous = ratio;
-      // Сила с места падает с номером передачи, а обороты на одной скорости — тоже.
-      expect(engineSettle({ wheelSpeedMs: 0, ratio, throttle: 1, powerCap: 1 }).forceN).toBeGreaterThan(0);
-    }
-    const pull = (gear: number) =>
-      engineSettle({ wheelSpeedMs: 0, ratio: ratioFor(gear, gears), throttle: 1, powerCap: 1 }).forceN;
-    expect(pull(1)).toBeGreaterThan(pull(gears));
-    expect(geometricRpm(30, ratioFor(1, gears))).toBeGreaterThan(geometricRpm(30, ratioFor(gears, gears)));
-  });
-
-  it("селектор идёт от заднего хода через нейтраль к ступеням вперёд", () => {
-    expect(ratioFor(GEAR_REVERSE, 6)).toBe(REVERSE_RATIO);
-    expect(ratioFor(GEAR_REVERSE, 6)).toBeLessThan(0);
-    expect(ratioFor(GEAR_NEUTRAL, 6)).toBe(0);
-    expect(ratioFor(1, 6)).toBe(ratiosFor(6)[0]);
-    expect(ratioFor(6, 6)).toBe(ratiosFor(6)[5]);
-    // Ниже заднего и выше последней селектор не уходит: рычагу некуда.
-    expect(ratioFor(-5, 6)).toBe(REVERSE_RATIO);
-    expect(ratioFor(9, 6)).toBe(ratiosFor(6)[5]);
+  it("приборы называют передачи словами, а не числом с минусом", () => {
+    // Ступени и отношения — дело коробки, а вот подпись под стрелкой читает
+    // участник, и «−1» на ней не говорит ничего.
     expect(gearLabel(GEAR_REVERSE, 6)).toContain("задний");
     expect(gearLabel(GEAR_NEUTRAL, 6)).toContain("нейтраль");
     expect(gearLabel(3, 6)).toBe("3 из 6");
@@ -933,15 +807,8 @@ describe("заезд: коробка передач", () => {
   });
 
   it("на нейтрали мотор раскручивается свободно, а на колёса не уходит ничего", () => {
-    // Нейтраль — это нулевое отношение, и обе её приметы отсюда и следуют: тяги
-    // нет вовсе, а трансформатору нечего держать, поэтому мотор уходит до отсечки,
-    // вместо того чтобы упереться в стоячую турбину на двух с половиной тысячах.
-    const idle = engineSettle({ wheelSpeedMs: 0, ratio: 0, throttle: 1, powerCap: 1 });
-    expect(idle.forceN).toBe(0);
-    expect(idle.rpm).toBeGreaterThan(RPM_MAX * 0.95);
-    const stall = engineSettle({ wheelSpeedMs: 0, ratio: ratioFor(1, 6), throttle: 1, powerCap: 1 });
-    expect(stall.rpm).toBeLessThan(idle.rpm * 0.6);
-
+    // Нулевое отношение считает коробка, а видно это на дороге так: газ ревёт, а
+    // машина стоит. Обратная сторона того же — нейтраль не тормозит двигателем.
     const run = straight(1);
     select(run, GEAR_NEUTRAL);
     run.clock.advance(4000);
@@ -991,28 +858,6 @@ describe("заезд: коробка передач", () => {
     expect(state(run).frame!.speedMs).toBeLessThan(-1);
   });
 
-  it("крайние передачи одинаковы при любом числе ступеней", () => {
-    const full = ratiosFor(8);
-    for (const gears of [2, 3, 4, 6, 8]) {
-      const ratios = ratiosFor(gears);
-      expect(ratios.length).toBe(gears);
-      expect(ratios[0]).toBe(full[0]);
-      expect(ratios[gears - 1]).toBe(full[7]);
-      for (let i = 1; i < gears; i++) expect(ratios[i]!).toBeLessThan(ratios[i - 1]!);
-    }
-  });
-
-  it("за отсечкой момента нет, до пика он растёт", () => {
-    // Ограничитель гасит подачу полосой, а не ножом: у самой отсечки мотор ещё
-    // тянет, чуть выше — уже нет. Нож здесь стоил машине способности выехать с
-    // травы: буксующее колесо само загоняло коленвал за предел и обнуляло тягу.
-    expect(torqueAt(RPM_MAX + 1)).toBeGreaterThan(0);
-    expect(torqueAt(RPM_MAX + 1)).toBeLessThan(torqueAt(RPM_MAX - 100));
-    expect(torqueAt(RPM_MAX + 400)).toBe(0);
-    expect(torqueAt(3000)).toBeGreaterThan(torqueAt(1000));
-    expect(torqueAt(4200)).toBeGreaterThan(torqueAt(6800));
-  });
-
   it("самая сильная передача побеждает самый крутой подъём даже с перегревом", () => {
     // Иначе заезд превращается в ловушку: перегретая машина встанет на уклоне
     // навсегда, а участник не сможет сделать ничего.
@@ -1027,32 +872,51 @@ describe("заезд: коробка передач", () => {
   });
 });
 
-describe("заезд: пыль из-под колёс", () => {
-  // Пыль заменила собой то, чем раньше показывали обочину: там на весь мир втрое
-  // густел туман, и горизонт превращался в серую стену от одного колеса на траве.
-  it("стоящая машина не пылит, катящаяся по грунту — пылит", () => {
-    expect(dustRate(PUFFS.grass!, 0, 0)).toBe(0);
-    expect(dustRate(PUFFS.gravel!, 0, 0)).toBe(0);
-    expect(dustRate(PUFFS.grass!, 0, 20)).toBeGreaterThan(0);
-    // Чем быстрее катится, тем гуще шлейф — но до потолка, а не без конца.
-    expect(dustRate(PUFFS.gravel!, 0, 25)).toBeGreaterThan(dustRate(PUFFS.gravel!, 0, 8));
-    expect(dustRate(PUFFS.gravel!, 3, 30)).toBeLessThanOrEqual(RATE_MAX);
+describe("заезд: обучение", () => {
+  it("правило и критерий допуска объявлены проверяемо", () => {
+    // Без правила обучение начинается со стимула, а критерий прозой («точность
+    // хотя бы шестьдесят процентов») нечем проверить: неизвестно, что считается
+    // попыткой и сколько последних берётся в окно.
+    expect(race.manifest.training.rule?.summary).toBeTruthy();
+    expect(race.manifest.training.admission).toMatchObject({ counts: "trial" });
   });
 
-  it("асфальт пылит только из-под сорванной шины", () => {
-    // Рвать на асфальте нечего: там дымит сама резина, и только когда её рвут.
-    expect(dustRate(PUFFS.asphalt!, 0, 30)).toBe(0);
-    expect(dustRate(PUFFS.asphalt!, 2.5, 30)).toBeGreaterThan(0);
-    // А в рыхлое сорвавшееся колесо зарывается и на месте.
-    expect(dustRate(PUFFS.grass!, 2.5, 0)).toBeGreaterThan(0);
-    expect(dustRate(PUFFS.grass!, 2.5, 20)).toBeGreaterThan(dustRate(PUFFS.grass!, 0.5, 20));
+  it("незачтённый сектор в обучении разбирается словами", () => {
+    const run = headlessRun([race], ID, {
+      seed: 7,
+      policy: new Manual({ start: 1 }),
+      overrides: { blockMs: 300_000, curveRate: 0, gradeMax: 0, roadHalfWidth: 3 },
+      training: true,
+    });
+    run.instance.start();
+    select(run, 4);
+    hold(run, "throttle");
+    // Уводим машину с полотна и ждём закрытия сектора: именно съезд его и портит.
+    run.clock.advance(4000);
+    hold(run, "right");
+    run.clock.advance(1500);
+    hold(run, "right", false);
+    const sectors = () => state(run).sectors;
+    for (let i = 0; i < 200 && sectors() === 0; i++) run.clock.advance(500);
+    expect(sectors()).toBeGreaterThan(0);
+    expect(state(run).lastSectorClean).toBe(false);
+    expect(state(run).lastDebrief?.hint).toMatch(/выехали за полотно/);
   });
 
-  it("грунт пылит гуще асфальта на той же работе", () => {
-    for (const slide of [1.5, 2.5]) {
-      expect(dustRate(PUFFS.gravel!, slide, 20)).toBeGreaterThan(dustRate(PUFFS.asphalt!, slide, 20));
-      expect(dustRate(PUFFS.gravel!, slide, 20)).toBeGreaterThan(dustRate(PUFFS.grass!, slide, 20));
-    }
+  it("в зачётном заезде разбора нет", () => {
+    // Строка под дорогой в зачётном блоке — это лишний стимул: участник читает её
+    // вместо того, чтобы вести машину.
+    const run = start(1, { curveRate: 0, gradeMax: 0, roadHalfWidth: 3 }, 4);
+    hold(run, "throttle");
+    run.clock.advance(4000);
+    hold(run, "right");
+    run.clock.advance(1500);
+    hold(run, "right", false);
+    for (let i = 0; i < 200 && state(run).sectors === 0; i++) run.clock.advance(500);
+    expect(state(run).sectors).toBeGreaterThan(0);
+    expect(state(run).sectorsClean).toBe(0);
+    expect(state(run).lastDebrief).toBeNull();
+    expect(state(run).lastSectorClean).toBeNull();
   });
 });
 
@@ -1190,120 +1054,6 @@ describe("заезд: блок и трасса", () => {
     expect(jumpiest).toBeLessThan(0.12);
   });
 
-  it("руль возвращается сам, и тем быстрее, чем быстрее едешь", () => {
-    // На месте руль остаётся там, где его бросили: возвращать его нечем.
-    let idle = 0.3;
-    for (let i = 0; i < 120; i++) idle = steerStep(idle, 0, 0, 1 / 60);
-    expect(idle).toBeCloseTo(0.3, 3);
-
-    // На ходу — сам приходит в ноль, и время возврата падает со скоростью.
-    const settle = (speedMs: number) => {
-      let angle = steerLimit(speedMs);
-      for (let i = 0; i < 600; i++) {
-        angle = steerStep(angle, 0, speedMs, 1 / 60);
-        if (Math.abs(angle) < 0.1 * steerLimit(speedMs)) return (i + 1) / 60;
-      }
-      return Infinity;
-    };
-    const slow = settle(8);
-    const fast = settle(25);
-    expect(fast).toBeLessThan(slow);
-    expect(slow).toBeLessThan(2);
-    expect(fast).toBeGreaterThan(1 / 30);
-
-    // Полное усилие держит примерно постоянное боковое ускорение, а не
-    // постоянный угол: в этом вся разница между рулём и тумблером.
-    for (const v of [12, 20, 30]) {
-      let angle = 0;
-      for (let i = 0; i < 120; i++) angle = steerStep(angle, 1, v, 1 / 60);
-      const lateral = (v * v * Math.tan(angle)) / WHEELBASE_M;
-      expect(lateral).toBeGreaterThan(0.6 * G);
-      expect(lateral).toBeLessThan(0.9 * G);
-    }
-
-    // Руль ходит в обе стороны и не проскакивает механический предел рейки.
-    let hard = 0;
-    for (let i = 0; i < 120; i++) hard = steerStep(hard, -1, 0.5, 1 / 60);
-    expect(hard).toBeCloseTo(-STEER_LOCK, 3);
-  });
-
-  it("на заднем ходу руль не возвращается, а уходит от центра", () => {
-    // Возврат держится на следе пятна контакта: оно тащится позади оси поворота и
-    // разворачивает колесо по ходу. Задом след становится ведущим, и тот же
-    // механизм работает наоборот — как у магазинной тележки, которую тянут задом.
-    // Пока скорость рулю отдавали по модулю, задний ход центровался как передний.
-    const away = (speedMs: number, from = 0.15) => {
-      let angle = from;
-      for (let i = 0; i < 90; i++) angle = steerStep(angle, 0, speedMs, 1 / 60);
-      return angle;
-    };
-    expect(away(-6)).toBeGreaterThan(0.15);
-    expect(away(-6, -0.15)).toBeLessThan(-0.15);
-    // Вперёд на той же скорости — к центру, и это та же строчка кода.
-    expect(away(6)).toBeLessThan(0.05);
-
-    // Ползком назад след слаб, и центр держит наклон шкворня: он от направления
-    // не зависит вовсе, потому что возвращает колесо вес кузова, а не шина.
-    expect(away(-1.2)).toBeLessThan(0.15);
-    expect(away(-1.2)).toBeGreaterThan(0);
-
-    // Руки перебивают раскачку с запасом: назад можно ехать по дуге, просто руль
-    // приходится держать самому.
-    let held = 0;
-    for (let i = 0; i < 90; i++) held = steerStep(held, -1, -6, 1 / 60);
-    expect(held).toBeLessThan(-0.3);
-
-    // Брошенный на стоянке руль остаётся где брошен: неподвижное пятно держит
-    // трением покоя, и подъём кузова его не перевешивает.
-    let parked = 0.3;
-    for (let i = 0; i < 120; i++) parked = steerStep(parked, 0, 0, 1 / 60);
-    expect(parked).toBeCloseTo(0.3, 3);
-  });
-
-  it("возврат руля упирается в сцепление, а не растёт с углом без предела", () => {
-    // Квадрат скорости честен, пока шина в линейной зоне. За пиком сила расти
-    // перестаёт, а формула — нет: на ста сорока километрах в час полный угол
-    // требовал бы от передка пяти g и возвращал руль за один кадр.
-    let angle = 0.4;
-    let quickest = 0;
-    for (let i = 0; i < 30; i++) {
-      const next = steerStep(angle, 0, 40, 1 / 120);
-      quickest = Math.max(quickest, Math.abs(next - angle) * 120);
-      angle = next;
-    }
-    // Предел — сцепление передка, и он ниже механического предела перекладки:
-    // упирается руль в дорогу, а не в рейку.
-    expect(quickest).toBeLessThan(2.8);
-    expect(quickest).toBeGreaterThan(2);
-    // Возвращаться руль при этом не перестаёт.
-    expect(angle).toBeLessThan(0.05);
-
-    // Вперёд на равновесии предел не работает вовсе: полное усилие рук держит
-    // три четверти g, и до срыва передку остаётся запас.
-    for (const v of [12, 20, 30, 45]) {
-      let held = 0;
-      const rates: number[] = [];
-      for (let i = 0; i < 240; i++) {
-        const next = steerStep(held, 1, v, 1 / 120);
-        rates.push(Math.abs(next - held) * 120);
-        held = next;
-      }
-      expect((v * v * Math.tan(Math.abs(held))) / WHEELBASE_M).toBeLessThan(0.9 * G);
-      // Равновесие достигнуто плавно, без упора в предел на последних шагах.
-      expect(rates[rates.length - 1]).toBeLessThan(0.01);
-    }
-  });
-
-  it("угол без увода зеркален на заднем ходу", () => {
-    // Колесо катится ровно, когда его плоскость лежит вдоль вектора скорости, а
-    // вектор на заднем ходу развёрнут. Отсюда и контрруль в заносе задом — в
-    // другую сторону, чем передом.
-    expect(steerNeutral(4, 12)).toBeGreaterThan(0);
-    expect(steerNeutral(4, -12)).toBeCloseTo(-steerNeutral(4, 12), 6);
-    // Без сноса нейтраль в нуле на любом направлении.
-    expect(steerNeutral(0, -12)).toBeCloseTo(0, 12);
-  });
-
   it("камера ведёт машину без излома на кромке асфальта", () => {
     const half = 8;
     // Излом на кромке читался рывком: скорость, с которой машина едет по кадру,
@@ -1326,235 +1076,6 @@ describe("заезд: блок и трасса", () => {
     expect(cameraFollow(40, half) - cameraFollow(39, half)).toBeCloseTo(1, 3);
     // Знак сохраняется: камера не уезжает в другую сторону от машины.
     expect(cameraFollow(-5, half)).toBe(-cameraFollow(5, half));
-  });
-
-  it("на каждую породу леса испечено дерево, а на приметные — не одно", () => {
-    const species = new Map<string, number>();
-    for (const variant of treesAsset.variants) {
-      species.set(variant.species, (species.get(variant.species) ?? 0) + 1);
-      expect(variant.branches.triangles).toBeGreaterThan(0);
-      expect(variant.leaves.triangles).toBeGreaterThan(0);
-      expect(variant.height).toBeGreaterThan(0);
-    }
-    // Расстановка ищет строения по имени породы: породы без дерева обернутся тем,
-    // что лес молча поредеет на четверть, и заметить это можно только глазами.
-    for (const kind of SPECIES) expect(species.get(kind.id)).toBeGreaterThanOrEqual(1);
-    // Куст и придорожные деревья видно в упор, и одно строение на породу читается
-    // копипастой: у них обязаны быть разные силуэты.
-    for (const kind of ["bush", "aspen", "ash", "oak", "pine"]) {
-      expect(species.get(kind)).toBeGreaterThanOrEqual(2);
-    }
-  });
-
-  it("лес не разъедается в мегабайты: печать держит бюджет треугольников", () => {
-    // Ассет едет по сети целиком и парсится на старте заезда, поэтому бюджет тут не
-    // про кадры, а про первый экран. Куст дешевле дерева не по важности, а по тому,
-    // что его видно три метра: пресеты куста ветвистее дуба, и без этой границы
-    // печать однажды уже выдала куст вчетверо дороже дерева.
-    //
-    // Верхняя граница поднята с десяти тысяч до восемнадцати, и это осознанная
-    // плата за две вещи, которые дешевле не выходят: непрерывный обвод ствола
-    // (сечения вдоль ветки — это его форма, а не детализация) и густое ветвление
-    // в кроне (на редком скелете пучки листвы висят отдельными нашлёпками).
-    // Считать эти треугольники за экономию нельзя: именно они отличают дерево от
-    // коленчатой трубы с ботвой.
-    for (const variant of treesAsset.variants) {
-      const total = variant.branches.triangles + variant.leaves.triangles;
-      const budget = variant.species === "bush" || variant.species === "sapling" ? 5000 : 18_000;
-      expect(total, variant.id).toBeLessThanOrEqual(budget);
-    }
-  });
-
-  it("лист — не плоскость: середина поднята над своими углами", () => {
-    // Главная и самая живучая претензия к лесу — «листья лежат в одной плоскости».
-    // На кваде она неустранима в принципе: на карточке нарисован не лист, а
-    // полтора десятка листьев, и плоскость у них одна на всех, что бы ни лежало в
-    // нормалях. Поэтому лист печатается веером из пяти вершин: четыре угла и
-    // поднятая над ними середина. Тест сторожит ровно это — и раскладку, и то,
-    // что подъём не выродился в ноль.
-    for (const variant of treesAsset.variants) {
-      const part = variant.leaves;
-      expect(part.vertexCount % 5, variant.id).toBe(0);
-      const leaves = part.vertexCount / 5;
-      expect(part.triangles, variant.id).toBe(leaves * 4);
-
-      const packed = Buffer.from(part.positions, "base64");
-      const xyz = new Int16Array(packed.buffer, packed.byteOffset, packed.byteLength / 2);
-      const at = (v: number, k: number) => (xyz[v * 3 + k]! * part.scale) / 32767;
-
-      // Мерится не подъём в метрах, а то, ради чего он есть: расхождение нормалей
-      // соседних граней. Плоскому листу оно ноль при любом размере, и свет по
-      // нему идёт ровно — то самое, что глаз читает картонкой.
-      let flat = 0;
-      let folded = 0;
-      for (let leaf = 0; leaf < leaves; leaf++) {
-        const base = leaf * 5;
-        const facets: number[][] = [];
-        for (let i = 0; i < 4; i++) {
-          const a = base + i;
-          const b = base + ((i + 1) % 4);
-          const u = [0, 1, 2].map((k) => at(b, k) - at(a, k));
-          const w = [0, 1, 2].map((k) => at(base + 4, k) - at(a, k));
-          const n = [
-            u[1]! * w[2]! - u[2]! * w[1]!,
-            u[2]! * w[0]! - u[0]! * w[2]!,
-            u[0]! * w[1]! - u[1]! * w[0]!,
-          ];
-          const len = Math.hypot(...n);
-          if (len > 1e-12) facets.push(n.map((v) => v / len));
-        }
-        if (facets.length < 4) continue;
-        let widest = 0;
-        for (let i = 0; i < 4; i++) {
-          for (let j = i + 1; j < 4; j++) {
-            const dot = facets[i]!.reduce((sum, v, k) => sum + v * facets[j]![k]!, 0);
-            widest = Math.max(widest, Math.acos(Math.min(1, Math.abs(dot))));
-          }
-        }
-        if (widest < 0.35) flat += 1;
-        else folded += 1;
-      }
-      // Вырожденные листья генератор выдаёт всегда, но их единицы.
-      expect(folded / (folded + flat), variant.id).toBeGreaterThan(0.95);
-    }
-  });
-
-  it("лист поворачивается вокруг своей оси, а не вокруг чужой", () => {
-    // Вблизи лист обязан жить сам по себе: качаться вместе с веткой и оставаться
-    // к ней приклеенным — ровно то, что читается искусственным. Поворот делает
-    // шейдер, и проверить его нельзя, но ось поворота считается здесь, и от неё
-    // зависит всё: одна ось на лист — лист ходит целиком; разные оси у его
-    // вершин — лист разорвёт на месте.
-    for (const variant of treesAsset.variants) {
-      const part = variant.leaves;
-      const packed = Buffer.from(part.positions, "base64");
-      const xyz = new Int16Array(packed.buffer, packed.byteOffset, packed.byteLength / 2);
-      const positions = new Float32Array(part.vertexCount * 3);
-      for (let i = 0; i < positions.length; i++) positions[i] = (xyz[i]! * part.scale) / 32767;
-
-      const pivots = leafPivots(positions);
-      expect(pivots.length, variant.id).toBe(positions.length);
-
-      let widest = 0;
-      for (let leaf = 0; leaf < part.vertexCount / LEAF_VERTS; leaf++) {
-        const base = leaf * LEAF_VERTS * 3;
-        // Все пять вершин листа обязаны получить одну и ту же ось.
-        for (let i = 1; i < LEAF_VERTS; i++) {
-          for (let k = 0; k < 3; k++) expect(pivots[base + i * 3 + k]).toBe(pivots[base + k]);
-        }
-        // И эта ось обязана лежать в самом листе: поворот вокруг точки в стороне
-        // не крутил бы лист, а возил бы его по кроне, и крона бы поплыла.
-        for (let i = 0; i < LEAF_VERTS; i++) {
-          const at = base + i * 3;
-          widest = Math.max(
-            widest,
-            Math.hypot(positions[at]! - pivots[at]!, positions[at + 1]! - pivots[at + 1]!, positions[at + 2]! - pivots[at + 2]!),
-          );
-        }
-      }
-      // Радиус листа — сантиметры при дереве в высоту единица; полдесятой доли
-      // высоты означало бы, что за ось взяли что-то не из этого листа.
-      expect(widest, variant.id).toBeGreaterThan(0);
-      expect(widest, variant.id).toBeLessThan(0.05);
-    }
-  });
-
-  it("подвижность мелких звеньев растёт при приближении и гаснет вдали", () => {
-    // Вдали лист меньше пикселя, и собственный его ход виден не движением, а
-    // мерцанием: вершина скачет между соседними пикселями и крона начинает
-    // шипеть. Поэтому мелкие звенья гасятся расстоянием — но гасятся гладко,
-    // иначе вокруг машины будет видно кольцо, внутри которого лес оживает.
-    expect(jointDetail(0)).toBe(1);
-    expect(jointDetail(JOINT_NEAR_M)).toBe(1);
-    expect(jointDetail(JOINT_FAR_M)).toBe(0);
-    expect(jointDetail(200)).toBe(0);
-
-    let previous = 1;
-    for (let m = 0; m <= JOINT_FAR_M + 5; m += 0.5) {
-      const now = jointDetail(m);
-      expect(now).toBeLessThanOrEqual(previous + 1e-9);
-      previous = now;
-    }
-
-    // Гладкость: у краёв кривая ложится на полку, а не втыкается в неё углом.
-    const step = 0.5;
-    const atNear = jointDetail(JOINT_NEAR_M) - jointDetail(JOINT_NEAR_M + step);
-    const atFar = jointDetail(JOINT_FAR_M - step) - jointDetail(JOINT_FAR_M);
-    const middle = JOINT_NEAR_M + (JOINT_FAR_M - JOINT_NEAR_M) / 2;
-    const atMid = jointDetail(middle - step / 2) - jointDetail(middle + step / 2);
-    expect(atNear).toBeLessThan(atMid / 4);
-    expect(atFar).toBeLessThan(atMid / 4);
-  });
-
-  it("у каждого ствола есть кора: развёртка на месте и указана картинка", () => {
-    const barks = new Set(["birch", "oak", "pine"]);
-    for (const variant of treesAsset.variants) {
-      // Кора рисуется фотографией, а не заливкой, и без развёртки вся ветка возьмёт
-      // один пиксель текстуры — то есть вернётся ровно к плоской заливке, только
-      // случайного оттенка.
-      expect(variant.bark, variant.id).toBeDefined();
-      expect(barks.has(variant.bark), `${variant.id}: кора ${variant.bark}`).toBe(true);
-      const uv = Buffer.from(variant.branches.uv, "base64");
-      expect(uv.byteLength, variant.id).toBe(variant.branches.vertexCount);
-      // Развёртка вдоль ветки лежит в старшем бите: если он всюду одинаков, сечения
-      // склеились и фактура растянется по стволу в одну полосу.
-      const along = new Set<number>();
-      for (const byte of uv) along.add(byte >> 7);
-      expect(along.size, variant.id).toBe(2);
-    }
-  });
-
-  it("фактура листвы обесцвечена: цвет кроны задаёт порода, а не картинка", async () => {
-    const { decodePng } = await import("../packages/race/tools/png.mjs");
-    const here = dirname(fileURLToPath(import.meta.url));
-    for (const leaf of new Set(treesAsset.variants.map((variant) => variant.leaf))) {
-      const file = join(here, "..", "packages", "race", "src", "assets", `leaf-${leaf}.png`);
-      const { width, height, pixels } = decodePng(readFileSync(file));
-      let sum = 0;
-      let chroma = 0;
-      let count = 0;
-      for (let i = 0; i < width * height; i++) {
-        const at = i * 4;
-        // Только то, что переживёт отсечение по альфе: за ним лежит растёкшаяся кайма.
-        if (pixels[at + 3]! <= 77) continue;
-        const r = pixels[at]!;
-        const g = pixels[at + 1]!;
-        const b = pixels[at + 2]!;
-        sum += 0.299 * r + 0.587 * g + 0.114 * b;
-        chroma += (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
-        count++;
-      }
-      expect(count, leaf).toBeGreaterThan(0);
-      // Светлая и почти серая: оттенок породы из `view/trees.ts` — множитель к ней, и
-      // на крашеной картинке зелёное умножалось бы на зелёное, уходя в чёрную оливку.
-      expect(sum / count / 255, leaf).toBeGreaterThan(0.7);
-      expect(chroma / count, leaf).toBeLessThan(0.2);
-    }
-  });
-
-  it("у пучка есть рельеф: листья на карточке смотрят в разные стороны", async () => {
-    const { decodePng } = await import("../packages/race/tools/png.mjs");
-    const here = dirname(fileURLToPath(import.meta.url));
-    for (const leaf of new Set(treesAsset.variants.map((variant) => variant.leaf))) {
-      const dir = join(here, "..", "packages", "race", "src", "assets");
-      const color = decodePng(readFileSync(join(dir, `leaf-${leaf}.png`)));
-      const bump = decodePng(readFileSync(join(dir, `leaf-${leaf}-bump.png`)));
-      expect(bump.width, leaf).toBe(color.width);
-      let spread = 0;
-      let count = 0;
-      for (let i = 0; i < bump.width * bump.height; i++) {
-        // Смотрим только туда, где есть лист: пустое поле заведомо ровное.
-        if (color.pixels[i * 4 + 3]! <= 77) continue;
-        const dx = bump.pixels[i * 4]! - 128;
-        const dy = bump.pixels[i * 4 + 1]! - 128;
-        spread += Math.hypot(dx, dy) / 127;
-        count++;
-      }
-      expect(count, leaf).toBeGreaterThan(0);
-      // Без рельефа вся горсть освещается как одна плоскость — карточка у дуба
-      // диагональю под два метра, и такой кусок кроны читается лоскутом картона.
-      expect(spread / count, leaf).toBeGreaterThan(0.2);
-    }
   });
 
   it("состояние ядра не тащит физический мир: он висит скрытым полем", () => {

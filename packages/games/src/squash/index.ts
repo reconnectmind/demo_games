@@ -8,7 +8,7 @@ import {
   type Params,
   type Surface,
 } from "@gamespace/core";
-import { ActionButton, CanvasStage, el, stimulusScale } from "@gamespace/ui-web";
+import { ActionButton, CanvasStage, FeedbackMark, debriefText, el, stimulusScale } from "@gamespace/ui-web";
 import manifest from "./manifest.json" with { type: "json" };
 import presetsJson from "./presets.json" with { type: "json" };
 import { squashCore, type SquashParams, type SquashState, type SquashView } from "./core.js";
@@ -35,6 +35,11 @@ const COLORS = {
 class SquashWebView implements GameView<SquashView> {
   private readonly stage = new CanvasStage({ aspect: 1, maxWidthPx: 460 });
   private readonly controls = el("div", { class: "gs-options" });
+  /**
+   * Разбор промаха словами. В зачётном прогоне его нет: там ошибка обозначена
+   * цветом площадки, и строка под полем только отвлекала бы от следующего мяча.
+   */
+  private readonly feedback = new FeedbackMark();
   private readonly left: ActionButton;
   private readonly right: ActionButton;
   private view: SquashView | null = null;
@@ -69,13 +74,19 @@ class SquashWebView implements GameView<SquashView> {
         : "Отбивай шарик площадкой: держи клавишу влево или вправо. Пропущенный шарик считается ошибкой.",
       "Сквош",
     );
-    surface.stage.replaceChildren(this.stage.root, this.controls);
+    surface.stage.replaceChildren(this.stage.root, ...(this.ctx.training ? [this.feedback.root] : []), this.controls);
     this.stage.mount();
   }
 
   render(view: SquashView): void {
     this.view = view;
     this.stage.draw();
+    if (this.ctx.training) {
+      this.feedback.show(
+        view.feedback === "loss" ? "miss" : view.feedback === "return" ? "hit" : null,
+        debriefText(view.debrief),
+      );
+    }
     this.ctx.surface.setStats(view.stats);
   }
 

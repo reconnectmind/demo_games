@@ -66,7 +66,7 @@ const SQUEAL_Q = 9;
 const SQUEAL_UP = 2.4;
 const SQUEAL_UP_GAIN = 0.45;
 
-export interface RaceAudio {
+export interface CarAudio {
   update(input: SoundIn, dtS: number): void;
   setMuted(muted: boolean): void;
   muted(): boolean;
@@ -201,7 +201,7 @@ function intakeVoice(ctx: AudioContext, into: AudioNode): { pulses: OscillatorNo
  * Звук заезда. Возвращает `null`, если Web Audio в этом окружении нет: молчание
  * — не повод ронять сцену.
  */
-export function createRaceAudio(muted = false): RaceAudio | null {
+export function createCarAudio(muted = false): CarAudio | null {
   const Ctor = contextCtor();
   if (!Ctor) return null;
 

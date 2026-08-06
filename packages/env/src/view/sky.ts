@@ -14,7 +14,8 @@ import type { Scene } from "@babylonjs/core/scene.js";
 // Побочные импорты: без них у MeshBuilder нет фабрик сферы и плоскости.
 import "@babylonjs/core/Meshes/Builders/sphereBuilder.js";
 import "@babylonjs/core/Meshes/Builders/planeBuilder.js";
-import { hash01 } from "../track.js";
+import { weatherFor, type Weather } from "../weather.js";
+import { smoothstep } from "../hash.js";
 
 /**
  * Небо, солнце и облака.
@@ -70,18 +71,14 @@ function lattice(x: number, y: number, seed: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
 }
 
-function smooth(t: number): number {
-  return t * t * (3 - 2 * t);
-}
-
 function noise(px: number, py: number, cells: number, seed: number): number {
   const scale = cells / CLOUD_SIDE;
   const x = px * scale;
   const y = py * scale;
   const x0 = Math.floor(x);
   const y0 = Math.floor(y);
-  const tx = smooth(x - x0);
-  const ty = smooth(y - y0);
+  const tx = smoothstep(x - x0);
+  const ty = smoothstep(y - y0);
   const wrap = (v: number) => ((v % cells) + cells) % cells;
   const a = lattice(wrap(x0), wrap(y0), seed);
   const b = lattice(wrap(x0 + 1), wrap(y0), seed);
@@ -138,7 +135,7 @@ function cloudTexture(scene: Scene, cover: number, seed: number): RawTexture {
     false,
     Texture.TRILINEAR_SAMPLINGMODE,
   );
-  raw.name = "race-clouds";
+  raw.name = "env-clouds";
   raw.wrapU = Texture.WRAP_ADDRESSMODE;
   raw.wrapV = Texture.WRAP_ADDRESSMODE;
   raw.uScale = CLOUD_TILES_AROUND;
@@ -167,46 +164,10 @@ function fadeAtHorizon(mesh: Mesh): void {
     colors[i * 4] = 1;
     colors[i * 4 + 1] = 1;
     colors[i * 4 + 2] = 1;
-    colors[i * 4 + 3] = t * t * (3 - 2 * t);
+    colors[i * 4 + 3] = smoothstep(t);
   }
   mesh.setVerticesData(VertexBuffer.ColorKind, colors, false);
   mesh.hasVertexAlpha = true;
-}
-
-/**
- * Погода заезда из посева: солнце не ниже двадцати и не выше шестидесяти градусов
- * (ниже — дорога тонет в контрасте, выше — исчезают тени и с ними объём), сторона
- * любая, мутность от прозрачного дня до летнего пекла, облачность от редких клочков
- * до сплошной пелены.
- */
-export interface Weather {
-  /** Высота солнца над горизонтом, радианы. */
-  elevation: number;
-  /** Сторона света, радианы. */
-  azimuth: number;
-  /** Мутность воздуха: от прозрачного дня до летнего пекла. */
-  turbidity: number;
-  /** Доля закрытого облаками неба. */
-  cover: number;
-  /** Сила ветра: от штиля до свежего, доля от полной амплитуды качания. */
-  wind: number;
-  /** Куда дует, радианы: тот же отсчёт, что у стороны света. */
-  windRad: number;
-}
-
-function weatherFor(seed: number): Weather {
-  return {
-    elevation: (25 + hash01(seed, 0, 91) * 34) * (Math.PI / 180),
-    azimuth: hash01(seed, 0, 92) * Math.PI * 2,
-    turbidity: 2 + hash01(seed, 0, 93) * 8,
-    // Небо не должно затягивать: за облаками пропадает и солнце, и с ним весь объём
-    // сцены. Половина неба открытой — верхняя граница, а не середина вилки.
-    cover: 0.1 + hash01(seed, 0, 94) * 0.32,
-    // Ветер — часть погоды, а не отдельная настройка деревьев: по нему идут и облака,
-    // и крона. Полного штиля не бывает: неподвижный лес выглядит нарисованным.
-    wind: 0.45 + hash01(seed, 0, 95) * 0.75,
-    windRad: hash01(seed, 0, 96) * Math.PI * 2,
-  };
 }
 
 export function createSky(scene: Scene, seed: number, fixed?: Partial<Weather>): Sky {
@@ -225,7 +186,7 @@ export function createSky(scene: Scene, seed: number, fixed?: Partial<Weather>):
     Math.sin(weather.azimuth) * Math.cos(weather.elevation),
   );
 
-  const material = new SkyMaterial("race-sky", scene);
+  const material = new SkyMaterial("env-sky", scene);
   material.backFaceCulling = false;
   material.useSunPosition = true;
   material.sunPosition = sunPosition.scale(material.distance);
@@ -235,13 +196,13 @@ export function createSky(scene: Scene, seed: number, fixed?: Partial<Weather>):
   material.mieCoefficient = 0.005;
   material.mieDirectionalG = 0.82;
 
-  const dome = MeshBuilder.CreateSphere("race-dome", { diameter: DOME_R * 2, segments: 16 }, scene);
+  const dome = MeshBuilder.CreateSphere("env-dome", { diameter: DOME_R * 2, segments: 16 }, scene);
   dome.material = material;
   dome.isPickable = false;
   dome.applyFog = false;
   dome.infiniteDistance = true;
 
-  const sun = new DirectionalLight("race-sun", sunPosition.scale(-1), scene);
+  const sun = new DirectionalLight("env-sun", sunPosition.scale(-1), scene);
   // Чем ниже солнце, тем длиннее путь света в воздухе: свет слабее и заметно теплее.
   const height = Math.sin(weather.elevation);
   /**
@@ -253,7 +214,7 @@ export function createSky(scene: Scene, seed: number, fixed?: Partial<Weather>):
   sun.intensity = 0.9 + height * 0.3;
   sun.diffuse = new Color3(1, 0.93 + height * 0.05, 0.8 + height * 0.15);
 
-  const hemi = new HemisphericLight("race-hemi", new Vector3(0, 1, 0), scene);
+  const hemi = new HemisphericLight("env-hemi", new Vector3(0, 1, 0), scene);
   hemi.intensity = 0.28 + weather.cover * 0.22;
   hemi.diffuse = new Color3(0.83, 0.89, 0.96);
   hemi.groundColor = Color3.FromHexString("#43502f");
@@ -278,12 +239,12 @@ export function createSky(scene: Scene, seed: number, fixed?: Partial<Weather>):
    * Плата: облака бесконечно далеко и от езды не сдвигаются, двигает их только ветер.
    * Для облаков в километрах над дорогой это ближе к правде, чем к вранью.
    */
-  const clouds = MeshBuilder.CreateSphere("race-clouds", { diameter: CLOUD_R * 2, segments: 24 }, scene);
+  const clouds = MeshBuilder.CreateSphere("env-clouds", { diameter: CLOUD_R * 2, segments: 24 }, scene);
   clouds.isPickable = false;
   clouds.applyFog = false;
   clouds.infiniteDistance = true;
   fadeAtHorizon(clouds);
-  const cloudMat = new StandardMaterial("race-cloud-mat", scene);
+  const cloudMat = new StandardMaterial("env-cloud-mat", scene);
   const cloudTex = cloudTexture(scene, weather.cover, seed);
   /**
    * Цвет облаков — свечение, а не отражение: слой смотрит вверх, а мы на него снизу,

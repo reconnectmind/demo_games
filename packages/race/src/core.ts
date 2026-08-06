@@ -6,7 +6,9 @@ import {
   type Params,
   type ReduceResult,
   type RngState,
+  type TrialDebrief,
 } from "@gamespace/core";
+import { physicsReady } from "@gamespace/env";
 import {
   GEAR_NEUTRAL,
   GEAR_REVERSE,
@@ -15,10 +17,9 @@ import {
   drivelineInertia,
   engineStep,
   ratioFor,
-} from "./drivetrain.js";
-import { createSim, simReady, type Sim, type SimFrame, type SimSave } from "./sim.js";
+} from "@gamespace/car";
+import { createSim, type Sim, type SimFrame, type SimSave } from "./sim.js";
 import {
-  SHOULDER_M,
   STAMP_LEAD_SEGMENTS,
   corridorHalfWidth,
   sectorIndexAt,
@@ -145,6 +146,12 @@ export interface RaceState {
   sectorOffroad: boolean;
   sectorStartDistance: number;
   sectorStartEffort: number;
+  /** Обучающий прогон: у сектора появляется знак и разбор, в зачётном их нет. */
+  training: boolean;
+  /** Итог последнего сектора и разбор к нему: держатся, пока их можно прочесть. */
+  lastSectorClean: boolean | null;
+  lastDebrief: TrialDebrief | null;
+  feedbackUntilMs: number;
 }
 
 export interface RaceView {
@@ -171,6 +178,9 @@ export interface RaceView {
   efficiency: number;
   steer: number;
   progress: { playedMs: number; blockMs: number };
+  /** Зачтён ли последний сектор: знак нужен только обучению. */
+  sector: "clean" | "dirty" | null;
+  debrief: TrialDebrief | null;
   stats: Array<[string, string | number]>;
 }
 
@@ -251,7 +261,7 @@ function release(state: RaceState): RaceState {
 function ensureSim(state: RaceState): Sim | null {
   const existing = liveOf(state);
   if (existing) return existing;
-  if (!simReady()) return null;
+  if (!physicsReady()) return null;
   const sim = createSim(state.seed, state.stamps, state.body ?? undefined);
   remember(sim);
   attach(state, sim);
@@ -314,6 +324,8 @@ export function raceView(state: RaceState): RaceView {
     efficiency,
     steer: (state.holdRight ? 1 : 0) - (state.holdLeft ? 1 : 0),
     progress: { playedMs: state.playedMs, blockMs: params?.blockMs ?? 0 },
+    sector: state.lastSectorClean === null ? null : state.lastSectorClean ? "clean" : "dirty",
+    debrief: state.lastDebrief,
     stats: [
       ["скорость", `${Math.round(Math.abs(speedMs) * 3.6)} км/ч`],
       ["путь", `${(state.distance / 1000).toFixed(2)} км`],
@@ -328,6 +340,18 @@ export function raceView(state: RaceState): RaceView {
 
 function render(state: RaceState): Effect {
   return { kind: "render", view: raceView(state) as unknown as Json };
+}
+
+/**
+ * Разбор незачтённого сектора. Ошибка здесь не в выбранном варианте, а в
+ * траектории, поэтому фраза говорит, что сделать с газом и рулём.
+ */
+function sectorDebrief(): TrialDebrief {
+  return {
+    expected: "пройти сектор, не выезжая за полотно",
+    got: "колёса вышли за край дороги",
+    hint: "Сектор не зачтён: вы выехали за полотно. В повороте отпускайте газ заранее и доворачивайте плавно — руль отзывается не сразу.",
+  };
 }
 
 function stampFor(params: RaceParams, fromSegment: number): ShapeStamp {
@@ -400,6 +424,10 @@ export const raceCore: GameCore<RaceState> = {
       sectorOffroad: false,
       sectorStartDistance: 0,
       sectorStartEffort: 0,
+      training: config.training,
+      lastSectorClean: null,
+      lastDebrief: null,
+      feedbackUntilMs: 0,
     };
   },
 
@@ -546,7 +574,6 @@ function step(state: RaceState, tMs: number): ReduceResult<RaceState> {
     dtS: dt,
   });
 
-  const beyond = Math.abs(state.lateral) - params.roadHalfWidth;
   const steer = (state.holdRight ? 1 : 0) - (state.holdLeft ? 1 : 0);
   sim.step(dt, {
     forceN: drive.forceN,
@@ -556,7 +583,6 @@ function step(state: RaceState, tMs: number): ReduceResult<RaceState> {
     driveInertia: drivelineInertia(ratio) * drive.lock,
     brake: state.braking ? 1 : 0,
     steer,
-    offroad: clamp(beyond / SHOULDER_M, 0, 1),
   });
   const frame = sim.frame();
 
@@ -584,6 +610,11 @@ function step(state: RaceState, tMs: number): ReduceResult<RaceState> {
     ratioTicks: state.ratioTicks + 1,
     speedSum: state.speedSum + Math.abs(frame.speedMs),
     sectorOffroad: state.sectorOffroad || offroad,
+    // Разбор не висит до конца заезда: прочли — и он уходит, чтобы не мешать
+    // смотреть на дорогу.
+    ...(state.feedbackUntilMs > 0 && tMs > state.feedbackUntilMs
+      ? { lastSectorClean: null, lastDebrief: null, feedbackUntilMs: 0 }
+      : {}),
   });
 
   if (offroad !== state.offroad) {
@@ -644,6 +675,15 @@ function step(state: RaceState, tMs: number): ReduceResult<RaceState> {
       sectorOffroad: false,
       sectorStartDistance: distance,
       sectorStartEffort: next.effortIntegral,
+      // В обучении итог сектора называется вслух: без этого участник знает, что
+      // где-то съехал, но не знает, что именно этим сектор и не зачтён.
+      ...(next.training
+        ? {
+            lastSectorClean: clean,
+            lastDebrief: clean ? null : sectorDebrief(),
+            feedbackUntilMs: tMs + 2600,
+          }
+        : {}),
     });
     effects.push({
       kind: "emit",

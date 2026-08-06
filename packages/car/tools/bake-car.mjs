@@ -1,5 +1,5 @@
 /**
- * Печём машину в готовую геометрию: `npm run bake:car -w @gamespace/race`.
+ * Печём машину в готовую геометрию: `npm run bake:car -w @gamespace/car`.
  *
  * Исходник — модель Porsche Cayenne GTS, выгруженная из SketchUp в OBJ и
  * положенная в `tools/source/cayenne.zip` архивом как есть. Распаковывается она

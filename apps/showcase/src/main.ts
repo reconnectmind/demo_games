@@ -22,13 +22,17 @@ import { DomSurface, bindKeyboard, keyLabel } from "@gamespace/ui-web";
 import { protocolGames } from "@gamespace/games";
 import { race } from "@gamespace/race";
 import {
+  ProtocolError,
   SessionRunner,
   compileProtocol,
   pilotProtocol,
   plannedMs,
+  type Protocol,
   type RunRecord,
   type Screen,
 } from "@gamespace/protocol";
+import { mountBuilder } from "./builder.js";
+import { forget, keep, stored } from "./store.js";
 
 /**
  * Заезд живёт в своём пакете: он один тянет за собой трёхмерный движок, и
@@ -45,33 +49,117 @@ for (const game of games) registry.register(game);
 void prepareGames(games);
 
 const app = document.getElementById("app")!;
+/**
+ * Витрина живёт тремя экранами, а не одним с флажками. Оператор всё выбирает до
+ * старта; после старта на мониторе остаётся только то, что должен видеть
+ * участник; сводка и выгрузка ждут конца сессии. Так операторские ручки не могут
+ * попасть в поле зрения участника по недосмотру: их там просто нет.
+ */
 app.innerHTML = `
-  <aside class="catalog">
-    <div class="catalog-head">
-      <button class="btn" id="toggle" title="Свернуть каталог">≡</button>
-      <h1>Модули протокола</h1>
+  <section class="setup" id="setup">
+    <div class="setup-head">
+      <h1>Подготовка сессии</h1>
+      <div class="setup-tabs">
+        <button class="tab is-active" id="tabProtocol" type="button">Сценарий</button>
+        <button class="tab" id="tabBuilder" type="button">Конструктор</button>
+        <button class="tab" id="tabModule" type="button">Отладка модуля</button>
+      </div>
     </div>
-    <div class="catalog-body" id="catalog"></div>
-    <div class="catalog-head"><h1>Сценарий</h1></div>
-    <div class="catalog-body" id="scenarios"></div>
-    <a class="catalog-link" href="./catalog/index.html">
-      Прежний каталог: 47 игр
-      <small>витрина одним файлом, эталон механик</small>
-    </a>
-  </aside>
-  <main class="port">
-    <div class="port-head">
+    <div class="setup-body">
+      <div class="setup-main">
+        <div id="setupProtocol">
+          <h3>Кого пишем</h3>
+          <div class="param">
+            <label for="participant">Участник</label>
+            <input type="text" id="participant" value="p-001" />
+          </div>
+          <div class="param">
+            <label for="scenario">Сценарий</label>
+            <select id="scenario"></select>
+          </div>
+          <h3>Сколько идёт</h3>
+          <div class="param">
+            <label for="pace">Длительности</label>
+            <select id="pace">
+              <option value="full">Как в протоколе — полная сессия</option>
+              <option value="short" selected>Репетиция — участки укорочены</option>
+            </select>
+          </div>
+          <div class="param" id="compressRow">
+            <label for="compress">Длительность участка, с <b id="compressValue">30</b></label>
+            <input type="range" id="compress" min="10" max="300" step="10" value="30" />
+          </div>
+          <h3>Как показываем</h3>
+          <div class="param">
+            <label for="theme">Тема</label>
+            <select id="theme">
+              <option value="dark">Обычная</option>
+              <option value="low-contrast">Низкий контраст</option>
+            </select>
+          </div>
+          <div class="note" id="inputNote"></div>
+        </div>
+        <div id="setupBuilder" hidden>
+          <h3>Конструктор сценария</h3>
+          <div class="builder" id="builder"></div>
+        </div>
+        <div id="setupModule" hidden>
+          <h3>Модуль</h3>
+          <div class="catalog-body" id="catalog"></div>
+          <a class="catalog-link" href="./catalog/index.html">
+            Прежний каталог: 47 игр
+            <small>витрина одним файлом, эталон механик</small>
+          </a>
+        </div>
+      </div>
+      <aside class="setup-aside" id="setupAside">
+        <div id="setupSchedule">
+          <h3>Что будет запущено</h3>
+          <div id="schedule"></div>
+        </div>
+        <div id="setupDifficulty" hidden>
+          <h3>Блок</h3>
+          <div id="block"></div>
+          <h3>Сложность</h3>
+          <div class="param">
+            <label for="policy">Политика</label>
+            <select id="policy">
+              <option value="adaptive">Адаптивная 2-up/1-down</option>
+              <option value="monotonic">Монотонная, только рост</option>
+              <option value="manual">Ручная</option>
+              <option value="fixed">Заморожена (probe)</option>
+            </select>
+          </div>
+          <div class="param">
+            <label for="level">Уровень <b id="levelValue">1</b></label>
+            <input type="range" id="level" min="1" max="8" step="1" value="1" />
+          </div>
+          <!-- Обучение — не уровень сложности, а другой режим прогона: правило до
+               стимулов и разбор ошибки, который держится до нажатия. Проверять его
+               целым сценарием дорого, поэтому он включается и здесь. -->
+          <div class="param">
+            <label for="trainingMode">Режим обучения</label>
+            <input type="checkbox" id="trainingMode" />
+          </div>
+          <div id="params"></div>
+          <h3>Манифест</h3>
+          <div id="manifest"></div>
+        </div>
+      </aside>
+    </div>
+    <div class="setup-foot">
+      <div class="note" id="launchNote"></div>
+      <button class="btn is-primary is-big" id="launch">Начать сессию</button>
+    </div>
+  </section>
+
+  <main class="port" id="run" hidden>
+    <div class="port-head" id="head">
       <h2 id="title">—</h2>
       <span class="pill" id="version"></span>
       <div class="ops" id="ops">
-        <button class="btn is-primary" id="start">Старт</button>
-        <button class="btn" id="stop" disabled>Стоп</button>
-        <button class="btn" id="participantView" title="Оставить на экране только сцену (Esc — выйти)">Экран участника</button>
-        <button class="btn" id="operatorWindow" title="Перенести ручки оператора в отдельное окно">Окно оператора</button>
-        <select id="theme" title="Тема оформления" style="width:auto">
-          <option value="dark">Тема: обычная</option>
-          <option value="low-contrast">Тема: низкий контраст</option>
-        </select>
+        <button class="btn" id="stop">Стоп</button>
+        <button class="btn" id="back">К настройке</button>
       </div>
       <div class="keycast" id="keycast"></div>
       <div class="task"><b id="taskLabel">Задание</b> · <span id="task"></span></div>
@@ -92,70 +180,49 @@ app.innerHTML = `
         <div id="banner"></div>
       </div>
       <div class="side" id="side">
-        <div id="protocolPanel" style="display:none">
-          <h3>Протокол</h3>
-          <div class="param">
-            <label for="participant">Участник</label>
-            <input type="text" id="participant" value="p-001" />
-          </div>
-          <div class="param">
-            <label for="compress">Длительность участка, с <b id="compressValue">30</b></label>
-            <input type="range" id="compress" min="10" max="300" step="10" value="30" />
-          </div>
-          <div id="schedule"></div>
-        </div>
-        <div id="difficultyPanel">
-        <h3>Блок</h3>
-        <div id="block"></div>
-        <h3>Сложность</h3>
-        <div class="param">
-          <label for="policy">Политика</label>
-          <select id="policy">
-            <option value="adaptive">Адаптивная 2-up/1-down</option>
-            <option value="monotonic">Монотонная, только рост</option>
-            <option value="manual">Ручная</option>
-            <option value="fixed">Заморожена (probe)</option>
-          </select>
-        </div>
-        <div class="param">
-          <label for="level">Уровень <b id="levelValue">1</b></label>
-          <input type="range" id="level" min="1" max="8" step="1" value="1" />
-        </div>
-        <div id="params"></div>
-        <h3>Манифест</h3>
-        <div id="manifest"></div>
-        </div>
         <h3>Журнал</h3>
         <div class="log" id="log"></div>
-        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-          <button class="btn" id="exportJsonl">events.jsonl</button>
-          <button class="btn" id="exportCsv">events.csv</button>
-          <button class="btn" id="exportMarkers">markers.csv</button>
-          <button class="btn" id="exportCodebook">codebook.csv</button>
-        </div>
       </div>
     </div>
     <div class="foot" id="foot"></div>
   </main>
+
+  <section class="debrief" id="debrief" hidden>
+    <div class="debrief-card">
+      <h1>Сессия закончена</h1>
+      <div id="debriefSummary"></div>
+      <h3>Выгрузка</h3>
+      <div class="debrief-exports">
+        <button class="btn" id="exportJsonl">events.jsonl</button>
+        <button class="btn" id="exportCsv">events.csv</button>
+        <button class="btn" id="exportMarkers">markers.csv</button>
+        <button class="btn" id="exportCodebook">codebook.csv</button>
+      </div>
+      <div class="debrief-foot">
+        <button class="btn is-primary" id="toSetup">К настройке</button>
+      </div>
+    </div>
+  </section>
 `;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
+type ScreenName = "setup" | "run" | "debrief";
+
 /**
- * Экран участника: на нём не остаётся ни одной операторской ручки, а сцена
- * оказывается в середине монитора. Иначе стимул всегда сдвинут влево на половину
- * операторской панели, и «центр экрана» в протоколе — не центр.
+ * Экран сессии — состояние всей витрины, а не оформление одного блока. На
+ * прогоне сценария в разметке не остаётся ни одной операторской ручки: сцена
+ * занимает монитор целиком, иначе стимул сдвинут влево на половину панели и
+ * «центр экрана» из протокола — не центр.
  */
-function setParticipantView(on: boolean): void {
-  document.body.classList.toggle("is-participant", on);
-  $("participantView").textContent = on ? "Вернуть панели" : "Экран участника";
+function showScreen(name: ScreenName): void {
+  for (const id of ["setup", "run", "debrief"] as const) ($(id) as HTMLElement).hidden = id !== name;
+  document.body.classList.toggle("is-running", name === "run");
+  // Отладочный прогон оставляет оператору его обвязку: журнал, статистику и
+  // подпись задания. Сессия участника — нет.
+  document.body.classList.toggle("is-participant", name === "run" && mode === "protocol");
 }
 
-document.addEventListener("keydown", (event) => {
-  // Выход — только Escape: у участника руки на Q W E, и его нажатия ничего не
-  // должны делать с самим экраном.
-  if (event.key === "Escape" && document.body.classList.contains("is-participant")) setParticipantView(false);
-});
 const stage = $("stage");
 const surface = new DomSurface({
   stage,
@@ -165,51 +232,6 @@ const surface = new DomSurface({
   stats: $("foot"),
 });
 
-$("participantView").addEventListener("click", () =>
-  setParticipantView(!document.body.classList.contains("is-participant")),
-);
-
-/**
- * Второе место для операторских ручек. Панель не дублируется и не пересоздаётся —
- * тот же узел переезжает в отдельное окно, поэтому все обработчики, ссылки и
- * состояние остаются живыми. Оператору ручки нужны, участнику их видеть нельзя,
- * и прятать флагом здесь недостаточно: нужны два экрана, а не один с флагом.
- */
-let operatorWindow: Window | null = null;
-
-function openOperatorWindow(): void {
-  if (operatorWindow && !operatorWindow.closed) return operatorWindow.focus();
-  const opened = window.open("", "gamespace-operator", "width=420,height=900");
-  if (!opened) return banner("<b>Окно оператора не открылось.</b> Разрешите всплывающие окна для этой страницы.");
-  operatorWindow = opened;
-  const styles = [...document.querySelectorAll('style, link[rel="stylesheet"]')]
-    .map((node) => node.outerHTML)
-    .join("\n");
-  opened.document.write(
-    `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Оператор</title>${styles}</head><body class="is-operator"></body></html>`,
-  );
-  opened.document.close();
-  opened.document.documentElement.dataset.theme = document.documentElement.dataset.theme ?? "dark";
-  // Управление прогоном переезжает вместе с панелью: иначе «Старт» и «Стоп»
-  // остались бы на экране участника, где операторских кнопок быть не должно.
-  const ops = $("ops");
-  const panel = $("side");
-  opened.document.body.append(opened.document.adoptNode(ops), opened.document.adoptNode(panel));
-  document.body.classList.add("is-detached");
-  // Закрытие окна не должно оставлять оператора без ручек: узлы возвращаются на
-  // место, а не теряются вместе с окном.
-  opened.addEventListener("beforeunload", () => {
-    document.querySelector(".port-head")!.append(document.adoptNode(ops));
-    document.querySelector(".port-body")!.append(document.adoptNode(panel));
-    document.body.classList.remove("is-detached");
-    setParticipantView(false);
-    operatorWindow = null;
-  });
-  setParticipantView(true);
-}
-
-$("operatorWindow").addEventListener("click", openOperatorWindow);
-window.addEventListener("beforeunload", () => operatorWindow?.close());
 // Тема — свойство стенда, а не прогона: множитель размера и палитра живут в
 // переменных, поэтому переключение не пересобирает ни одну игру.
 $("theme").addEventListener("change", (event) => {
@@ -222,12 +244,16 @@ let markers = new MarkerDispatcher(new NullMarkerSink());
 let manualOverrides: Params = {};
 /** Длина блока живёт отдельно от сложности: её оператор меняет при любой политике. */
 let blockOverride: Params = {};
-/** Режим витрины: одиночная игра или сценарий целиком. */
-let mode: "game" | "protocol" = "game";
+/** Режим витрины: одиночная игра, сценарий целиком или сборка сценария. */
+let mode: "game" | "protocol" | "builder" = "protocol";
+/**
+ * Сценарий, который будет запущен. Пилот — один из документов, а не привилегия
+ * витрины: собранный в конструкторе запускается тем же путём, иначе конструктор
+ * проверялся бы не тем, чем работают.
+ */
+let doc: Protocol = pilotProtocol;
 let session: SessionRunner | null = null;
 let sessionSink: LoggedEvent[] | null = null;
-/** Место участка в расписании: номер части в отбивке подставляет расписание, а не текст. */
-let position = { index: 0, total: 0 };
 
 /**
  * Отбивка перед участком. Пролистывает её оператор мышью: у участника руки на
@@ -235,8 +261,10 @@ let position = { index: 0, total: 0 };
  */
 function present(screen: Screen, _index: number, proceed: () => void): void {
   const box = $("interstitial");
-  $("interstitialPos").textContent =
-    position.total > 0 ? `Часть ${position.index + 1} из ${position.total}` : "";
+  // Подпись места приходит с экраном: витрина не пересчитывает расписание заново.
+  // Прежде она подставляла номер участка любому экрану, и карточка правила задания
+  // в обучении подписывалась «часть 1 из 4» — числом не про то, что на экране.
+  $("interstitialPos").textContent = screen.position ?? "";
   $("interstitialTitle").textContent = screen.title;
   $("interstitialBody").replaceChildren(
     ...screen.body.map((line) => {
@@ -266,12 +294,6 @@ function renderCatalog(): void {
       return button;
     }),
   );
-  const scenarios = $("scenarios");
-  const button = document.createElement("button");
-  button.className = `game-item${mode === "protocol" ? " is-active" : ""}`;
-  button.innerHTML = `${pilotProtocol.title}<small>${pilotProtocol.sections.length} участков · протокол ${pilotProtocol.protocolVersion}</small>`;
-  button.addEventListener("click", selectProtocol);
-  scenarios.replaceChildren(button);
 }
 
 /** Шаг ползунка под диапазон: грубый шаг расходится с подписью значения. */
@@ -475,54 +497,98 @@ function appendLog(record: LoggedEvent): void {
 
 const secs = (ms: number) => `${Math.round(ms / 1000)} с`;
 
+/** Репетиция укорачивает участки; полная сессия идёт по документу протокола. */
+function rehearsing(): boolean {
+  return ($("pace") as HTMLSelectElement).value === "short";
+}
+
 /** Предпросмотр расписания до старта: оператор обязан видеть, что запустит. */
 function renderSchedule(): void {
   const compiled = compile();
   const perSection = Number(($("compress") as HTMLInputElement).value) * 1000;
+  const short = rehearsing();
   const rows = compiled.order.map((id, i) => {
-    const source = pilotProtocol.sections.find((s) => s.id === id)!;
+    const source = doc.sections.find((s) => s.id === id)!;
     const full = plannedMs(source.end as never);
-    return `<div>${i + 1}. <b>${id}</b> · ${source.games.length === 1 ? source.games[0]!.replace("org.reconnect.", "") : `ротация ${source.games.length}`} · ${
-      full === null ? "по числу прогонов" : `${secs(perSection)} (в протоколе ${Math.round(full / 60000)} мин)`
-    }</div>`;
+    const length =
+      full === null
+        ? "по числу прогонов"
+        : short
+          ? `${secs(perSection)} (в протоколе ${Math.round(full / 60000)} мин)`
+          : `${Math.round(full / 60000)} мин`;
+    return `<div>${i + 1}. <b>${id}</b> · ${source.games.length === 1 ? source.games[0]!.replace("org.reconnect.", "") : `ротация ${source.games.length}`} · ${length}</div>`;
   });
+  const total = doc.sections.reduce((sum, s) => sum + (plannedMs(s.end as never) ?? 0), 0);
   $("schedule").innerHTML = `
-    <div style="font-size:12px;color:var(--muted);line-height:1.7">${rows.join("")}</div>
-    <div style="margin-top:6px" class="pill">сессия ${compiled.sessionId}</div>
-    <div class="pill">seed ${compiled.seed}</div>`;
+    <div class="schedule">${rows.join("")}</div>
+    <div style="margin-top:8px" class="pill">сессия ${compiled.sessionId}</div>
+    <div class="pill">seed ${compiled.seed}</div>
+    <div class="pill">${short ? `репетиция ≈ ${secs(perSection * compiled.order.length)}` : `≈ ${Math.round(total / 60000)} мин`}</div>`;
+  $("launchNote").textContent = short
+    ? "Репетиция: участки укорочены, данные для анализа не годятся."
+    : "Полная сессия по документу протокола.";
 }
 
 function compile() {
   const perSection = Number(($("compress") as HTMLInputElement).value) * 1000;
-  const durations = Object.fromEntries(pilotProtocol.sections.map((s) => [s.id, perSection]));
-  return compileProtocol(pilotProtocol, {
+  const durations = rehearsing()
+    ? Object.fromEntries(doc.sections.map((s) => [s.id, perSection]))
+    : {};
+  return compileProtocol(doc, {
     participantId: ($("participant") as HTMLInputElement).value || "p-000",
     registry,
     durations,
   });
 }
 
+/** Раскладку ответа объявляет протокол — оператор её видит, но не выбирает. */
+function renderInputNote(): void {
+  const input = compile().input;
+  const keys = input.keys.map((key) => keyLabel(key)).join(" ");
+  $("inputNote").textContent =
+    `Ответ клавишами ${keys}; указатель — ${input.pointer === "free" ? "везде, где нужен задаче" : "только там, где задача без него не работает"}.` +
+    " Раскладку задаёт документ протокола, здесь её не меняют.";
+}
+
+/**
+ * Вкладка настройки. Их три, и у каждой своя работа: чем запускать сессию, из
+ * чего собрать сценарий и чем проверить один модуль. Ручки блока показываются
+ * только там, где им есть что настраивать.
+ */
+function showTab(name: "protocol" | "builder" | "module"): void {
+  $("setupProtocol").hidden = name !== "protocol";
+  $("setupBuilder").hidden = name !== "builder";
+  $("setupModule").hidden = name !== "module";
+  $("setupSchedule").hidden = name !== "protocol";
+  $("setupDifficulty").hidden = name !== "module";
+  $("tabProtocol").classList.toggle("is-active", name === "protocol");
+  $("tabBuilder").classList.toggle("is-active", name === "builder");
+  $("tabModule").classList.toggle("is-active", name === "module");
+  // Конструктору широко: блоки с текстами в колонку настройки не помещаются.
+  $("setup").classList.toggle("is-wide", name === "builder");
+}
+
 function selectProtocol(): void {
-  stop();
   mode = "protocol";
-  $("protocolPanel").style.display = "";
-  $("difficultyPanel").style.display = "none";
-  $("title").textContent = pilotProtocol.title;
-  $("version").textContent = `${pilotProtocol.id} · протокол ${pilotProtocol.protocolVersion}`;
-  surface.setTask("Нажми «Старт»: участки пойдут по расписанию.", "Сценарий");
-  surface.setStats([]);
-  stage.replaceChildren();
-  $("banner").replaceChildren();
-  $("log").replaceChildren();
-  renderCatalog();
+  showTab("protocol");
+  ($("launch") as HTMLButtonElement).textContent = "Начать сессию";
   renderSchedule();
+  renderInputNote();
+}
+
+/** Конструктор ничего не запускает сам: он готовит документ и отдаёт его сценарию. */
+function selectBuilder(): void {
+  mode = "builder";
+  showTab("builder");
+  ($("launch") as HTMLButtonElement).textContent = "Начать сессию";
+  $("launchNote").textContent = "Соберите сценарий и нажмите «Запустить» в конструкторе.";
+  builder.render();
 }
 
 function select(game: Microgame<any, any>): void {
-  stop();
   mode = "game";
-  $("protocolPanel").style.display = "none";
-  $("difficultyPanel").style.display = "";
+  showTab("module");
+  ($("launch") as HTMLButtonElement).textContent = "Запустить модуль";
   current = game;
   manualOverrides = {};
   blockOverride = {};
@@ -544,22 +610,55 @@ function select(game: Microgame<any, any>): void {
   paramControls();
 }
 
-function stop(): void {
+/** Сессия дошла до конца: только теперь оператору есть что выгружать. */
+let finished = false;
+/** Прогон в сводке подписан участком: сам `RunRecord` о своём участке не знает. */
+type DoneRun = { section: string; record: RunRecord };
+let summary = { participant: "", sessionId: "", runs: [] as DoneRun[], events: 0 };
+
+function stopRun(): void {
   session?.abort();
   session = null;
   instance?.stop();
   instance = null;
   surface.clear();
-  surface.setTask("—", mode === "protocol" ? pilotProtocol.title : current.manifest.title.ru);
   stage.classList.remove("is-finished");
-  levelControl();
-  ($("start") as HTMLButtonElement).disabled = false;
-  ($("stop") as HTMLButtonElement).disabled = true;
+  ($("interstitial") as HTMLElement).hidden = true;
+  $("banner").replaceChildren();
+}
+
+/** Возврат к настройке — операторский ход: он же прерывает прогон, если тот идёт. */
+function toSetup(): void {
+  stopRun();
+  finished = false;
+  $("setupAside").append($("setupDifficulty"));
+  showScreen("setup");
+  if (mode === "protocol") renderSchedule();
+}
+
+/**
+ * Сводка после сессии: она нужна оператору, а не участнику, поэтому ждёт
+ * прощального экрана и отдельного действия, а не выскакивает на монитор сама.
+ */
+function showDebrief(): void {
+  const rows = summary.runs.map(
+    ({ section, record }) =>
+      `<div>${section} · <b>${record.gameId.replace("org.reconnect.", "")}</b> ур.${record.level} · ${secs(
+        record.endedMs - record.startedMs,
+      )} · ${record.reason === "completed" ? "сам" : record.reason === "aborted" ? "оборван" : "по расписанию"}</div>`,
+  );
+  $("debriefSummary").innerHTML = `
+    <div class="pill">участник ${summary.participant}</div>
+    <div class="pill">сессия ${summary.sessionId}</div>
+    <div class="pill">прогонов ${summary.runs.length}</div>
+    <div class="pill">событий ${summary.events}</div>
+    <div class="schedule" style="margin-top:10px">${rows.join("")}</div>`;
+  showScreen("debrief");
 }
 
 /** Прогон сценария: тот же runtime, но расписанием владеет раннер сессии. */
 function startProtocol(): void {
-  stop();
+  stopRun();
   markers = new MarkerDispatcher(new NullMarkerSink());
   const compiled = compile();
   // Журнал общий на всю сессию: в него пишут все участки и все прогоны.
@@ -585,7 +684,15 @@ function startProtocol(): void {
   $("banner").replaceChildren();
   run = { timerId: "", count: 0, line: null };
 
-  const done: RunRecord[] = [];
+  const done: DoneRun[] = [];
+  finished = false;
+  summary = {
+    participant: ($("participant") as HTMLInputElement).value || "p-000",
+    sessionId: compiled.sessionId,
+    runs: done,
+    events: 0,
+  };
+  showScreen("run");
   session = new SessionRunner({
     runtime,
     surface,
@@ -598,15 +705,14 @@ function startProtocol(): void {
     policyFor: (gameId) => compiled.policyFor(gameId),
     present,
     onSectionStart: (section, index) => {
-      position = { index, total: compiled.sections.length };
-      $("title").textContent = `${pilotProtocol.title} — ${section.id}`;
+      $("title").textContent = `${doc.title} — ${section.id}`;
       $("version").textContent = `участок ${index + 1} из ${compiled.sections.length}`;
       // Итог прошлого участка не должен висеть под сценой следующего.
       $("banner").replaceChildren();
       stage.classList.remove("is-finished");
     },
     onSectionEnd: (section, records) => {
-      done.push(...records);
+      done.push(...records.map((record) => ({ section: section.id, record })));
       banner(
         `<b>Участок ${section.id} завершён.</b> прогонов: ${records.length} · ${records
           .map((r) => `${r.gameId.replace("org.reconnect.", "")} ур.${r.level}`)
@@ -614,20 +720,17 @@ function startProtocol(): void {
       );
     },
     onDone: () => {
-      banner(`<b>Сценарий пройден.</b> прогонов всего: ${done.length}. Журнал можно выгрузить.`);
-      // Прощальный экран не принадлежит участку: сессия к этому моменту кончилась.
-      if (compiled.outro) {
-        position = { index: 0, total: 0 };
-        present(compiled.outro, 0, () => {});
-      }
+      finished = true;
+      summary.events = records.length;
       stage.classList.add("is-finished");
-      ($("start") as HTMLButtonElement).disabled = false;
-      ($("stop") as HTMLButtonElement).disabled = true;
+      // Прощальный экран не принадлежит участку: сессия к этому моменту кончилась.
+      // Пока он на мониторе, участник видит только его; сводка открывается тем же
+      // действием оператора, что и любой другой переход, — кнопкой на экране.
+      if (compiled.outro) present(compiled.outro, 0, showDebrief);
+      else showDebrief();
     },
   });
   session.start();
-  ($("start") as HTMLButtonElement).disabled = true;
-  ($("stop") as HTMLButtonElement).disabled = false;
   stage.focus();
 }
 
@@ -638,9 +741,15 @@ function banner(html: string): void {
   $("banner").replaceChildren(box);
 }
 
-function start(): void {
-  if (mode === "protocol") return startProtocol();
-  stop();
+/**
+ * Отладочный прогон одного модуля. Ручки сложности переезжают со стенда
+ * настройки на экран прогона одним узлом: разработчику они нужны живыми, а
+ * второй их копии, расходящейся по состоянию, быть не должно.
+ */
+function startModule(): void {
+  stopRun();
+  $("side").prepend($("setupDifficulty"));
+  showScreen("run");
   markers = new MarkerDispatcher(new NullMarkerSink());
   const clock = new RealClock();
   const runtime = new GameRuntime({
@@ -660,23 +769,21 @@ function start(): void {
     seed: Math.floor(Math.random() * 1e6),
     policy,
     overrides: effectiveOverrides(),
+    ...(($("trainingMode") as HTMLInputElement).checked ? { training: true } : {}),
     onDifficultyChanged: (level) => {
       ($("level") as HTMLInputElement).value = String(level);
       $("levelValue").textContent = String(level);
       blockControl();
       paramControls();
     },
-    onComplete: (summary: Json) => {
-      const box = document.createElement("div");
-      box.className = "result";
-      box.innerHTML = `<b>Блок завершён.</b> ${Object.entries(summary as Record<string, unknown>)
-        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.length : fmt(v)}`)
-        .join(" · ")}<br><span style="color:var(--muted)">Нажми «Старт» для следующего блока.</span>`;
-      $("banner").replaceChildren(box);
+    onComplete: (result: Json) => {
+      banner(
+        `<b>Блок завершён.</b> ${Object.entries(result as Record<string, unknown>)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.length : fmt(v)}`)
+          .join(" · ")}<br><span style="color:var(--muted)">«Ещё раз» — следующий блок того же модуля.</span>`,
+      );
       // Поле гасится: продолжать нажимать после конца блока нельзя.
       stage.classList.add("is-finished");
-      ($("start") as HTMLButtonElement).disabled = false;
-      ($("stop") as HTMLButtonElement).disabled = true;
       levelControl();
     },
   });
@@ -691,8 +798,6 @@ function start(): void {
 
   stage.classList.remove("is-finished");
   instance.start();
-  ($("start") as HTMLButtonElement).disabled = true;
-  ($("stop") as HTMLButtonElement).disabled = false;
   levelControl();
   stage.focus();
 }
@@ -742,9 +847,27 @@ function download(name: string, content: string): void {
   URL.revokeObjectURL(url);
 }
 
-$("start").addEventListener("click", start);
-$("stop").addEventListener("click", stop);
-$("toggle").addEventListener("click", () => app.classList.toggle("is-collapsed"));
+$("launch").addEventListener("click", () => (mode === "protocol" ? startProtocol() : startModule()));
+// «Стоп» и возврат живут только на отладочном прогоне: у сессии участника
+// операторских кнопок на экране нет вовсе.
+$("stop").addEventListener("click", () => {
+  stopRun();
+  banner("<b>Прогон остановлен.</b> «Ещё раз» — новый блок того же модуля.");
+});
+$("back").addEventListener("click", toSetup);
+$("toSetup").addEventListener("click", toSetup);
+$("tabProtocol").addEventListener("click", selectProtocol);
+$("tabBuilder").addEventListener("click", selectBuilder);
+$("tabModule").addEventListener("click", () => select(current));
+$("pace").addEventListener("change", () => {
+  $("compressRow").hidden = !rehearsing();
+  renderSchedule();
+});
+document.addEventListener("keydown", (event) => {
+  // Escape открывает сводку и только после конца сессии: во время прогона у
+  // участника руки на клавиатуре, и случайное нажатие не должно уводить с экрана.
+  if (event.key === "Escape" && finished && !$("run").hidden) showDebrief();
+});
 $("policy").addEventListener("change", () => {
   // Политику можно перехватить посреди блока: уровень при этом сохраняется.
   if (isRunning() && instance) instance.difficulty.setPolicy(makePolicy());
@@ -784,4 +907,76 @@ bindKeyboard(activeInput, {
 /** Игра не запущена: клавиши некому отдавать, но хост всё равно их спрашивает. */
 const protocolInputStub = { handleKey: () => false, handleKeyUp: () => false, releaseAll: () => {} } as never;
 
+/**
+ * Список сценариев: пилот и всё, что собрано в конструкторе. Выбор здесь —
+ * единственное место, где решается, какой документ пойдёт в запись.
+ */
+function renderScenarios(): void {
+  const box = $("scenario") as HTMLSelectElement;
+  const all = [pilotProtocol as Protocol, ...stored()];
+  box.replaceChildren(
+    ...all.map((protocol) => {
+      const option = document.createElement("option");
+      option.value = protocol.id;
+      option.textContent = `${protocol.title} · ${protocol.sections.length} блоков${
+        protocol.id === pilotProtocol.id ? "" : " · собран здесь"
+      }`;
+      option.selected = protocol.id === doc.id;
+      return option;
+    }),
+  );
+}
+
+const builder = mountBuilder($("builder"), {
+  manifests: games.map((game) => game.manifest),
+  // Конструктор открывается копией базового протокола: расписание пилота — это
+  // то, что правят, а не то, что набирают заново. Копией, а не самим пилотом:
+  // иначе правка увела бы за собой готовый документ, с которым сравнивают.
+  base: () => {
+    const copy = structuredClone(pilotProtocol) as Protocol;
+    copy.id = `${pilotProtocol.id}-copy`;
+    copy.title = `${pilotProtocol.title} (копия)`;
+    return copy;
+  },
+  // Годность сценария проверяет тот же компилятор, что и запуск: второй,
+  // «мягкой» проверки в конструкторе быть не должно — она разошлась бы с первой.
+  validate: (candidate) => {
+    try {
+      compileProtocol(candidate, { participantId: "p-000", registry });
+      return [];
+    } catch (error) {
+      if (error instanceof ProtocolError) return error.report.issues.map((issue) => issue.message);
+      return [String((error as Error).message ?? error)];
+    }
+  },
+  save: (candidate) => {
+    keep(candidate);
+    renderScenarios();
+  },
+  remove: (id) => {
+    forget(id);
+    renderScenarios();
+  },
+  saved: stored,
+  download,
+  run: (candidate) => {
+    doc = candidate;
+    renderScenarios();
+    selectProtocol();
+    startProtocol();
+  },
+});
+
+// Витрина открывается настройкой сессии: сценарий — то, ради чего она нужна,
+// конструктор и отладка модуля — соседние вкладки.
+renderScenarios();
+$("scenario").addEventListener("change", (event) => {
+  const id = (event.target as HTMLSelectElement).value;
+  doc = [pilotProtocol as Protocol, ...stored()].find((p) => p.id === id) ?? pilotProtocol;
+  renderSchedule();
+  renderInputNote();
+});
+renderCatalog();
 select(games[0]!);
+selectProtocol();
+showScreen("setup");

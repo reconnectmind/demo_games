@@ -3,6 +3,7 @@ import {
   EventLog,
   MemorySink,
   RealClock,
+  type Bounds,
   type Clock,
   type DifficultyPolicy,
   type DurableSink,
@@ -22,6 +23,13 @@ export interface Screen {
   title: string;
   body: string[];
   footer?: string;
+  /**
+   * Где участник находится: «Часть 2 из 5» или «Задание 3 из 6». Подпись
+   * собирается из расписания, а не пишется в тексте блока: в тексте она врёт при
+   * первой же правке сценария, а у экрана правила и вовсе означала бы не то —
+   * задание внутри обучения не равно части сессии.
+   */
+  position?: string;
 }
 
 export interface SectionSpec {
@@ -31,6 +39,8 @@ export interface SectionSpec {
   end: TerminationPolicy;
   /** Переопределения параметров по игре: поверх выданных политикой сложности. */
   overrides?: Record<string, Params>;
+  /** Границы значений по игре: политика двигает ось только внутри них. */
+  bounds?: Record<string, Bounds>;
   training?: boolean;
   /**
    * Отбивки перед участком, по порядку. Их может быть больше одной: перед вторым
@@ -315,7 +325,17 @@ export class SectionRunner {
         `Тренировка зачтётся, когда из последних ${criterion.window} попыток верными будут ${criterion.minCorrect}. Попыток даётся ${criterion.maxAttempts}.`,
       );
     }
-    return { title: manifest.title.ru, body, footer: "Оператор начнёт, когда вы будете готовы." };
+    // Место задания в обучении, а не части в сессии: участник видит правило
+    // одного задания из объявленных в блоке, и номер обязан считать их, а не
+    // участки расписания.
+    const tasks = this.opts.section.games;
+    const place = tasks.indexOf(gameId);
+    return {
+      title: manifest.title.ru,
+      body,
+      footer: "Оператор начнёт, когда вы будете готовы.",
+      ...(tasks.length > 1 && place >= 0 ? { position: `Задание ${place + 1} из ${tasks.length}` } : {}),
+    };
   }
 
   private showRule(screen: Screen, then: () => void): void {
@@ -335,6 +355,7 @@ export class SectionRunner {
   private launch(gameId: string): void {
     const index = this.state.runs;
     const overrides = this.opts.section.overrides?.[gameId];
+    const bounds = this.opts.section.bounds?.[gameId];
     this.outcomes = [];
 
     const instance = this.opts.runtime.mount(gameId, {
@@ -342,8 +363,10 @@ export class SectionRunner {
       seed: (this.opts.seed ?? 1) + index * 101,
       policy: this.policy(gameId),
       ...(overrides ? { overrides } : {}),
+      ...(bounds ? { bounds } : {}),
       // Закрепления дочерних задач идут целиком: их адресат — не эта игра, а её дети.
       ...(this.opts.section.overrides ? { childOverrides: this.opts.section.overrides } : {}),
+      ...(this.opts.section.bounds ? { childBounds: this.opts.section.bounds } : {}),
       training: this.opts.section.training,
       headless: this.opts.headless,
       ...(this.opts.input ? { input: this.opts.input } : {}),
@@ -515,7 +538,11 @@ export class SectionRunner {
       ...(this.opts.section.overrides?.[pending.packageRef.id]
         ? { overrides: this.opts.section.overrides[pending.packageRef.id]! }
         : {}),
+      ...(this.opts.section.bounds?.[pending.packageRef.id]
+        ? { bounds: this.opts.section.bounds[pending.packageRef.id]! }
+        : {}),
       ...(this.opts.section.overrides ? { childOverrides: this.opts.section.overrides } : {}),
+      ...(this.opts.section.bounds ? { childBounds: this.opts.section.bounds } : {}),
       training: this.opts.section.training,
       headless: this.opts.headless,
       ...(this.opts.input ? { input: this.opts.input } : {}),

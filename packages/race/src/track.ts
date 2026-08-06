@@ -1,3 +1,5 @@
+import { hash01, smoothstep, type SurfaceMix } from "@gamespace/env";
+
 /**
  * Трасса процедурная: карт нет, ассетов нет, сеть не нужна. Форма сегмента —
  * чистая функция от seed и номера, поэтому и физика, и сцена спрашивают одно и
@@ -7,6 +9,11 @@
  * геометрия строилась прямыми хордами по сегментам, и поворот читался как ломаная
  * из десятиметровых звеньев. Кривизна при этом всегда была гладкой — не хватало
  * только разрешения, поэтому лечится это шагом, а не новой математикой.
+ *
+ * Дорога — единственное место, которое знает, где какое покрытие лежит. Сами
+ * покрытия и их свойства живут в среде (`@gamespace/env`): что такое гравий,
+ * верно и вне этой трассы, а вот что он лежит полосой в пять метров от кромки —
+ * устройство именно этого мира.
  */
 
 /** Длина сегмента, метры: единица формы дороги, зачёта и коллайдеров. */
@@ -89,25 +96,6 @@ export interface VergeSide {
 }
 
 /**
- * Целочисленный хеш: только `imul`, сдвиги и одно деление — это точно везде.
- * Им же сцена расставляет придорожную обстановку: столб и дерево обязаны стоять
- * на одном и том же месте трассы независимо от того, когда их построили.
- */
-export function hash01(seed: number, index: number, salt: number): number {
-  let h = (seed | 0) ^ 0x9e3779b9;
-  h = Math.imul(h ^ (index | 0), 0x85ebca6b);
-  h = Math.imul(h ^ (salt | 0), 0xc2b2ae35);
-  h ^= h >>> 15;
-  h = Math.imul(h, 0x2545f491);
-  h ^= h >>> 13;
-  return (h >>> 0) / 4294967296;
-}
-
-function smooth(t: number): number {
-  return t * t * (3 - 2 * t);
-}
-
-/**
  * Кусочно-гладкий шум: опорные точки через `CONTROL_SPAN` сегментов и сглаживание
  * t²(3−2t) между ними. Номер сегмента может быть дробным — тогда шум и есть та
  * непрерывная функция пути, по которой геометрия идёт мелким шагом.
@@ -117,7 +105,7 @@ function noiseAt(seed: number, index: number, salt: number, span = CONTROL_SPAN)
   const t = (index - control * span) / span;
   const a = hash01(seed, control, salt) * 2 - 1;
   const b = hash01(seed, control + 1, salt) * 2 - 1;
-  return a + (b - a) * smooth(t);
+  return a + (b - a) * smoothstep(t);
 }
 
 export function trackAt(seed: number, index: number, shape: TrackShape): TrackSegment {
@@ -144,7 +132,7 @@ export function shapeAt(stamps: readonly ShapeStamp[], segment: number): ShapeSt
   if (index === 0) return current;
   const previous = stamps[index - 1]!;
   const t = Math.min(1, Math.max(0, (segment - current.fromSegment) / BLEND_SEGMENTS));
-  const w = smooth(t);
+  const w = smoothstep(t);
   const mix = (a: number, b: number) => a + (b - a) * w;
   return {
     fromSegment: current.fromSegment,
@@ -438,19 +426,8 @@ export function groundDy(point: FinePoint, lateral: number): number {
  * полметра выкрошенного края, и скачок сцепления в одном сантиметре дал бы не
  * реализм, а дребезг на границе.
  */
-export type SurfaceKind = "asphalt" | "gravel" | "grass";
-
 /** Ширина перехода между покрытиями, метры. */
 const BLEND_M = 0.5;
-
-export interface SurfaceMix {
-  /** Покрытие, которого здесь больше. */
-  kind: SurfaceKind;
-  /** Соседнее покрытие, к которому идёт переход. */
-  next: SurfaceKind;
-  /** Доля соседнего: 0 — чистое `kind`, 1 — чистое `next`. */
-  blend: number;
-}
 
 export function surfaceAt(point: FinePoint, lateral: number): SurfaceMix {
   const away = Math.abs(lateral);

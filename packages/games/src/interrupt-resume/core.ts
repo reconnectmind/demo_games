@@ -1,4 +1,5 @@
 import {
+  childSet,
   createRngState,
   rngInt,
   type CoreInput,
@@ -19,6 +20,12 @@ export interface InterruptResumeParams extends Params {
   interruptions: number;
   backgroundRunMs: number;
   interruptionMs: number;
+  /**
+   * Состав прерывателей: имена через запятую. Пусто — все объявленные в
+   * манифесте. Фоновая задача в состав не входит: она одна и обязана уметь
+   * возобновляться, выбирать тут нечего.
+   */
+  tasks: string;
 }
 
 export type Stage = "idle" | "background" | "interruption" | "finished";
@@ -110,7 +117,8 @@ export const interruptResumeCore: GameCore<InterruptResumeState> = {
       }
 
       case "params": {
-        const params = input.effective as InterruptResumeParams;
+        // Состав прерывателей необязателен: без него работают все объявленные.
+        const params = { tasks: "", ...input.effective } as InterruptResumeParams;
         if (state.stage !== "idle") return { state: { ...state, params }, effects: [] };
         const next: InterruptResumeState = { ...state, params, stage: "background" };
         return {
@@ -185,8 +193,9 @@ export const interruptResumeCore: GameCore<InterruptResumeState> = {
 function beginInterruption(state: InterruptResumeState): ReduceResult<InterruptResumeState> {
   const params = state.params;
   if (!params) return { state, effects: [] };
-  const [index, rng] = rngInt(state.rng, 0, INTERRUPTERS.length - 1);
-  const ref = INTERRUPTERS[index]!;
+  const pool = childSet(INTERRUPTERS, params.tasks, INTERRUPTERS.length);
+  const [index, rng] = rngInt(state.rng, 0, pool.length - 1);
+  const ref = INTERRUPTERS.find((child) => child.id === pool[index])!;
   const next: InterruptResumeState = { ...state, rng, stage: "interruption", currentInterrupter: ref.id };
   return {
     state: next,

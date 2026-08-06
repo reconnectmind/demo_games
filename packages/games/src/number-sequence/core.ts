@@ -1,4 +1,5 @@
 import {
+  HOLD_MS,
   createRngState,
   rngShuffle,
   type CoreInput,
@@ -38,6 +39,9 @@ export interface NumberSequenceState {
   rtCount: number;
   lastCell: number;
   lastFeedback: "correct" | "wrong" | "timeout" | null;
+  training: boolean;
+  /** Обучение стоит на разборе и ждёт участника: окно на нажатие закрыто. */
+  holding: boolean;
 }
 
 export interface NumberSequenceCell {
@@ -57,6 +61,7 @@ export interface NumberSequenceView {
   feedback: "correct" | "wrong" | "timeout" | null;
   /** Разбор последней пробы: показывается только в обучении. */
   debrief: TrialDebrief | null;
+  holding: boolean;
   stats: Array<[string, string | number]>;
   running: boolean;
 }
@@ -106,6 +111,7 @@ function view(state: NumberSequenceState): NumberSequenceView {
             got: state.lastFeedback === "timeout" ? null : String(state.layout[state.lastCell] ?? ""),
           }
         : null,
+    holding: state.holding,
     stats: [
       ["Последовательность", `${Math.min(state.sequencesDone + 1, SEQUENCES_PER_RUN)} из ${SEQUENCES_PER_RUN}`],
       ["Ошибок", state.errors],
@@ -147,6 +153,8 @@ export const numberSequenceCore: GameCore<NumberSequenceState> = {
     rtCount: 0,
     lastCell: -1,
     lastFeedback: null,
+    training: Boolean(config.training),
+    holding: false,
   }),
 
   reduce(state, input): ReduceResult<NumberSequenceState> {
@@ -188,6 +196,9 @@ export const numberSequenceCore: GameCore<NumberSequenceState> = {
       case "action": {
         const params = state.params;
         if (!params || !state.running || input.actionId !== "choose") return { state, effects: [] };
+        // Разбор снимает сам участник: следующее нажатие только читает разбор, а
+        // не отвечает — иначе объяснение исчезало бы вместе с попыткой.
+        if (state.holding) return release(state, params, input.tMs);
         if (!sequenceActive(state)) return { state, effects: [] };
         const cell = input.payload.index ?? -1;
         if (cell < 0 || cell >= state.layout.length) return { state, effects: [] };
@@ -201,6 +212,9 @@ export const numberSequenceCore: GameCore<NumberSequenceState> = {
         if (input.timerId !== PRESS || !state.running) return { state, effects: [] };
         const params = state.params;
         if (!params || !sequenceActive(state)) return { state, effects: [] };
+        // Разбор не бесконечен: участник мог отвернуться, и тогда поле открывает
+        // окно само, не превращая ошибку в остановку прогона.
+        if (state.holding) return release(state, params, input.tMs);
         return missPress(state, params, input.tMs);
       }
 
@@ -235,6 +249,7 @@ function startSequence(
     seqCorrect: 0,
     lastCell: -1,
     lastFeedback: null,
+    holding: false,
   };
   return {
     state: next,
@@ -311,6 +326,9 @@ function rejectPress(
   number: number,
   tMs: number,
 ): ReduceResult<NumberSequenceState> {
+  // В обучении после ошибки поле ждёт: разбор называет нужное число, и прочитать
+  // его нужно до того, как окно на следующее нажатие закроется по дедлайну.
+  const holding = state.training;
   const next: NumberSequenceState = {
     ...state,
     windowStartMs: tMs,
@@ -319,11 +337,34 @@ function rejectPress(
     errors: state.errors + 1,
     lastCell: cell,
     lastFeedback: "wrong",
+    holding,
   };
   return {
     state: next,
     effects: [
       { kind: "emit", event: { type: "response", cell, number, correct: false, expected: state.expected, rtMs: null } },
+      { kind: "render", view: view(next) as never },
+      { kind: "schedule", timerId: PRESS, afterMs: holding ? HOLD_MS : params.deadlineMs },
+    ],
+  };
+}
+
+/** Участник прочитал разбор: окно на нажатие открывается заново, с того же числа. */
+function release(
+  state: NumberSequenceState,
+  params: NumberSequenceParams,
+  tMs: number,
+): ReduceResult<NumberSequenceState> {
+  const next: NumberSequenceState = {
+    ...state,
+    holding: false,
+    lastFeedback: null,
+    lastCell: -1,
+    windowStartMs: tMs,
+  };
+  return {
+    state: next,
+    effects: [
       { kind: "render", view: view(next) as never },
       { kind: "schedule", timerId: PRESS, afterMs: params.deadlineMs },
     ],
@@ -337,6 +378,7 @@ function missPress(
 ): ReduceResult<NumberSequenceState> {
   // Промах по дедлайну — попытка, но не нажатие: presses считает только реальные
   // нажатия, а точность последовательности пропуск обязан ухудшать.
+  const holding = state.training;
   const next: NumberSequenceState = {
     ...state,
     windowStartMs: tMs,
@@ -344,13 +386,14 @@ function missPress(
     errors: state.errors + 1,
     lastCell: -1,
     lastFeedback: "timeout",
+    holding,
   };
   return {
     state: next,
     effects: [
       { kind: "emit", event: { type: "response", cell: null, correct: false, expected: state.expected, rtMs: null, timeout: true } },
       { kind: "render", view: view(next) as never },
-      { kind: "schedule", timerId: PRESS, afterMs: params.deadlineMs },
+      { kind: "schedule", timerId: PRESS, afterMs: holding ? HOLD_MS : params.deadlineMs },
     ],
   };
 }
@@ -398,7 +441,7 @@ function closeSequence(
 }
 
 function finish(state: NumberSequenceState): ReduceResult<NumberSequenceState> {
-  const next: NumberSequenceState = { ...state, running: false, expected: 0, lastNumber: 0 };
+  const next: NumberSequenceState = { ...state, running: false, expected: 0, lastNumber: 0, holding: false };
   return {
     state: next,
     effects: [

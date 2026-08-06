@@ -1,19 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-  SURFACES,
   TIRE_COLD_C,
   WHEEL_INERTIA,
-  blendSurface,
+  WHEEL_RADIUS_M,
   heatStep,
   loadFactor,
   tempFactor,
   tireCurve,
   tireStep,
-  type Surface,
   type TireStep,
-} from "../packages/race/src/tire.js";
-import { WHEEL_RADIUS_M } from "../packages/race/src/geometry.js";
-import { surfaceAt, Centerline } from "../packages/race/src/track.js";
+} from "@gamespace/car";
+import { SURFACES, blendSurface, type Surface } from "@gamespace/env";
+import { surfaceAt, Centerline } from "@gamespace/race";
 
 const G = 9.81;
 const LOAD = (2100 * G) / 4;

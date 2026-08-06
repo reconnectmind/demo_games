@@ -15,8 +15,8 @@ import {
   soundMix,
   type SoundIn,
   type SoundMix,
-} from "../packages/race/src/view/sound.js";
-import type { SurfaceKind } from "../packages/race/src/track.js";
+} from "../packages/car/src/view/sound.js";
+import type { SurfaceKind } from "@gamespace/env";
 
 function wheels(surface: SurfaceKind, slide = 0.02, contact = true) {
   return [0, 1, 2, 3].map(() => ({ surface, slide, contact }));

@@ -3,6 +3,7 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { Scene } from "@babylonjs/core/scene";
+import { smoothstep } from "../hash.js";
 
 /**
  * Земля и асфальт — рисованные текстуры, но не файлы: их считает процедура при
@@ -34,8 +35,15 @@ const SIDE = 256;
  */
 const UV_SNAP_M = 24;
 
-/** Цвет, рельеф и размер плитки одной поверхности. */
-export interface Surface {
+/**
+ * Цвет, рельеф и размер плитки одной поверхности — то, чем покрытие выглядит.
+ *
+ * Раньше это называлось `Surface`, ровно как и покрытие в физике шины, и жили
+ * два таких `Surface` в одном пакете. Пока оба сидели внутри заезда, путаницу
+ * разводили импортами; теперь у покрытия одно имя (`surface.ts`) и один хозяин, а
+ * это — его вид, отдельное понятие с отдельным названием.
+ */
+export interface SurfaceSkin {
   color: RawTexture;
   normal: RawTexture;
   /** Сколько метров земли занимает одна плитка. */
@@ -49,10 +57,6 @@ function lattice(x: number, y: number, seed: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
 }
 
-function smooth(t: number): number {
-  return t * t * (3 - 2 * t);
-}
-
 /**
  * Шум по решётке с шагом `cells` на всю текстуру. Замыкается по краю, потому что узлы
  * решётки берутся по модулю числа клеток.
@@ -63,8 +67,8 @@ function noise(px: number, py: number, cells: number, seed: number): number {
   const y = py * scale;
   const x0 = Math.floor(x);
   const y0 = Math.floor(y);
-  const tx = smooth(x - x0);
-  const ty = smooth(y - y0);
+  const tx = smoothstep(x - x0);
+  const ty = smoothstep(y - y0);
   const wrap = (v: number) => ((v % cells) + cells) % cells;
   const a = lattice(wrap(x0), wrap(y0), seed);
   const b = lattice(wrap(x0 + 1), wrap(y0), seed);
@@ -129,7 +133,7 @@ function normalTexture(name: string, height: Float32Array, steepness: number, sc
  * скромный: чем он резче, тем сильнее дальняя трава мерцает на мипах. Рельеф крутой,
  * трава — самая неровная поверхность на трассе.
  */
-export function grassSurface(scene: Scene): Surface {
+export function grassSurface(scene: Scene): SurfaceSkin {
   const rgb = new Uint8Array(SIDE * SIDE * 3);
   const height = new Float32Array(SIDE * SIDE);
   const lush = [0x40, 0x68, 0x2c];
@@ -150,8 +154,8 @@ export function grassSurface(scene: Scene): Surface {
     }
   }
   return {
-    color: colorTexture("race-grass", rgb, scene),
-    normal: normalTexture("race-grass-n", height, 34, scene),
+    color: colorTexture("env-grass", rgb, scene),
+    normal: normalTexture("env-grass-n", height, 34, scene),
     tileM: 6,
   };
 }
@@ -164,7 +168,7 @@ export function grassSurface(scene: Scene): Surface {
  * равно усредняют пиксельный в ровный серый на дальнем плане. Плитка большая, шесть
  * метров: на четырёх повтор светлых залысин виден как узор через каждые два корпуса.
  */
-export function asphaltSurface(scene: Scene): Surface {
+export function asphaltSurface(scene: Scene): SurfaceSkin {
   const rgb = new Uint8Array(SIDE * SIDE * 3);
   const height = new Float32Array(SIDE * SIDE);
   for (let y = 0; y < SIDE; y++) {
@@ -180,8 +184,8 @@ export function asphaltSurface(scene: Scene): Surface {
     }
   }
   return {
-    color: colorTexture("race-asphalt", rgb, scene),
-    normal: normalTexture("race-asphalt-n", height, 3, scene),
+    color: colorTexture("env-asphalt", rgb, scene),
+    normal: normalTexture("env-asphalt-n", height, 3, scene),
     tileM: 6,
   };
 }
@@ -196,7 +200,7 @@ export function asphaltSurface(scene: Scene): Surface {
  * щебнем. Поэтому камни — пиксельный шум с редкими светлыми зёрнами поверх пятен
  * пыли, а размер зерна отдан плитке.
  */
-export function gravelSurface(scene: Scene): Surface {
+export function gravelSurface(scene: Scene): SurfaceSkin {
   const rgb = new Uint8Array(SIDE * SIDE * 3);
   const height = new Float32Array(SIDE * SIDE);
   for (let y = 0; y < SIDE; y++) {
@@ -215,8 +219,8 @@ export function gravelSurface(scene: Scene): Surface {
     }
   }
   return {
-    color: colorTexture("race-gravel", rgb, scene),
-    normal: normalTexture("race-gravel-n", height, 9, scene),
+    color: colorTexture("env-gravel", rgb, scene),
+    normal: normalTexture("env-gravel-n", height, 9, scene),
     tileM: 5,
   };
 }

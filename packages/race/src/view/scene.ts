@@ -32,28 +32,35 @@ import {
   segmentIndexAt,
   type FinePoint,
 } from "../track.js";
-import { RIDE_HEIGHT_M, WHEEL_MOUNTS } from "../sim.js";
-import { MASS_KG, SUSPENSION_LOADED_M } from "../geometry.js";
-import { TIRE_COLD_C } from "../tire.js";
-import type { SimFrame } from "../sim.js";
-import type { RaceView } from "../core.js";
-import { createRaceAudio } from "./audio.js";
-import { createCarModel, type CarModel } from "./car.js";
-import { createTireMarks } from "./marks.js";
-import { Playout } from "./playout.js";
+import {
+  MASS_KG,
+  RIDE_HEIGHT_M,
+  SUSPENSION_LOADED_M,
+  TIRE_COLD_C,
+  WHEEL_MOUNTS,
+  createCarAudio,
+  createCarModel,
+  createPlume,
+  createTireMarks,
+  type CarModel,
+} from "@gamespace/car";
 import {
   applyWorldUv,
   asphaltSurface,
+  createSky,
   grassSurface,
   gravelSurface,
   uvOrigin,
-  type Surface,
-} from "./ground.js";
+  windAt,
+  type Sky,
+  type SurfaceSkin,
+} from "@gamespace/env";
+import { loadTreeField, type TreeField, type TreeSpot } from "@gamespace/flora";
+import type { SimFrame } from "../sim.js";
+import type { RaceView } from "../core.js";
+import { Playout } from "./playout.js";
 import { cameraFollow } from "./follow.js";
-import { createPlume } from "./plume.js";
-import { createSky, type Sky } from "./sky.js";
 import { TREE_AHEAD, plantTrees } from "./plant.js";
-import { loadTreeField, type TreeField, type TreeSpot } from "./trees.js";
 
 /**
  * Babylon отвечает только за картинку. Состоянием владеет ядро, поэтому сцену
@@ -248,7 +255,7 @@ export function createRaceScene(canvas: HTMLCanvasElement): RaceScene {
    * человека: браузер не даёт запустить контекст раньше. Отсутствие Web Audio
    * — не ошибка, а тихий заезд.
    */
-  const audio = createRaceAudio(!soundWanted());
+  const audio = createCarAudio(!soundWanted());
 
   /** Чёрные полосы от сорванных шин: их кладёт кадр, а чернит физика шины. */
   const marks = createTireMarks(scene);
@@ -263,7 +270,7 @@ export function createRaceScene(canvas: HTMLCanvasElement): RaceScene {
    * метрах: развёртка идёт по мировым координатам, и масштаб плитки — единственное,
    * что задаёт её размер на земле.
    */
-  const textured = (name: string, surface: Surface): StandardMaterial => {
+  const textured = (name: string, surface: SurfaceSkin): StandardMaterial => {
     const material = new StandardMaterial(name, scene);
     material.diffuseColor = Color3.White();
     material.specularColor = Color3.Black();
@@ -552,7 +559,6 @@ export function createRaceScene(canvas: HTMLCanvasElement): RaceScene {
       // воздуха и своя облачность.
       sky?.dispose();
       sky = createSky(scene, view.seed);
-      field?.setWind(sky.weather.wind, sky.weather.windRad);
       castShadows(sky);
       // Новый заезд — новая дорога: следы от прошлой висели бы в пустоте.
       marks.clear();
@@ -619,9 +625,10 @@ export function createRaceScene(canvas: HTMLCanvasElement): RaceScene {
     aimCamera(latest, frame, paceS);
     sky?.drift(playedS);
     // Лес качается по своим часам, а не по времени заезда: на паузе ветер стихать
-    // не должен, иначе пауза читается стоп-кадром.
+    // не должен, иначе пауза читается стоп-кадром. Сам ветер — из погоды этого
+    // заезда: сила, сторона и порывы приходят из среды готовыми.
     windS += paceS;
-    field?.animate(windS);
+    if (sky) field?.animate(windAt(sky.weather, windS));
     // Звук — от показанного кадра, а не от последнего вида: слышно должно быть
     // ровно то, что видно, иначе визг придёт раньше, чем машину развернёт.
     audio?.update(
@@ -666,10 +673,7 @@ export function createRaceScene(canvas: HTMLCanvasElement): RaceScene {
         return;
       }
       field = loaded;
-      if (sky) {
-        loaded.setWind(sky.weather.wind, sky.weather.windRad);
-        castShadows(sky);
-      }
+      if (sky) castShadows(sky);
       loaded.variants.forEach((id, index) => speciesIndex.set(id, index));
       if (Number.isFinite(builtSegment)) placeTrees(builtSegment);
     })

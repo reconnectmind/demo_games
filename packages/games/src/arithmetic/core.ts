@@ -1,4 +1,5 @@
 import {
+  HOLD_MS,
   createRngState,
   rngInt,
   rngShuffle,
@@ -43,6 +44,9 @@ export interface ArithmeticState {
   rtCount: number;
   lastFeedback: "correct" | "wrong" | null;
   lastDebrief: TrialDebrief | null;
+  training: boolean;
+  /** Обучение стоит на разборе и ждёт участника: следующая проба сама не придёт. */
+  holding: boolean;
 }
 
 export interface ArithmeticView {
@@ -52,6 +56,7 @@ export interface ArithmeticView {
   feedback: "correct" | "wrong" | null;
   /** Разбор последней пробы: показывается только в обучении. */
   debrief: TrialDebrief | null;
+  holding: boolean;
   stats: Array<[string, string | number]>;
   running: boolean;
 }
@@ -110,6 +115,7 @@ function view(state: ArithmeticState): ArithmeticView {
     responseMode: mode,
     feedback: state.lastFeedback,
     debrief: state.lastDebrief,
+    holding: state.holding,
     stats: [
       ["Проб", state.trials],
       ["Верно", state.correct],
@@ -154,6 +160,8 @@ export const arithmeticCore: GameCore<ArithmeticState> = {
     rtCount: 0,
     lastFeedback: null,
     lastDebrief: null,
+    training: Boolean(config.training),
+    holding: false,
   }),
 
   reduce(state, input): ReduceResult<ArithmeticState> {
@@ -186,6 +194,10 @@ export const arithmeticCore: GameCore<ArithmeticState> = {
       }
 
       case "action": {
+        // Разбор снимает сам участник — и любым из своих ответов, не только
+        // кнопкой: третьей руки у него нет, а отдельная клавиша означала бы, что
+        // в обучении раскладка другая, чем в зачёте.
+        if (state.holding) return release(state);
         const pending = state.pending;
         if (!pending || !state.running) return { state, effects: [] };
         if (input.actionId === "choose") {
@@ -208,7 +220,7 @@ export const arithmeticCore: GameCore<ArithmeticState> = {
         if (input.timerId !== ITI) return { state, effects: [] };
         if (!state.running) return { state, effects: [] };
         // Параметры запрашиваются заново на каждую пробу: уровень мог измениться.
-        return { state, effects: [{ kind: "requestParams" }] };
+        return release(state);
       }
 
       case "protocol": {
@@ -271,6 +283,9 @@ function score(
   const params = state.params;
   if (!params) return { state, effects: [] };
   const correct = answered === pending.answer;
+  // В обучении проба с ошибкой заканчивается разбором, а не следующим примером:
+  // промежуток между пробами — треть секунды, прочитать за неё нельзя ничего.
+  const holding = state.training && !correct;
   const next: ArithmeticState = {
     ...state,
     pending: null,
@@ -279,6 +294,7 @@ function score(
     rtCount: state.rtCount + 1,
     lastFeedback: correct ? "correct" : "wrong",
     lastDebrief: correct ? null : { expected: String(pending.answer), got: String(answered) },
+    holding,
   };
   return {
     state: next,
@@ -286,14 +302,29 @@ function score(
       { kind: "emit", event: { type: "response", answered, expected: pending.answer, correct, rtMs } },
       { kind: "outcome", outcome: { kind: "trial", scored: true, correct, rtMs, paramsUsed: { ...params } } },
       { kind: "render", view: view(next) as never },
-      { kind: "schedule", timerId: ITI, afterMs: ITI_MS },
+      // Ожидание разбора всё равно ограничено: участник мог отвернуться, а спринт
+      // обязан идти дальше сам.
+      { kind: "schedule", timerId: ITI, afterMs: holding ? HOLD_MS : ITI_MS },
+    ],
+  };
+}
+
+/** Участник прочитал разбор: дальше спринт идёт как обычно, со следующей пробы. */
+function release(state: ArithmeticState): ReduceResult<ArithmeticState> {
+  const next: ArithmeticState = { ...state, holding: false, lastFeedback: null, lastDebrief: null };
+  return {
+    state: next,
+    effects: [
+      { kind: "cancel", timerId: ITI },
+      { kind: "render", view: view(next) as never },
+      ...(next.running ? [{ kind: "requestParams" as const }] : []),
     ],
   };
 }
 
 function finish(state: ArithmeticState, tMs: number): ReduceResult<ArithmeticState> {
   const result = summary(state, tMs);
-  const next: ArithmeticState = { ...state, running: false, pending: null };
+  const next: ArithmeticState = { ...state, running: false, pending: null, holding: false };
   return {
     state: next,
     effects: [

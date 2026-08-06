@@ -59,7 +59,11 @@ class StroopWebView implements GameView<StroopView> {
     this.ctx.input.setOptionCount(view.options.length);
     // Разбор ошибки — только в обучении: в зачёте он отнимал бы время у
     // следующего стимула и менял бы саму задачу.
-    this.feedback.show(verdictOf(view.feedback), this.ctx.training ? debriefText(view.debrief) : "");
+    this.feedback.show(
+      verdictOf(view.feedback),
+      this.ctx.training ? debriefText(view.debrief) : "",
+      view.holding ? () => this.ctx.input.submit("choose", { index: -1 }, "pointer") : null,
+    );
     this.ctx.surface.setStats(view.stats);
   }
 

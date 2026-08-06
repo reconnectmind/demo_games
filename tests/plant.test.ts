@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { TreeSpot } from "@gamespace/flora";
 import { Centerline, FINE_M, SEGMENT_M, groundDy, lateralOf, type FinePoint } from "../packages/race/src/track.js";
 import { TREES, plantTrees } from "../packages/race/src/view/plant.js";
-import type { TreeSpot } from "../packages/race/src/view/trees.js";
 
 /**
  * Посадка леса проверяется одним свойством: дерево стоит на земле.

@@ -6,6 +6,7 @@ import {
   Fixed,
   Manual,
   Monotonic,
+  type Bounds,
   type DifficultyPolicy,
   type GameRegistry,
   type InputProfile,
@@ -55,11 +56,13 @@ export function validateProtocol(doc: unknown, registry?: GameRegistry): Validat
       for (const id of withChildren(gameId, registry)) {
         const game = registry.resolve(id);
         const overrides = overridesFor(id, protocol.overrides, section.overrides);
+        const bounds = boundsFor(id, protocol.bounds, section.bounds);
         issues.push(
           ...checkDifficultyFreedom({
             manifest: game.manifest,
             ...(game.presets ? { presets: game.presets } : {}),
             ...(overrides ? { overrides } : {}),
+            ...(bounds ? { bounds } : {}),
             ...(keyCapacity === undefined ? {} : { keyCapacity }),
             where: `участок ${section.id}`,
           }).issues,
@@ -194,7 +197,13 @@ export function compileProtocol(doc: unknown, options: CompileOptions): Compiled
     order: sections.map((s) => s.id),
     ...(outro ? { outro } : {}),
     sections: sections.map((section, index) =>
-      toSpec(section, protocol.overrides, options.durations?.[section.id], screensFor(protocol, sections, section, index)),
+      toSpec(
+        section,
+        protocol,
+        options.durations?.[section.id],
+        screensFor(protocol, sections, section, index),
+        options.registry,
+      ),
     ),
     policyFor,
   };
@@ -216,7 +225,18 @@ function screensFor(protocol: Protocol, order: Section[], section: Section, inde
     const firstOfPair = order.findIndex((s) => swap.includes(s.id));
     if (index > firstOfPair) screens.push(pause);
   }
-  if (section.interstitial) screens.push(section.interstitial);
+  if (section.interstitial) {
+    // Частями сессии считаются участки, у которых есть что сказать участнику.
+    // Микропауза — не часть: участнику о ней не сообщают, и включать её в счёт
+    // значило бы обещать пять частей там, где их четыре.
+    const parts = order.filter((s) => s.interstitial);
+    const place = parts.indexOf(section);
+    screens.push(
+      parts.length > 1
+        ? { ...section.interstitial, position: `Часть ${place + 1} из ${parts.length}` }
+        : section.interstitial,
+    );
+  }
   return screens;
 }
 
@@ -234,6 +254,24 @@ export function overridesFor(
 }
 
 /**
+ * Границы протокола и участка на один модуль. Правило то же, что у закреплений:
+ * участок уточняет общее, причём по каждой оси отдельно — сузить одну ось,
+ * оставив прочие как в протоколе, должно быть можно.
+ */
+export function boundsFor(
+  gameId: string,
+  root: Protocol["bounds"],
+  section: Section["bounds"],
+): Bounds | undefined {
+  const axes = new Set([...Object.keys(root?.[gameId] ?? {}), ...Object.keys(section?.[gameId] ?? {})]);
+  const merged: Bounds = {};
+  for (const axis of axes) {
+    merged[axis] = { ...(root?.[gameId]?.[axis] ?? {}), ...(section?.[gameId]?.[axis] ?? {}) };
+  }
+  return axes.size > 0 ? merged : undefined;
+}
+
+/**
  * Профиль ввода протокола. Без объявленной ёмкости остаётся свободная сборка:
  * это законно для витрины и одиночных запусков, но лабораторный протокол ёмкость
  * объявляет — иначе способ ответа задавали бы манифесты, каждый по-своему.
@@ -248,23 +286,64 @@ export function inputProfileOf(protocol: Protocol): InputProfile {
   };
 }
 
-function toSpec(section: Section, root: Protocol["overrides"], durationMs: number | undefined, screens: Screen[]): SectionSpec {
-  const end = durationMs === undefined ? section.end : withDuration(section.end, durationMs);
-  const ids = new Set([...Object.keys(root ?? {}), ...Object.keys(section.overrides ?? {})]);
+function toSpec(
+  section: Section,
+  root: Protocol,
+  durationMs: number | undefined,
+  screens: Screen[],
+  registry?: GameRegistry,
+): SectionSpec {
+  const coverage = coversAll(section.end);
+  const end = durationMs === undefined ? section.end : withDuration(section.end, durationMs, coverage);
+  const ids = new Set([...Object.keys(root.overrides ?? {}), ...Object.keys(section.overrides ?? {})]);
   const overrides: Record<string, Params> = {};
   for (const id of ids) {
-    const merged = overridesFor(id, root, section.overrides);
+    const merged = overridesFor(id, root.overrides, section.overrides);
     if (merged) overrides[id] = merged;
+  }
+  // Укоротив участок, оператор укорачивает и блок игры, которая сама себе
+  // отмеряет время. Иначе покой с таймером обещает участнику две минуты, а
+  // расписание закрывает участок через тридцать секунд: на экране одно, в
+  // журнале другое.
+  if (durationMs !== undefined && registry) {
+    for (const gameId of section.games) {
+      const declared = registry.has(gameId) ? registry.resolve(gameId).manifest.blockLength : undefined;
+      if (declared?.unit !== "ms") continue;
+      const own = overrides[gameId]?.[declared.param];
+      if (typeof own !== "number" || own <= durationMs) continue;
+      overrides[gameId] = { ...overrides[gameId], [declared.param]: durationMs };
+    }
+  }
+  const boundIds = new Set([...Object.keys(root.bounds ?? {}), ...Object.keys(section.bounds ?? {})]);
+  const bounds: Record<string, Bounds> = {};
+  for (const id of boundIds) {
+    const merged = boundsFor(id, root.bounds, section.bounds);
+    if (merged) bounds[id] = merged;
   }
   return {
     id: section.id,
     games: section.games,
-    end: terminationOf(end),
-    ...(coversAll(section.end) ? { coverage: true } : {}),
+    end: endPolicy(section, end),
+    ...(coverage ? { coverage: true } : {}),
     ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
+    ...(Object.keys(bounds).length > 0 ? { bounds } : {}),
     ...(screens.length > 0 ? { screens } : {}),
     ...(section.training === undefined ? {} : { training: section.training }),
   };
+}
+
+/**
+ * Завершение участка с поправкой на повтор. Блок без повтора кончается вместе со
+ * своими модулями: один проход по списку. Иначе время участка перекрывает время
+ * блока — пауза на десять секунд внутри тридцатисекундного участка проходит
+ * трижды и перестаёт быть паузой на десять секунд.
+ */
+function endPolicy(section: Section, end: Termination): TerminationPolicy {
+  const policy = terminationOf(end);
+  if (section.repeat !== false) return policy;
+  // Проход — это по разу на каждый объявленный модуль: у ротации из двух задач
+  // один проход честно означает два прогона, а не один.
+  return firstOf(byRuns(section.games.length), policy);
 }
 
 /**
@@ -276,10 +355,28 @@ function coversAll(spec: Termination): boolean {
   return spec.by === "first" && spec.of.some(coversAll);
 }
 
-/** Оператор правит длительность участка, а не его структуру. */
-function withDuration(spec: Termination, ms: number): Termination {
-  if (spec.by === "time") return { by: "time", ms };
-  if (spec.by === "first") return { by: "first", of: spec.of.map((x) => withDuration(x, ms)) as typeof spec.of };
+/**
+ * Оператор правит длительность участка, а не его структуру. У участка по
+ * покрытию правится, однако, не потолок целиком, а одна попытка: покрытие
+ * обязано закрыться, а укороченный общий потолок закрывал участок на первой же
+ * задаче — репетиция обучения показывала арифметику и кончалась, хотя в блоке
+ * объявлено шесть задач. Потолок участка при этом остаётся как в документе:
+ * он страховка от зависания, а не расписание.
+ *
+ * Укорачивать — только вниз: обещано, что участки станут короче, а не что все
+ * они станут одной длины. Иначе микропауза на десять секунд растянулась бы до
+ * получаса репетиции просто потому, что оператор выбрал полчаса.
+ */
+function withDuration(spec: Termination, ms: number, perAttempt: boolean): Termination {
+  if (spec.by === "time") return perAttempt ? spec : { by: "time", ms: Math.min(spec.ms, ms) };
+  if (spec.by === "run-limit") return perAttempt ? { by: "run-limit", ms } : spec;
+  if (spec.by === "first") {
+    const of = spec.of.map((x) => withDuration(x, ms, perAttempt));
+    // Покрытие без потолка на попытку укорачивать нечем: тогда потолок появляется,
+    // иначе репетиция шла бы полным временем участка и оператор ждал бы впустую.
+    if (perAttempt && !of.some((part) => part.by === "run-limit")) of.push({ by: "run-limit", ms });
+    return { by: "first", of: of as typeof spec.of };
+  }
   return spec;
 }
 

@@ -24,7 +24,7 @@
  * Плюс ветер, который просто растёт со скоростью и держит ощущение хода.
  */
 
-import type { SurfaceKind } from "../track.js";
+import type { SurfaceKind } from "@gamespace/env";
 
 /** Что слышно из-под колеса. */
 export interface WheelVoice {

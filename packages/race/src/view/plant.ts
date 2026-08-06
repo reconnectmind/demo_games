@@ -12,9 +12,9 @@
  * снова попавшее в окно, стоит на прежнем месте, а не переезжает.
  */
 
-import { Centerline, SEGMENT_M, groundDy, hash01, lateralOffset } from "../track.js";
-import { speciesAt } from "./species.js";
-import type { TreeSpot } from "./trees.js";
+import { hash01 } from "@gamespace/env";
+import { speciesAt, type TreeSpot } from "@gamespace/flora";
+import { Centerline, SEGMENT_M, groundDy, lateralOffset } from "../track.js";
 
 /** Деревья через два сегмента и настолько вперёд, чтобы появляться уже в тумане. */
 const TREE_EVERY = 2;

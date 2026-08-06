@@ -4,6 +4,7 @@ import {
   GameRegistry,
   GameRuntime,
   Fixed,
+  HOLD_MS,
   Manual,
   MemorySink,
   THREE_KEYS,
@@ -33,11 +34,44 @@ function registry() {
   return r;
 }
 
+/** Один модуль в поле: разбор ошибки живёт в игре, и проверять его проще без участка. */
+function single(id: string, opts: { level: number; seed?: number; training?: boolean }) {
+  const reg = registry();
+  const clock = new VirtualClock();
+  const runtime = new GameRuntime({
+    registry: reg,
+    clock,
+    capabilities: ["keyboard", "pointer", "canvas"],
+    t0WallMs: 1_700_000_000_000,
+    wallNow: () => 1_700_000_000_000 + clock.now(),
+  });
+  const stage = document.createElement("div");
+  document.body.replaceChildren(stage);
+  const instance = runtime.mount(reg.ref(id), {
+    surface: new DomSurface({ stage }),
+    seed: opts.seed ?? 11,
+    policy: new Manual({ start: opts.level }),
+    input: THREE_KEYS,
+    ...(opts.training ? { training: true } : {}),
+  });
+  instance.start();
+  return { instance, stage, clock };
+}
+
 /**
  * Участок обучения на автоответчике. Ответы даёт `answer`: так проверяется не
  * механика задач, а то, что участок ведёт по покрытию и считает допуск.
  */
-function trainingSection(answer: (gameId: string) => void, timeCapMs = 3_600_000) {
+function trainingSection(
+  answer: (gameId: string) => void,
+  timeCapMs = 3_600_000,
+  /**
+   * Укорочение участков оператором. Задано — участок идёт ровно с тем
+   * завершением, которое собрал компилятор: именно это и проверяется, когда
+   * речь о репетиции.
+   */
+  durations?: Record<string, number>,
+) {
   const reg = registry();
   const clock = new VirtualClock();
   const sink = new MemorySink();
@@ -49,21 +83,27 @@ function trainingSection(answer: (gameId: string) => void, timeCapMs = 3_600_000
     t0WallMs: 1_700_000_000_000,
     wallNow: () => 1_700_000_000_000 + clock.now(),
   });
-  const compiled = compileProtocol(pilot, { participantId: "p-train", registry: reg });
+  const compiled = compileProtocol(pilot, {
+    participantId: "p-train",
+    registry: reg,
+    ...(durations ? { durations } : {}),
+  });
   const section = compiled.sections.find((s) => s.id === "training")!;
   const screens: Screen[] = [];
   const done: RunRecord[] = [];
   const runner = new SectionRunner({
     runtime,
-    section: {
-      ...section,
-      // Потолок по времени поднят, чтобы участок кончился именно покрытием, а
-      // прогон ограничен минутой: иначе автоответчик доигрывает блоки целиком.
-      end: terminationOf({
-        by: "first",
-        of: [{ by: "coverage" }, { by: "time", ms: timeCapMs }, { by: "run-limit", ms: 60_000 }],
-      }),
-    },
+    section: durations
+      ? section
+      : {
+          ...section,
+          // Потолок по времени поднят, чтобы участок кончился именно покрытием, а
+          // прогон ограничен минутой: иначе автоответчик доигрывает блоки целиком.
+          end: terminationOf({
+            by: "first",
+            of: [{ by: "coverage" }, { by: "time", ms: timeCapMs }, { by: "run-limit", ms: 60_000 }],
+          }),
+        },
     surface: headlessSurface(),
     headless: true,
     seed: 5,
@@ -140,6 +180,40 @@ describe("обучение по покрытию", () => {
       .map((r) => (r.payload as { game: string }).game);
     // Из расчёта времени это восстановить нельзя, из журнала — можно.
     for (const game of TRAINING_GAMES) expect(started).toContain(game);
+  });
+
+  it("репетиция укорачивает попытку, а не покрытие", () => {
+    // Оператор ставит участкам тридцать секунд. Пока это укорачивало потолок
+    // участка, обучение показывало первую задачу и кончалось: пять остальных
+    // участник не видел вовсе. Укорачивать нужно попытку — тогда все задачи
+    // предъявлены, просто коротко.
+    const { runner, clock, sink } = trainingSection(() => {}, 0, { training: 30_000 });
+    runner.start();
+    drive(runner, clock, false);
+    const started = sink.records
+      .filter((r: LoggedEvent) => r.type === "section.run.start")
+      .map((r) => (r.payload as { game: string }).game);
+    for (const game of TRAINING_GAMES) expect(started).toContain(game);
+    const runs = sink.records.filter((r: LoggedEvent) => r.type === "section.run.end");
+    // Попытки действительно короткие: иначе это был бы обычный полный участок.
+    for (const run of runs) {
+      const { startedMs, endedMs } = run.payload as { startedMs: number; endedMs: number };
+      expect(endedMs - startedMs).toBeLessThanOrEqual(31_000);
+    }
+  });
+
+  it("правило подписано номером задания, а не номером части", () => {
+    const { runner, clock, screens } = trainingSection(() => {}, 3_600_000);
+    runner.start();
+    drive(runner, clock, true, 200, 600);
+    const rules = screens.slice(1);
+    expect(rules.length).toBeGreaterThan(0);
+    for (const rule of rules) {
+      // Часть — про сессию, задание — про обучение внутри неё. Витрина подставляла
+      // номер участка обеим карточкам, и правило спринта подписывалось «часть 1 из 4».
+      expect(rule.position).toMatch(/^Задание [1-6] из 6$/);
+    }
+    expect(new Set(rules.map((r) => r.position)).size).toBeGreaterThan(1);
   });
 
   it("покрытие закрывается допуском, а участок кончается сам", () => {
@@ -249,26 +323,39 @@ describe("разбор ошибки в обучении", () => {
     expect(debriefText(null)).toBe("");
   });
 
-  it("stroop называет, что было выбрано и что требовалось", () => {
+  it("у непрерывного управления ошибка описана движением, а не выбором", () => {
+    // «Вы выбрали влево, а нужно было вправо» про площадку не читается: участник
+    // ничего не выбирал, он не довёл её. Такие механики дают фразу целиком.
+    expect(debriefText({ expected: "влево", got: null, hint: "Мяч ушёл слева." })).toBe("Мяч ушёл слева.");
+  });
+
+  it("каждый отвечающий модуль умеет разбирать ошибку в обучении", () => {
+    // Обучение без разбора — это «неверно» без объяснения: участник видит крест и
+    // не узнаёт, что от него требовалось. Поэтому разбор обязателен всем, кто
+    // вообще принимает ответы, включая аркадные модули.
     const reg = registry();
-    const clock = new VirtualClock();
-    const runtime = new GameRuntime({
-      registry: reg,
-      clock,
-      capabilities: ["keyboard", "pointer", "canvas"],
-      t0WallMs: 1_700_000_000_000,
-      wallNow: () => 1_700_000_000_000 + clock.now(),
-    });
-    const stage = document.createElement("div");
-    document.body.replaceChildren(stage);
-    const instance = runtime.mount(reg.ref("org.reconnect.stroop"), {
-      surface: new DomSurface({ stage }),
-      seed: 11,
-      policy: new Manual({ start: 0 }),
-      input: THREE_KEYS,
-      training: true,
-    });
-    instance.start();
+    for (const game of protocolGames) {
+      const manifest = game.manifest;
+      if (!manifest.responseAlternatives || (manifest.children ?? []).length > 0) continue;
+      expect({ id: manifest.id, rule: Boolean(manifest.training.rule) }).toEqual({ id: manifest.id, rule: true });
+      expect(reg.has(manifest.id)).toBe(true);
+    }
+  });
+
+  it("сквош в обучении говорит, в какую сторону надо было вести площадку", () => {
+    const { stage, clock } = single("org.reconnect.squash", { level: 4, seed: 4, training: true });
+    // Площадку не двигаем: мяч уйдёт мимо, и это как раз тот случай, который
+    // участнику нужно объяснить.
+    let text = "";
+    for (let i = 0; i < 200 && !text; i++) {
+      clock.advance(100);
+      text = stage.querySelector(".gs-mark-reason")?.textContent ?? "";
+    }
+    expect(text).toMatch(/Мяч ушёл (слева|справа)\. Площадку нужно было вести (влево|вправо)/);
+  });
+
+  it("stroop называет, что было выбрано и что требовалось", () => {
+    const { instance, stage, clock } = single("org.reconnect.stroop", { level: 0, seed: 11, training: true });
     clock.advance(100);
 
     // Неверный ответ ищется перебором вариантов: какой из них верный, знает ядро.
@@ -282,25 +369,75 @@ describe("разбор ошибки в обучении", () => {
     expect(text).toMatch(/Вы выбрали .+, а нужно было .+\.|Ответа не было/);
   });
 
+  it("n-back называет обе буквы: и текущую, и ту, что была n назад", () => {
+    const { instance, stage, clock } = single("org.reconnect.n-back", { level: 1, training: true });
+    type Stream = { stream: string[]; targetFlags: boolean[]; index: number; visible: boolean; params: { n: number } };
+    const st = () => instance.state as Stream;
+
+    // Ложная тревога на пробе, у которой есть с чем сравнивать: только там разбор
+    // может назвать обе буквы.
+    let text = "";
+    let answered = -1;
+    for (let i = 0; i < 400 && !text; i++) {
+      const now = st();
+      if (now.visible && now.index !== answered && now.index >= now.params.n) {
+        answered = now.index;
+        // На совпадениях отвечаем верно: пропуск сам остановил бы поток разбором,
+        // а нужен разбор именно ложной тревоги.
+        instance.input.submit("match", {}, "keyboard");
+        if (!now.targetFlags[now.index]) {
+          clock.advance(1600);
+          text = stage.querySelector(".gs-mark-reason")?.textContent ?? "";
+          expect(text).toContain(now.stream[now.index]!);
+          expect(text).toContain(now.stream[now.index - now.params.n]!);
+          break;
+        }
+      }
+      clock.advance(100);
+    }
+    expect(text).toMatch(/Совпадения не было/);
+    instance.stop();
+  });
+
+  it("разбор держит задачу до ответа участника, а не гаснет сам", () => {
+    const { instance, stage, clock } = single("org.reconnect.stroop", { level: 0, training: true });
+    const ink = () => (instance.state as { pending: { inkIndex: number } | null }).pending?.inkIndex;
+
+    const wrong = (ink() ?? 0) === 0 ? 1 : 0;
+    instance.input.submit("choose", { index: wrong }, "keyboard");
+    clock.advance(50);
+    expect(stage.querySelector(".gs-mark-reason")!.textContent).toMatch(/нужно было/);
+
+    // Обычный промежуток между пробами кончился, а разбор на месте: следующего
+    // слова нет, пока участник не нажмёт.
+    clock.advance(1000);
+    expect(stage.querySelector(".gs-mark-reason")!.textContent).toMatch(/нужно было/);
+    expect(stage.querySelector<HTMLButtonElement>(".gs-mark-next")!.hidden).toBe(false);
+
+    stage.querySelector<HTMLButtonElement>(".gs-mark-next")!.click();
+    clock.advance(50);
+    expect(stage.querySelector(".gs-mark-reason")!.textContent).toBe("");
+    expect(ink()).not.toBeUndefined();
+    instance.stop();
+  });
+
+  it("отвернувшийся участник не останавливает прогон навсегда", () => {
+    const { instance, stage, clock } = single("org.reconnect.stroop", { level: 0, training: true });
+    const ink = () => (instance.state as { pending: { inkIndex: number } | null }).pending?.inkIndex;
+    const wrong = (ink() ?? 0) === 0 ? 1 : 0;
+    instance.input.submit("choose", { index: wrong }, "keyboard");
+    clock.advance(50);
+    expect(stage.querySelector(".gs-mark-reason")!.textContent).toMatch(/нужно было/);
+
+    // Ждать разбор задача согласна долго, но не бесконечно: блок обязан кончиться
+    // сам, иначе сессия висит на отвернувшемся участнике.
+    clock.advance(HOLD_MS + 100);
+    expect(stage.querySelector(".gs-mark-reason")!.textContent).toBe("");
+    instance.stop();
+  });
+
   it("в зачёте разбора нет", () => {
-    const reg = registry();
-    const clock = new VirtualClock();
-    const runtime = new GameRuntime({
-      registry: reg,
-      clock,
-      capabilities: ["keyboard", "pointer", "canvas"],
-      t0WallMs: 1_700_000_000_000,
-      wallNow: () => 1_700_000_000_000 + clock.now(),
-    });
-    const stage = document.createElement("div");
-    document.body.replaceChildren(stage);
-    const instance = runtime.mount(reg.ref("org.reconnect.stroop"), {
-      surface: new DomSurface({ stage }),
-      seed: 11,
-      policy: new Manual({ start: 1 }),
-      input: THREE_KEYS,
-    });
-    instance.start();
+    const { instance, stage, clock } = single("org.reconnect.stroop", { level: 1, seed: 11 });
     clock.advance(100);
     instance.input.submit("choose", { index: 0 }, "keyboard");
     clock.advance(50);

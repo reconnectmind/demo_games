@@ -81,6 +81,12 @@ export interface Protocol {
     };
   };
   /**
+   * Границы значений на весь протокол по идентификатору модуля. Участок вправе их сузить или расширить
+   */
+  bounds?: {
+    [k: string]: GameBounds;
+  };
+  /**
    * @minItems 1
    */
   sections: [Section, ...Section[]];
@@ -109,6 +115,15 @@ export interface Screen {
    */
   footer?: string;
 }
+/**
+ * Диапазон, внутри которого политике разрешено двигать ось. Совпавшие границы означают закреплённую ось: расти по ней некуда, и рост уходит на свободные оси
+ */
+export interface GameBounds {
+  [k: string]: {
+    min?: number;
+    max?: number;
+  };
+}
 export interface Section {
   id: string;
   /**
@@ -118,6 +133,10 @@ export interface Section {
    */
   games: [string, ...string[]];
   end: Termination;
+  /**
+   * Повторять прогоны, пока участок не кончился. Ложь означает один проход по объявленным модулям: блок закрывается вместе с ними, даже если по расписанию время ещё осталось. Так задаётся всё, что сам себе отмеряет длительность — иначе пауза на десять секунд внутри тридцатисекундного участка проходит трижды и перестаёт быть паузой на десять секунд
+   */
+  repeat?: boolean;
   interstitial?: Screen;
   training?: boolean;
   difficulty?: Difficulty;
@@ -128,5 +147,11 @@ export interface Section {
     [k: string]: {
       [k: string]: number | string | boolean;
     };
+  };
+  /**
+   * Границы значений на этом участке, по идентификатору игры
+   */
+  bounds?: {
+    [k: string]: GameBounds;
   };
 }

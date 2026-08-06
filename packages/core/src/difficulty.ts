@@ -122,11 +122,45 @@ export class Fixed implements DifficultyPolicy {
   report(): void {}
 }
 
+/**
+ * Границы, в которых исследователь разрешил параметру ходить. Закрепление —
+ * частный случай: совпавшие границы означают, что ось стоит.
+ */
+export interface Bound {
+  min?: number;
+  max?: number;
+}
+
+export type Bounds = Record<string, Bound>;
+
+/** Ось стоит, если границы сомкнулись: расти по ней политике больше некуда. */
+export function isPinned(bound: Bound | undefined): boolean {
+  return bound?.min !== undefined && bound.max !== undefined && bound.min === bound.max;
+}
+
+/** За границы значение не выпускается; нечисловые параметры границам не подчиняются. */
+export function clampParams(params: Params, bounds: Bounds | undefined): Params {
+  if (!bounds) return params;
+  const out: Params = { ...params };
+  for (const [key, bound] of Object.entries(bounds)) {
+    const value = out[key];
+    if (typeof value !== "number") continue;
+    out[key] = clamp(value, bound.min ?? -Infinity, bound.max ?? Infinity);
+  }
+  return out;
+}
+
 export interface DifficultyHandleOptions {
   policy: DifficultyPolicy;
   paramsForLevel(level: number): Params;
   /** Ручные переопределения оператора поверх выданных политикой параметров. */
   overrides?: Params;
+  /**
+   * Границы значений, объявленные протоколом. Уровень остаётся уровнем, но
+   * значение за границу не выходит: исследователь ограничивает нагрузку по оси,
+   * не переписывая таблицу пресетов.
+   */
+  bounds?: Bounds;
   /**
    * Оси, закреплённые протоколом. Знать их обязательно: иначе лестница
    * продолжает «тратить» рост на закреплённую ось, значение затирается
@@ -190,7 +224,12 @@ export class DifficultyController implements DifficultyHandle {
   }
 
   params(): Params {
-    return { ...this.opts.paramsForLevel(this.activePolicy.current()), ...this.overrides };
+    // Порядок важен: границы применяются последними, поэтому ни таблица уровня,
+    // ни ручка оператора не могут вывести значение за объявленный диапазон.
+    return clampParams(
+      { ...this.opts.paramsForLevel(this.activePolicy.current()), ...this.overrides },
+      this.opts.bounds,
+    );
   }
 
   setOverrides(overrides: Params): void {
