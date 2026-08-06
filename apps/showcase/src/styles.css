@@ -144,10 +144,20 @@ body {
   .builder-body.is-deep { grid-template-columns: minmax(0, 1fr); }
 }
 .builder-list { display: flex; flex-direction: column; gap: 6px; }
+/*
+ * Строка расписания в две строки: сверху вид блока и время, снизу его имя. В
+ * одну строку всё это соревновалось за узкую колонку, и первым исчезало имя —
+ * то самое, чем на блок ссылается контрбалансировка и по чему его узнают в
+ * журнале. Ручки порядка стоят справа во всю высоту: они про строку целиком.
+ */
 .builder-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "num title time ops"
+    "num id    id   ops";
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: 8px;
@@ -156,6 +166,11 @@ body {
   cursor: pointer;
   font-size: 13px;
 }
+.builder-row > .pill { grid-area: num; }
+.builder-row > b { grid-area: title; }
+.builder-row > .builder-row-id { grid-area: id; }
+.builder-row > .builder-row-time { grid-area: time; }
+.builder-row > .builder-row-ops { grid-area: ops; }
 .builder-row:hover { background: var(--panel-2); }
 .builder-row.is-picked { border-color: var(--accent); background: var(--panel-2); }
 .builder-row.is-baseline { border-left-color: #4f7a94; }
@@ -164,14 +179,22 @@ body {
 .builder-row.is-pause { border-left-color: #6b6b6b; }
 .builder-row.is-micro { border-left-color: #3d4a55; }
 .builder-row.is-session { border-left-color: transparent; }
-/* Строка задачи живёт внутри панели блока: тот же список, но без номера части. */
-.builder-row.is-task { border-left-color: transparent; padding: 5px 8px; }
+/*
+ * Строка задачи живёт внутри панели блока: тот же список, но без номера части и
+ * без времени, поэтому вторая строка ей не нужна — имя модуля встаёт рядом.
+ */
+.builder-row.is-task {
+  display: flex;
+  gap: 8px;
+  border-left-color: transparent;
+  padding: 5px 8px;
+}
 .builder-row.is-task b { font-weight: 500; }
 .builder-tasks { display: flex; flex-direction: column; gap: 4px; }
 .builder-row b { white-space: nowrap; }
 .builder-row .pill { flex: none; }
 .builder-row-id { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.builder-row-time { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.builder-row-time { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .builder-row-ops { display: flex; gap: 4px; }
 .builder-row-ops .btn { padding: 2px 8px; }
 .builder-block {
