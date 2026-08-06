@@ -321,30 +321,15 @@ describe("конструктор сценария", () => {
     expect(box.querySelector(".builder-panel .builder-block")).toBeNull();
   });
 
-  it("панель встаёт напротив выбранного блока, а не в начало полосы", () => {
-    // Раскладку jsdom не считает, поэтому высота строк подставлена: проверяется
-    // правило «панель на высоте своей строки», а не движок вёрстки.
-    const layout = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetTop");
-    Object.defineProperty(HTMLElement.prototype, "offsetTop", {
-      configurable: true,
-      get(this: HTMLElement) {
-        if (!this.classList.contains("builder-row")) return 0;
-        return [...(this.parentElement?.children ?? [])].indexOf(this) * 40;
-      },
-    });
-    try {
-      const box = host();
-      mountBuilder(box, deps({ base: () => structuredClone(pilotProtocol) as Protocol }));
-      const rows = [...box.querySelectorAll(".builder-list .builder-row")] as HTMLElement[];
-      const panel = () => box.querySelector(".builder-panel") as HTMLElement;
-      rows[3]!.click();
-      expect(panel().style.marginTop).toBe("120px");
-      // Сессия целиком — первая строка: смещать панель от неё некуда.
-      (box.querySelector(".builder-row.is-session") as HTMLElement).click();
-      expect(panel().style.marginTop).toBe("");
-    } finally {
-      if (layout) Object.defineProperty(HTMLElement.prototype, "offsetTop", layout);
-    }
+  it("колонки начинаются с одной высоты, а не съезжают за выбранной строкой", () => {
+    // Панель, встающая напротив своей строки, читалась как связь с ней, но
+    // платой был прыгающий верх: у восьмого блока настройки уезжали под сгиб.
+    const box = host();
+    mountBuilder(box, deps({ base: () => structuredClone(pilotProtocol) as Protocol }));
+    const rows = [...box.querySelectorAll(".builder-list .builder-row")] as HTMLElement[];
+    rows[3]!.click();
+    const tops = [...box.querySelectorAll<HTMLElement>(".builder-body > *")].map((c) => c.style.marginTop);
+    expect(tops.every((top) => top === "")).toBe(true);
   });
 
   it("убранный блок не остаётся открытым справа", () => {
@@ -540,34 +525,21 @@ describe("конструктор сценария", () => {
     expect(box.querySelector(".builder-body")!.className).not.toContain("is-deep");
   });
 
-  it("колонка задачи встаёт напротив своей строки, а не в начало блока", () => {
-    const layout = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetTop");
-    Object.defineProperty(HTMLElement.prototype, "offsetTop", {
-      configurable: true,
-      get(this: HTMLElement) {
-        if (!this.classList.contains("builder-row")) return 0;
-        return [...(this.parentElement?.children ?? [])].indexOf(this) * 40;
-      },
+  it("выбор задачи не двигает колонку параметров по высоте", () => {
+    const box = host();
+    const builder = mountBuilder(box, deps());
+    builder.open({
+      ...emptyProtocol(),
+      sections: [makeBlock("baseline", "rest"), makeBlock("game", "load", ["org.reconnect.adaptive-battery"])],
     });
-    try {
-      const box = host();
-      const builder = mountBuilder(box, deps());
-      builder.open({
-        ...emptyProtocol(),
-        sections: [makeBlock("baseline", "rest"), makeBlock("game", "load", ["org.reconnect.adaptive-battery"])],
-      });
-      const rows = [...box.querySelectorAll(".builder-list .builder-row")] as HTMLElement[];
-      rows[2]!.click();
-      const third = [...box.querySelectorAll(".builder-children .builder-row.is-task")][2] as HTMLElement;
-      third.click();
-      const panel = box.querySelector(".builder-panel") as HTMLElement;
-      const focus = box.querySelector(".builder-focus") as HTMLElement;
-      // Блок второй в списке (80), задача третья в составе (80): колонка встаёт
-      // на их сумму, иначе параметры читались бы на высоте чужой строки.
-      expect(panel.style.marginTop).toBe("80px");
-      expect(focus.style.marginTop).toBe("160px");
-    } finally {
-      if (layout) Object.defineProperty(HTMLElement.prototype, "offsetTop", layout);
-    }
+    const rows = [...box.querySelectorAll(".builder-list .builder-row")] as HTMLElement[];
+    rows[2]!.click();
+    const third = [...box.querySelectorAll(".builder-children .builder-row.is-task")][2] as HTMLElement;
+    third.click();
+    const focus = box.querySelector(".builder-focus") as HTMLElement;
+    expect(focus.style.marginTop).toBe("");
+    // Связь с выбранной задачей держится подсветкой строки и заголовком колонки,
+    // а не высотой: подпись говорит то же самое и не уезжает за экран.
+    expect(focus.querySelector("b")!.textContent).toBe("Stroop");
   });
 });

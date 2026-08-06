@@ -134,17 +134,14 @@ body {
 .builder-status.is-bad { color: var(--bad, #e2a0a0); }
 .builder-body { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
 /* Уточнение течёт слева направо: расписание — блок — задача, открытая в блоке. */
-.builder-body.is-deep { grid-template-columns: minmax(220px, 300px) minmax(280px, 1fr) minmax(280px, 1fr); }
+.builder-body.is-deep { grid-template-columns: minmax(200px, 280px) minmax(240px, 1fr) minmax(240px, 1fr); gap: 16px; }
 /*
- * На узком экране колонки не сжимаются, а встают друг под друга: три полосы по
- * полтораста точек — это подписи в один слог на строку. Смещение колонок при
- * этом снимается: напротив чего вставать, когда полоса одна, непонятно, а
- * inline-стиль выравнивания иначе увёл бы панель на экран вниз.
+ * Ниже трёх полос по две с половиной сотни точек колонки не сжимаются, а встают
+ * друг под друга: уже этого подписи ломаются на слог в строку.
  */
-@media (max-width: 1180px) {
+@media (max-width: 860px) {
   .builder-body,
   .builder-body.is-deep { grid-template-columns: minmax(0, 1fr); }
-  .builder-body > * { margin-top: 0 !important; }
 }
 .builder-list { display: flex; flex-direction: column; gap: 6px; }
 .builder-row {

@@ -491,7 +491,7 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       manifest.id,
       (manifest.children ?? []).length > 0 ? `${manifest.title.ru} — составной` : manifest.title.ru,
     ]);
-    const box = field(
+    return field(
       "Тип блока",
       select(options, current, (v) => {
         setGames(section, [v]);
@@ -499,10 +499,6 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
         render();
       }),
     );
-    // Якорь для колонки параметров: у одиночного блока строки задачи нет, а
-    // встать напротив своего модуля колонка обязана и здесь.
-    box.dataset.anchor = "module";
-    return box;
   }
 
   /**
@@ -1107,32 +1103,10 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       panel,
       ...(focus ? [focus] : []),
     );
+    // Колонки начинаются с одной высоты. Панель, встающая напротив своей строки,
+    // читалась как связь с ней, но платой был прыгающий верх: у восьмого блока
+    // настройки уезжали под сгиб, а на длинном списке — и вовсе за экран.
     host.replaceChildren(toolbar(), body);
-
-    // Панель встаёт напротив своей строки, а не в начало полосы: ручки относятся
-    // к одному блоку, и читать их нужно на его высоте. У колонки задачи то же
-    // правило, только строка своя, и к смещению блока прибавляется её отступ
-    // внутри панели.
-    const step = shift(panel, offset(list.querySelector<HTMLElement>(".builder-row.is-picked"), list));
-    if (focus) {
-      const anchor =
-        panel.querySelector<HTMLElement>(".builder-row.is-task.is-picked") ??
-        panel.querySelector<HTMLElement>("[data-anchor='module']");
-      shift(focus, step + offset(anchor, panel));
-    }
-  }
-
-  /**
-   * Смещение берётся из раскладки, а не из числа строк: строки бывают разной
-   * высоты, а считать их заново значило бы держать вторую модель вёрстки.
-   */
-  function offset(row: HTMLElement | null, from: HTMLElement): number {
-    return row ? row.offsetTop - from.offsetTop : 0;
-  }
-
-  function shift(panel: HTMLElement, px: number): number {
-    panel.style.marginTop = px > 0 ? `${px}px` : "";
-    return Math.max(px, 0);
   }
 
   const handle: BuilderHandle = {
