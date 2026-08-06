@@ -6,14 +6,19 @@
 # Переменные репозитория (Settings → Secrets and variables → Actions → Variables),
 # их печатает product/analytics/setup-gcp.sh:
 #   GCP_WIF_PROVIDER, GCP_DEPLOY_SA
+#
+# Пока эти переменные в репозитории не заведены, выкладка отключена: на каждый
+# push она падала на шаге авторизации («must specify exactly one of
+# workload_identity_provider or credentials_json» — это пустой vars.GCP_WIF_PROVIDER),
+# и красный прогон приходил на каждый коммит при живом Pages. Обратно включается
+# возвратом триггера push; проверка ниже заодно не даст ручному запуску упасть с
+# тем же невнятным сообщением из чужого действия.
 name: Deploy Web Demo to Firebase Hosting
 
 env:
   GCP_PROJECT_ID: rc-gcp-default
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -29,6 +34,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Без федерации доступов выкладывать нечем: прогон пропускается целиком, а не
+    # тратит десять минут на сборку ради отказа на последнем шаге.
+    if: vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
