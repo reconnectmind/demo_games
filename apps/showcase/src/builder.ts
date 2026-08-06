@@ -491,7 +491,7 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       manifest.id,
       (manifest.children ?? []).length > 0 ? `${manifest.title.ru} — составной` : manifest.title.ru,
     ]);
-    return field(
+    const box = field(
       "Тип блока",
       select(options, current, (v) => {
         setGames(section, [v]);
@@ -499,6 +499,10 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
         render();
       }),
     );
+    // Якорь для колонки параметров: у одиночного блока строки задачи нет, а
+    // встать напротив своего модуля колонка обязана и здесь.
+    box.dataset.anchor = "module";
+    return box;
   }
 
   /**
@@ -658,15 +662,63 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
   /**
    * Что открыто внутри блока: модуль и, если он составной, его дочерняя задача.
    * Выбор запоминается идентификатором, но сверяется с составом блока: сняли
-   * галочку — откроется первый оставшийся модуль, а не пустое место.
+   * галочку — откроется первый оставшийся модуль, а не пустое место. У составной
+   * игры задача открыта всегда: её оси — то, ради чего блок собирают, и пустая
+   * колонка на месте параметров означала бы, что настраивать нечего.
    */
   function focusOf(section: Section): { module?: Manifest; child?: Manifest } {
     const modules = section.games.map(byId).filter((m): m is Manifest => Boolean(m));
     const owner = modules.find((m) => m.id === pickedTask || (m.children ?? []).some((c) => c.id === pickedTask));
     const module = owner ?? modules[0];
-    const child = module?.children?.find((c) => c.id === pickedTask);
+    const children = module?.children ?? [];
+    const child = children.find((c) => c.id === pickedTask) ?? children[0];
     const childManifest = child ? byId(child.id) : undefined;
     return { ...(module ? { module } : {}), ...(childManifest ? { child: childManifest } : {}) };
+  }
+
+  /**
+   * Задача, чьи параметры открыты справа. У составной игры это её дочерняя
+   * задача, у одиночного блока — сам модуль: то и другое настраивается одними и
+   * теми же осями, и различать их в третьей колонке незачем. Оси самой составной
+   * игры остаются при блоке: чередование — это его расписание, а не задача.
+   */
+  function taskOf(section: Section): Manifest | undefined {
+    // Покой, перерыв и микропауза заняты одним модулем без нагрузки: его
+    // длительность и текст правятся полями блока, и колонка осей повторяла бы
+    // их вторым способом.
+    if (section.games.length === 1 && section.games[0] === BASELINE) return undefined;
+    const focus = focusOf(section);
+    if (focus.child) return focus.child;
+    return (focus.module?.children ?? []).length > 0 ? undefined : focus.module;
+  }
+
+  /**
+   * Третья колонка: уточнение течёт слева направо. Слева расписание сессии,
+   * в середине блок и его состав, справа — оси той задачи, на которую сейчас
+   * смотрят. Раньше диапазоны лежали в подвале средней панели, и у составной
+   * игры выбор задачи и её параметры оказывались в одном столбце друг под
+   * другом: непонятно, чьи оси правишь.
+   */
+  function taskPanel(section: Section, task: Manifest): HTMLElement {
+    const owner = focusOf(section).module;
+    const inside = owner && owner.id !== task.id ? `внутри блока: ${owner.title.ru}` : short(task.id);
+    return h(
+      "div",
+      { class: "builder-focus" },
+      h(
+        "div",
+        { class: "builder-block-head" },
+        h("b", {}, task.title.ru),
+        h("span", { class: "builder-row-id" }, inside),
+      ),
+      h("h5", {}, `Диапазоны: ${task.title.ru}`),
+      h(
+        "div",
+        { class: "note" },
+        "Внутри границ уровень двигает политика роста. Сомкнутые границы закрепляют ось, и рост уходит на свободные.",
+      ),
+      boundsEditor(section, task),
+    );
   }
 
   /**
@@ -857,15 +909,12 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       );
     }
 
-    // Диапазоны — у того модуля, что открыт. Все сразу превращали панель в
-    // простыню, где не видно, чью ось правишь; у составной игры это ещё и
-    // неоднозначно: свои оси есть и у неё, и у каждой дочерней задачи.
-    const focus = focusOf(section);
-    if (focus.module) {
-      panel.append(h("h5", {}, `Диапазоны: ${focus.module.title.ru}`), boundsEditor(section, focus.module));
-      if (focus.child) {
-        panel.append(h("h5", {}, `Диапазоны: ${focus.child.title.ru}`), boundsEditor(section, focus.child));
-      }
+    // Оси самой составной игры — это расписание блока: сколько блоков, какая
+    // пауза, как часто меняются задачи. Они остаются здесь, при блоке, а оси
+    // отдельной задачи уходят в колонку справа.
+    const module = focusOf(section).module;
+    if (module && (module.children ?? []).length > 0) {
+      panel.append(h("h5", {}, `Диапазоны: ${module.title.ru}`), boundsEditor(section, module));
     }
     return panel;
   }
@@ -1049,21 +1098,41 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       ),
     );
     const panel = h("div", { class: "builder-panel" }, picked === "session" ? sessionCard() : blockPanel(picked));
-    host.replaceChildren(toolbar(), h("div", { class: "builder-body" }, list, panel));
-    align(list, panel);
+    const task = picked === "session" ? undefined : taskOf(picked);
+    const focus = picked !== "session" && task ? taskPanel(picked, task) : null;
+    const body = h(
+      "div",
+      { class: `builder-body${focus ? " is-deep" : ""}` },
+      list,
+      panel,
+      ...(focus ? [focus] : []),
+    );
+    host.replaceChildren(toolbar(), body);
+
+    // Панель встаёт напротив своей строки, а не в начало полосы: ручки относятся
+    // к одному блоку, и читать их нужно на его высоте. У колонки задачи то же
+    // правило, только строка своя, и к смещению блока прибавляется её отступ
+    // внутри панели.
+    const step = shift(panel, offset(list.querySelector<HTMLElement>(".builder-row.is-picked"), list));
+    if (focus) {
+      const anchor =
+        panel.querySelector<HTMLElement>(".builder-row.is-task.is-picked") ??
+        panel.querySelector<HTMLElement>("[data-anchor='module']");
+      shift(focus, step + offset(anchor, panel));
+    }
   }
 
   /**
-   * Панель встаёт напротив выбранной строки, а не в начало полосы. Ручки
-   * относятся к одному блоку, и читать их нужно на его высоте: у панели,
-   * прижатой к верху, восьмой блок правится там, где нарисован первый.
+   * Смещение берётся из раскладки, а не из числа строк: строки бывают разной
+   * высоты, а считать их заново значило бы держать вторую модель вёрстки.
    */
-  function align(list: HTMLElement, panel: HTMLElement): void {
-    const row = list.querySelector<HTMLElement>(".builder-row.is-picked");
-    // Смещение берётся из раскладки, а не из числа строк: строки бывают разной
-    // высоты, а считать их заново значило бы держать вторую модель вёрстки.
-    const shift = row ? row.offsetTop - list.offsetTop : 0;
-    panel.style.marginTop = shift > 0 ? `${shift}px` : "";
+  function offset(row: HTMLElement | null, from: HTMLElement): number {
+    return row ? row.offsetTop - from.offsetTop : 0;
+  }
+
+  function shift(panel: HTMLElement, px: number): number {
+    panel.style.marginTop = px > 0 ? `${px}px` : "";
+    return Math.max(px, 0);
   }
 
   const handle: BuilderHandle = {

@@ -133,6 +133,19 @@ body {
 .builder-status.is-ok { color: var(--muted); }
 .builder-status.is-bad { color: var(--bad, #e2a0a0); }
 .builder-body { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
+/* Уточнение течёт слева направо: расписание — блок — задача, открытая в блоке. */
+.builder-body.is-deep { grid-template-columns: minmax(220px, 300px) minmax(280px, 1fr) minmax(280px, 1fr); }
+/*
+ * На узком экране колонки не сжимаются, а встают друг под друга: три полосы по
+ * полтораста точек — это подписи в один слог на строку. Смещение колонок при
+ * этом снимается: напротив чего вставать, когда полоса одна, непонятно, а
+ * inline-стиль выравнивания иначе увёл бы панель на экран вниз.
+ */
+@media (max-width: 1180px) {
+  .builder-body,
+  .builder-body.is-deep { grid-template-columns: minmax(0, 1fr); }
+  .builder-body > * { margin-top: 0 !important; }
+}
 .builder-list { display: flex; flex-direction: column; gap: 6px; }
 .builder-row {
   display: flex;
@@ -178,9 +191,21 @@ body {
 .builder-block.is-training { border-left-color: #8a7a4f; }
 .builder-block.is-game { border-left-color: var(--accent); }
 .builder-block.is-pause { border-left-color: #6b6b6b; }
+.builder-focus {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 12px 14px;
+}
+.builder-focus .builder-block-head b { font-size: 14px; }
 .builder-block-head { display: flex; align-items: center; gap: 8px; }
 .builder-block-head input[type="text"] { flex: 1; }
 .builder-block h5,
+.builder-focus h5,
 .builder-session h5 { margin: 12px 0 4px; font-size: 11px; text-transform: uppercase; color: var(--muted); }
 .builder-session {
   border: 1px solid var(--border);

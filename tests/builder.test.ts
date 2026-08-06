@@ -466,7 +466,7 @@ describe("конструктор сценария", () => {
     const box = host();
     const builder = mountBuilder(box, deps());
     builder.open({ ...emptyProtocol(), sections: [makeBlock("game", "load", ["org.reconnect.stroop"])] });
-    const heads = () => [...box.querySelectorAll(".builder-panel h5")].map((x) => x.textContent ?? "");
+    const heads = (where: string) => [...box.querySelectorAll(`${where} h5`)].map((x) => x.textContent ?? "");
     const pick = [...box.querySelectorAll(".builder-panel .param")]
       .find((p) => p.textContent?.includes("Тип блока"))!
       .querySelector("select") as HTMLSelectElement;
@@ -474,7 +474,7 @@ describe("конструктор сценария", () => {
     expect(pick.value).toBe("org.reconnect.stroop");
     // Одиночный блок занят одной задачей: выбирать в нём состав нечего.
     expect(box.querySelector(".builder-children")).toBeNull();
-    expect(heads()).toContain("Диапазоны: Stroop");
+    expect(heads(".builder-focus")).toContain("Диапазоны: Stroop");
 
     pick.value = "org.reconnect.adaptive-battery";
     pick.dispatchEvent(new Event("change"));
@@ -482,7 +482,8 @@ describe("конструктор сценария", () => {
     // Составной блок сразу показывает, из чего он складывается.
     const boxes = [...box.querySelectorAll(".builder-children input[type=checkbox]")];
     expect(boxes.length).toBeGreaterThan(1);
-    expect(heads()).toContain("Диапазоны: Адаптивная батарея");
+    // Оси самой батареи — это расписание блока, и они остаются при нём.
+    expect(heads(".builder-panel")).toContain("Диапазоны: Адаптивная батарея");
   });
 
   it("в составной игре у каждой дочерней задачи свои диапазоны", () => {
@@ -496,9 +497,11 @@ describe("конструктор сценария", () => {
       r.textContent?.includes("Stroop"),
     ) as HTMLElement;
     child.click();
-    expect([...box.querySelectorAll(".builder-panel h5")].map((x) => x.textContent)).toContain("Диапазоны: Stroop");
+    expect([...box.querySelectorAll(".builder-focus h5")].map((x) => x.textContent)).toContain("Диапазоны: Stroop");
 
-    const row = [...box.querySelectorAll(".builder-bound")].find((r) => r.textContent?.includes("цвет"))!;
+    const row = [...box.querySelectorAll(".builder-focus .builder-bound")].find((r) =>
+      r.textContent?.includes("цвет"),
+    )!;
     const [min, max] = row.querySelectorAll("input");
     min!.value = "3";
     min!.dispatchEvent(new Event("change"));
@@ -507,5 +510,64 @@ describe("конструктор сценария", () => {
     // Границы дочерней задачи стоят в блоке рядом с границами самой батареи:
     // «цветов строго три» — это про stroop, а в расписании стоит батарея.
     expect(builder.doc().sections[0]!.bounds?.["org.reconnect.stroop"]?.colorCount).toEqual({ min: 3, max: 3 });
+  });
+
+  it("параметры задачи открыты справа от блока, а не в подвале его панели", () => {
+    // Уточнение течёт слева направо: расписание, блок, задача. Пока оси лежали
+    // под составом, выбор задачи и её параметры оказывались в одном столбце
+    // друг под другом, и непонятно, чьи границы правишь.
+    const box = host();
+    const builder = mountBuilder(box, deps());
+    builder.open({
+      ...emptyProtocol(),
+      sections: [makeBlock("game", "load", ["org.reconnect.adaptive-battery"])],
+    });
+    const columns = [...box.querySelectorAll(".builder-body > *")].map((c) => c.className);
+    expect(columns).toEqual(["builder-list", "builder-panel", "builder-focus"]);
+    expect(box.querySelector(".builder-body")!.className).toContain("is-deep");
+    // Задача открыта сразу: пустая колонка означала бы, что настраивать нечего.
+    const first = box.querySelector(".builder-children .builder-row.is-task.is-picked");
+    expect(first?.textContent).toContain(box.querySelector(".builder-focus b")!.textContent!);
+    // Границы блока в среднюю панель не попадают: там расписание чередования.
+    expect(box.querySelectorAll(".builder-panel .builder-bounds")).toHaveLength(1);
+  });
+
+  it("у покоя третьей колонки нет: настраивать в нём нечего", () => {
+    const box = host();
+    const builder = mountBuilder(box, deps());
+    builder.open({ ...emptyProtocol(), sections: [makeBlock("baseline", "rest")] });
+    expect(box.querySelector(".builder-focus")).toBeNull();
+    expect(box.querySelector(".builder-body")!.className).not.toContain("is-deep");
+  });
+
+  it("колонка задачи встаёт напротив своей строки, а не в начало блока", () => {
+    const layout = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetTop");
+    Object.defineProperty(HTMLElement.prototype, "offsetTop", {
+      configurable: true,
+      get(this: HTMLElement) {
+        if (!this.classList.contains("builder-row")) return 0;
+        return [...(this.parentElement?.children ?? [])].indexOf(this) * 40;
+      },
+    });
+    try {
+      const box = host();
+      const builder = mountBuilder(box, deps());
+      builder.open({
+        ...emptyProtocol(),
+        sections: [makeBlock("baseline", "rest"), makeBlock("game", "load", ["org.reconnect.adaptive-battery"])],
+      });
+      const rows = [...box.querySelectorAll(".builder-list .builder-row")] as HTMLElement[];
+      rows[2]!.click();
+      const third = [...box.querySelectorAll(".builder-children .builder-row.is-task")][2] as HTMLElement;
+      third.click();
+      const panel = box.querySelector(".builder-panel") as HTMLElement;
+      const focus = box.querySelector(".builder-focus") as HTMLElement;
+      // Блок второй в списке (80), задача третья в составе (80): колонка встаёт
+      // на их сумму, иначе параметры читались бы на высоте чужой строки.
+      expect(panel.style.marginTop).toBe("80px");
+      expect(focus.style.marginTop).toBe("160px");
+    } finally {
+      if (layout) Object.defineProperty(HTMLElement.prototype, "offsetTop", layout);
+    }
   });
 });
