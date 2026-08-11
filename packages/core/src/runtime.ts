@@ -46,6 +46,7 @@ function nullSurface(): Surface {
   return {
     stage: { replaceChildren() {}, appendChild() {} } as unknown as HTMLElement,
     setTask() {},
+    setReminder() {},
     setHint() {},
     setStats() {},
     clear() {},
@@ -77,6 +78,14 @@ export interface MountOptions {
   childOverrides?: Record<string, Params>;
   /** Границы дочерних задач: тот же путь, что у закреплений, только диапазонами. */
   childBounds?: Record<string, Bounds>;
+  /**
+   * Политика сложности для дочерней задачи. Без неё оркестратор заводил детям
+   * свою лестницу с нуля — и объявленная протоколом политика до них не доходила:
+   * в батарее n-back так и оставался на стартовом уровне весь блок, потому что
+   * его уровень считала не сессия, а сам оркестратор. Уровень принадлежит
+   * задаче, поэтому фабрика приходит снаружи — оттуда, где он и живёт.
+   */
+  childPolicyFor?(gameId: string): DifficultyPolicy;
   locale?: string;
   requireResumable?: boolean;
   /** Запуск без представления: повтор журнала, soak-тесты, проверка ядра. */
@@ -509,11 +518,14 @@ export class GameInstanceImpl implements GameInstance {
     });
     if (!report.ok) throw new PreflightError(report);
 
-    // Уровень задачи сохраняется между её появлениями: политика живёт у родителя.
+    // Уровень задачи сохраняется между её появлениями. Политику даёт расписание,
+    // если оно её объявило; своя лестница остаётся только для одиночного запуска
+    // оркестратора, где расписания нет.
     const key = this.childKey(slot, ref);
     let policy = this.childPolicies.get(key);
     if (!policy) {
-      policy = new AdaptiveStaircase({ max: game.manifest.levels.count });
+      policy =
+        this.opts.childPolicyFor?.(ref.id) ?? new AdaptiveStaircase({ max: game.manifest.levels.count });
       this.childPolicies.set(key, policy);
     }
 
@@ -529,6 +541,7 @@ export class GameInstanceImpl implements GameInstance {
         ...(bounds ? { bounds } : {}),
         ...(this.opts.childOverrides ? { childOverrides: this.opts.childOverrides } : {}),
         ...(this.opts.childBounds ? { childBounds: this.opts.childBounds } : {}),
+        ...(this.opts.childPolicyFor ? { childPolicyFor: this.opts.childPolicyFor } : {}),
         training: this.opts.training,
         locale: this.ctx.locale,
         signalSource: this.opts.signalSource,

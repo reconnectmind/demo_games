@@ -16,8 +16,7 @@ const POOL = manifest.children;
 export interface AdaptiveBatteryParams extends Params {
   blocks: number;
   restMs: number;
-  poolSize: number;
-  /** Состав задач: имена через запятую. Пусто — первые `poolSize` из манифеста. */
+  /** Состав задач: имена через запятую. Пусто — все объявленные в манифесте. */
   tasks: string;
   /**
    * Через сколько батарея сама закрывает блок задачи. Ноль — как прежде: темп
@@ -100,10 +99,10 @@ export const adaptiveBatteryCore: GameCore<AdaptiveBatteryState> = {
       }
 
       case "params": {
-        // Состав задач необязателен: без него действует прежнее правило пула.
+        // Состав задач необязателен: без него в блоке идут все объявленные.
         const params = { tasks: "", ...input.effective } as AdaptiveBatteryParams;
         if (state.order.length > 0) return { state: { ...state, params }, effects: [] };
-        const [shuffled, rng] = rngShuffle(state.rng, childSet(POOL, params.tasks, params.poolSize));
+        const [shuffled, rng] = rngShuffle(state.rng, childSet(POOL, params.tasks));
         // Пул перемешивается один раз и затем повторяется циклом: так порядок
         // задач воспроизводится по seed, а блоков может быть больше, чем задач.
         const order = Array.from({ length: params.blocks }, (_, i) => shuffled[i % shuffled.length] as string);

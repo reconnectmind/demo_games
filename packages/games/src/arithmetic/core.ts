@@ -15,6 +15,8 @@ export type ResponseMode = "selection" | "text-entry";
 
 export interface ArithmeticParams extends Params {
   operandMax: number;
+  /** Наибольший множитель. Умножение растёт своей осью: «32 × 9» и «32 + 17» — разная работа. */
+  factorMax: number;
   operations: number;
   operationSteps: number;
   distractorDistance: number;
@@ -70,23 +72,48 @@ const PLUS = "+";
 const MINUS = "−";
 const TIMES = "×";
 
+/**
+ * Полоса операндов уровня. Верхнюю границу объявляет таблица, нижняя — половина
+ * от неё. Без нижней границы на одном уровне соседствуют «3 + 2» и «27 + 24»:
+ * уровень тогда задаёт не нагрузку, а её потолок, и участник видит случайный
+ * разброс вместо ступени. Пример должен быть трудным примерно настолько, на
+ * сколько объявлен уровень, — иначе ни лестница, ни запись не сопоставимы.
+ */
+function band(operandMax: number): [number, number] {
+  const max = Math.max(2, Math.round(operandMax));
+  return [Math.max(1, Math.ceil(max / 2)), max];
+}
+
+/** Множители живут своей полосой: у умножения трудность растёт быстрее сложения. */
+function factors(params: ArithmeticParams): [number, number] {
+  const max = Math.max(2, Math.round(params.factorMax));
+  return [2, max];
+}
+
 export function buildExpression(rng: RngState, params: ArithmeticParams): [{ expr: string; answer: number }, RngState] {
+  const [low, high] = band(params.operandMax);
+  const [fLow, fHigh] = factors(params);
   if (params.operationSteps >= 2) {
-    const [a, r1] = rngInt(rng, 2, Math.max(2, params.operandMax));
-    const [b, r2] = rngInt(r1, 2, 9);
-    const [c, r3] = rngInt(r2, 1, Math.max(1, params.operandMax));
+    const [a, r1] = rngInt(rng, fLow, fHigh);
+    const [b, r2] = rngInt(r1, fLow, fHigh);
+    const [c, r3] = rngInt(r2, low, high);
     return [{ expr: `${a} ${TIMES} ${b} ${PLUS} ${c}`, answer: a * b + c }, r3];
   }
   const ops = params.operations >= 3 ? [PLUS, MINUS, TIMES] : [PLUS, MINUS];
   const [opIndex, r1] = rngInt(rng, 0, ops.length - 1);
   const op = ops[opIndex] ?? PLUS;
-  const [rawA, r2] = rngInt(r1, 1, Math.max(1, params.operandMax));
-  const [rawB, r3] = rngInt(r2, 1, op === TIMES ? 9 : Math.max(1, params.operandMax));
+  if (op === TIMES) {
+    const [a, r2] = rngInt(r1, fLow, fHigh);
+    const [b, r3] = rngInt(r2, fLow, fHigh);
+    return [{ expr: `${a} ${TIMES} ${b}`, answer: a * b }, r3];
+  }
+  const [rawA, r2] = rngInt(r1, low, high);
+  const [rawB, r3] = rngInt(r2, low, high);
   // Вычитание держим неотрицательным: отрицательный ответ — уже другая задача.
   const swap = op === MINUS && rawB > rawA;
   const a = swap ? rawB : rawA;
   const b = swap ? rawA : rawB;
-  const answer = op === PLUS ? a + b : op === MINUS ? a - b : a * b;
+  const answer = op === PLUS ? a + b : a - b;
   return [{ expr: `${a} ${op} ${b}`, answer }, r3];
 }
 

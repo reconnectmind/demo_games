@@ -406,7 +406,14 @@ select, input[type="range"], input[type="number"] {
   text-align: center;
   min-height: calc(84px * var(--gs-scale));
 }
-.gs-cue { color: var(--warn); text-align: center; min-height: 22px; font-size: calc(14px * var(--gs-scale)); }
+/* Строка подсказки о правиле пуста ровно столько же места, сколько занимает
+   заполненной: иначе смена правила сдвигала бы стимул под ней. */
+.gs-cue {
+  color: var(--warn);
+  text-align: center;
+  min-height: calc(22px * var(--gs-scale));
+  font-size: calc(14px * var(--gs-scale));
+}
 .gs-cue.is-switched { color: var(--accent); font-weight: 600; }
 .gs-options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
 
@@ -491,17 +498,44 @@ select, input[type="range"], input[type="number"] {
 
 /* Обратная связь по пробе — знак без цвета. Зелёное «верно» рядом со стимулом
    Струпа само работает как цветовая помеха, а слово участник дочитывает вместо
-   того, чтобы смотреть на следующий стимул. Высота фиксирована: строка не должна
-   сдвигать сцену, когда знак появляется и гаснет. */
+   того, чтобы смотреть на следующий стимул.
+
+   Место под знак занято всегда, и занято ровно тем размером, которым знак
+   рисуется: строка в 26 px не вмещала знак в 30 px, и каждая проба дёргала
+   сцену вверх-вниз. Поэтому высота считается тем же множителем, что и сам знак,
+   а пустой знак держит свою строку сам. */
 .gs-feedback {
-  min-height: 26px;
+  position: relative;
+  min-height: calc(26px * var(--gs-scale));
   display: flex;
   align-items: baseline;
   justify-content: center;
   gap: 8px;
   color: var(--muted);
 }
-.gs-mark { font-size: calc(20px * var(--gs-scale)); line-height: 1.2; color: var(--text); }
+/* Разбор занимает от одной строки до трёх, и в потоке эта разница поднимала бы
+   всю сцену в тот момент, когда участник смотрит на свою ошибку. Поэтому он
+   висит под знаком, вне потока: появление текста не двигает ничего. */
+.gs-feedback-aside {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
+  padding-top: 6px;
+}
+.gs-mark {
+  display: inline-block;
+  min-height: 1.2em;
+  font-size: calc(20px * var(--gs-scale));
+  line-height: 1.2;
+  color: var(--text);
+}
 /* Разбор ошибки нужен только в обучении, поэтому в зачётном прогоне он пуст. */
 .gs-mark-reason { font-size: 13px; max-width: 34ch; text-align: left; }
 /* Кнопка появляется вместе с разбором: пока она на экране, стимулы не идут. */

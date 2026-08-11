@@ -64,11 +64,15 @@ function fmt(ms: number): string {
 export function baselineView(state: BaselineState): BaselineView {
   const planned = state.params?.durationMs ?? 0;
   const remaining = Math.max(0, planned - state.elapsedMs);
+  // Крестик по умолчанию есть: покой — основное употребление модуля.
+  const fixation = state.params?.fixation ?? true;
   return {
-    text: state.params?.text ?? "",
+    // При крестике на экране не остаётся ничего, кроме него: любая строка
+    // рядом читается, а чтение — это задача, которой в покое как раз быть не
+    // должно. Инструкцию участник получает до блока, на отбивке.
+    text: fixation ? "" : (state.params?.text ?? ""),
     showTimer: state.params?.showTimer ?? false,
-    // Крестик по умолчанию есть: покой — основное употребление модуля.
-    fixation: state.params?.fixation ?? true,
+    fixation,
     remainingMs: remaining,
     elapsedMs: state.elapsedMs,
     running: state.running,

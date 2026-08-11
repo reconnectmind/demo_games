@@ -24,7 +24,6 @@
       "required": [
         "blocks",
         "restMs",
-        "poolSize",
         "switchEveryMs"
       ],
       "properties": {
@@ -40,12 +39,6 @@
           "maximum": 6000,
           "title": "Пауза между блоками"
         },
-        "poolSize": {
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 5,
-          "title": "Задач в пуле"
-        },
         "switchEveryMs": {
           "type": "integer",
           "minimum": 0,
@@ -54,7 +47,7 @@
         },
         "tasks": {
           "type": "string",
-          "title": "Состав задач: имена через запятую (пусто — первые из пула)"
+          "title": "Состав задач: имена через запятую (пусто — все)"
         }
       }
     }
@@ -120,10 +113,6 @@
     "monotonicAxes": [
       {
         "param": "blocks",
-        "direction": "increases"
-      },
-      {
-        "param": "poolSize",
         "direction": "increases"
       },
       {

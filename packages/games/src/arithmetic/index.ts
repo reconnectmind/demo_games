@@ -72,7 +72,9 @@ class ArithmeticWebView implements GameView<ArithmeticView> {
   render(view: ArithmeticView): void {
     this.stimulus.show(view.expr);
     this.options.render(view.options.map((label, index) => ({ label, index })));
-    this.ctx.input.setOptionCount(view.options.length);
+    // Клавиш столько же, сколько кнопок на сцене: между пробами ряд спрятан, но
+    // не снят, и разбор ошибки участник снимает своей же клавишей ответа.
+    this.ctx.input.setOptionCount(this.options.count);
     const entering = view.responseMode === "text-entry" && this.typingAllowed;
     this.entry.style.display = entering ? "" : "none";
     if (entering && view.running) this.field.focus();
@@ -100,5 +102,5 @@ export const arithmetic: Microgame<ArithmeticState, ArithmeticView> = {
   createView: (ctx) => new ArithmeticWebView(ctx),
 };
 
-export { arithmeticCore } from "./core.js";
+export { arithmeticCore, buildExpression, buildOptions } from "./core.js";
 export type { ArithmeticState, ArithmeticView, ArithmeticParams, ArithmeticTrial, ResponseMode } from "./core.js";

@@ -25,6 +25,7 @@
       "additionalProperties": false,
       "required": [
         "operandMax",
+        "factorMax",
         "operations",
         "operationSteps",
         "distractorDistance",
@@ -38,6 +39,12 @@
           "minimum": 8,
           "maximum": 60,
           "title": "Верхняя граница операндов"
+        },
+        "factorMax": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 9,
+          "title": "Наибольший множитель"
         },
         "operations": {
           "type": "integer",
@@ -156,6 +163,10 @@
     "monotonicAxes": [
       {
         "param": "operandMax",
+        "direction": "increases"
+      },
+      {
+        "param": "factorMax",
         "direction": "increases"
       },
       {

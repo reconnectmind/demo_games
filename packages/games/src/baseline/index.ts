@@ -15,7 +15,7 @@ import { baselineCore, type BaselineParams, type BaselineState, type BaselineVie
 
 const presets = asPresets(presetsJson);
 
-const DEFAULT_TEXT = "Сидите спокойно, смотрите в центр экрана. Ничего делать не нужно.";
+const TASK = "Отдых: реагировать не нужно.";
 
 export function paramsForLevel(level: number): Params {
   return presetParams(presets, level) as BaselineParams;
@@ -29,12 +29,15 @@ class BaselineWebView implements GameView<BaselineView> {
   constructor(private readonly ctx: GameContext) {}
 
   mount(surface: Surface): void {
-    surface.setTask("Отдых: реагировать не нужно.", "Базовая линия");
+    surface.setTask(TASK, "Базовая линия");
     surface.stage.replaceChildren(this.text, this.fixation, this.timer);
   }
 
   render(view: BaselineView): void {
-    this.text.textContent = view.finished ? "Участок завершён." : view.text;
+    // Напоминание о задании участнику покоя не нужно: смотреть он должен на
+    // крестик. Подпись задания в шапке остаётся — она операторская.
+    this.ctx.surface.setReminder(view.fixation ? "" : TASK);
+    this.text.textContent = view.fixation ? "" : view.finished ? "Участок завершён." : view.text;
     this.timer.textContent = view.showTimer ? fmt(view.remainingMs) : "";
     this.timer.style.display = view.showTimer ? "" : "none";
     this.fixation.style.display = view.fixation ? "" : "none";

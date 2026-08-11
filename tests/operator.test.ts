@@ -25,7 +25,9 @@ function battery(switchEveryMs: number) {
     seed: 9,
     policy: new Manual({ start: 1 }),
     input: THREE_KEYS,
-    overrides: { switchEveryMs, blocks: 4, restMs: 500 },
+    // Состав объявлен, чтобы проверялся именно шаг смены: без него в блоке идут
+    // все пять задач, и порядок решает, чей блок попадёт в окно измерения.
+    overrides: { switchEveryMs, blocks: 4, restMs: 500, tasks: "arithmetic" },
   });
   instance.start();
   return { instance, clock, sink };
@@ -37,8 +39,8 @@ const blockStarts = (sink: MemorySink): LoggedEvent[] =>
 describe("шаг смены задач в батарее", () => {
   it("без шага темп задаёт ребёнок: за минуту смены не происходит", () => {
     const { clock, sink } = battery(0);
-    clock.advance(60_000);
-    // Блок stroop на первом уровне длиннее минуты, поэтому смена одна — начальная.
+    clock.advance(55_000);
+    // Спринт длится минуту, поэтому за это время смена одна — начальная.
     expect(blockStarts(sink)).toHaveLength(1);
   });
 

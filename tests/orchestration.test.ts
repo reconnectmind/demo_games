@@ -3,6 +3,7 @@ import {
   GameRegistry,
   GameRuntime,
   Manual,
+  Monotonic,
   PreflightError,
   VirtualClock,
   autoDrive,
@@ -93,6 +94,55 @@ describe("адаптивная батарея", () => {
     const starts = r.records().filter((x) => x.type === "block.start" && (x.payload as any).task);
     expect(starts.length).toBe(adaptiveBattery.paramsForLevel(2).blocks);
     expect(r.instance.phase).toBe("completed");
+  });
+
+  it("без объявленного состава в блоке идут все задачи манифеста", () => {
+    // Пул из «первых нескольких» означал, что в конструкторе выбраны все пять
+    // задач, а участник за сорок минут видит две.
+    const declared = adaptiveBattery.manifest.children!.map((child) => child.id);
+    // Уровень с числом блоков не меньше числа задач: только на нём видно, что в
+    // круг попали все, а не первые из пула.
+    const r = run(4, 21);
+    r.clock.advance(1000);
+    expect(adaptiveBattery.paramsForLevel(4).blocks as number).toBeGreaterThanOrEqual(declared.length);
+    const order = new Set((r.instance.state as any).order as string[]);
+    expect([...order].sort()).toEqual([...declared].sort());
+  });
+
+  it("уровень дочерней задачи считает расписание, а не сама батарея", () => {
+    // Иначе объявленная протоколом политика достаётся только оркестратору: у
+    // n-back внутри батареи глубина так и остаётся стартовой весь блок.
+    const registry = new GameRegistry();
+    for (const game of protocolGames) registry.register(game);
+    const clock = new VirtualClock();
+    const runtime = new GameRuntime({ registry, clock, capabilities: ["keyboard", "pointer", "audio-output", "canvas"] });
+    const shared = new Map<string, Monotonic>();
+    const instance = runtime.mount(registry.ref("org.reconnect.adaptive-battery"), {
+      surface: headlessSurface(),
+      headless: true,
+      seed: 4,
+      policy: new Manual({ start: 3 }),
+      overrides: { tasks: "n-back", blocks: 6, restMs: 500 },
+      childPolicyFor: (id) => {
+        let policy = shared.get(id);
+        if (!policy) {
+          policy = new Monotonic({ start: 1, successesToAdvance: 1 });
+          shared.set(id, policy);
+        }
+        return policy;
+      },
+    });
+    instance.start();
+    const child = () => instance.activeInstance();
+    for (let step = 0; step < 8000 && instance.phase !== "completed"; step++) {
+      const live = child();
+      const state = live?.state as { visible?: boolean; responded?: boolean; targetFlags?: boolean[]; index?: number } | undefined;
+      if (state?.visible && !state.responded && state.targetFlags?.[state.index ?? 0] === true) {
+        live!.submitAction("match", {}, "keyboard");
+      }
+      clock.advance(50);
+    }
+    expect(shared.get("org.reconnect.n-back")?.current()).toBeGreaterThan(1);
   });
 
   it("порядок задач воспроизводится по seed", () => {

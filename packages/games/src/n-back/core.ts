@@ -1,8 +1,8 @@
 import {
   HOLD_MS,
   createRngState,
-  rngNext,
   rngPick,
+  rngShuffle,
   type Effect,
   type GameCore,
   type Json,
@@ -60,6 +60,10 @@ export interface NBackState {
   lastDebrief: TrialDebrief | null;
   /** Обучение стоит на разборе и ждёт участника: следующая буква сама не придёт. */
   holding: boolean;
+  /** Какая ступень обучения идёт: 0 — объявленный N, 1 — на шаг глубже. */
+  stage: number;
+  /** Ступень кончилась, и участник читает объявление следующей. */
+  awaitingStage: boolean;
 }
 
 export interface NBackView {
@@ -84,37 +88,114 @@ export interface NBackSummary {
 }
 
 /**
- * Поток на весь блок. Непреднамеренное совпадение сделало бы нецелевую пробу
- * целевой, поэтому такая буква перевыбирается из остальных.
+ * Сколько раз подряд одна буква может повториться в цепочке шага N. Три — это
+ * «ABCCC» при N = 1: столько повторов ещё читается как повтор. Четвёртое
+ * вхождение превращает цепочку в залипание: участник перестаёт сравнивать буквы
+ * и просто держит клавишу, а доля совпадений при этом набирается кусками, а не
+ * распределяется по блоку.
  */
-export function buildNBackStream(rng: RngState, params: NBackParams): [NBackStream, RngState] {
+export const NBACK_MAX_RUN = 3;
+
+/**
+ * Где в блоке стоят совпадения. Позиции планируются заранее и целиком, а не
+ * бросаются на каждой пробе: только так доля совпадений получается ровно
+ * объявленной, а не средней по блоку, и только так видно цепочки, которые
+ * ограничение обязано разорвать.
+ *
+ * Запрещённая цепочка — три подряд целевых пробы в одном шаге: они означают
+ * четвёртое вхождение одной буквы. Проверяются все три положения новой пробы в
+ * такой тройке, потому что позиции разбираются в случайном порядке и соседи
+ * могут быть заняты как слева, так и справа.
+ */
+function planTargets(rng: RngState, length: number, n: number, rate: number): [boolean[], RngState] {
+  const flags = new Array<boolean>(length).fill(false);
+  const eligible: number[] = [];
+  for (let i = n; i < length; i++) eligible.push(i);
+  const wanted = Math.round(Math.min(1, Math.max(0, rate)) * eligible.length);
+  const [order, state] = rngShuffle(rng, eligible);
+  let placed = 0;
+  for (const i of order) {
+    if (placed >= wanted) break;
+    const before2 = flags[i - 2 * n] === true;
+    const before1 = flags[i - n] === true;
+    const after1 = flags[i + n] === true;
+    const after2 = flags[i + 2 * n] === true;
+    if ((before2 && before1) || (before1 && after1) || (after1 && after2)) continue;
+    flags[i] = true;
+    placed++;
+  }
+  return [flags, state];
+}
+
+/** Сколько одинаковых букв стоит в хвосте потока: их тоже не должно быть много подряд. */
+function trailingRun(letters: readonly string[]): number {
+  const last = letters[letters.length - 1];
+  if (last === undefined) return 0;
+  let run = 0;
+  for (let i = letters.length - 1; i >= 0 && letters[i] === last; i--) run++;
+  return run;
+}
+
+/** Черновик потока: позиции совпадений уже расставлены, остаётся подобрать буквы. */
+function draftStream(rng: RngState, params: NBackParams, n: number): [NBackStream, RngState] {
+  const [targets, planned] = planTargets(rng, params.blockLength, n, params.targetRate);
   const letters: string[] = [];
-  const targets: boolean[] = [];
-  let state = rng;
+  let state = planned;
   for (let i = 0; i < params.blockLength; i++) {
-    const back = i >= params.n ? letters[i - params.n] : undefined;
-    const [roll, afterRoll] = rngNext(state);
-    state = afterRoll;
-    if (back !== undefined && roll < params.targetRate) {
+    const back = i >= n ? letters[i - n] : undefined;
+    if (targets[i] === true && back !== undefined) {
       letters.push(back);
-      targets.push(true);
       continue;
     }
-    const [picked, afterPick] = rngPick(state, NBACK_LETTERS);
+    const banned = new Set<string>();
+    if (back !== undefined) banned.add(back);
+    const last = letters[letters.length - 1];
+    if (last !== undefined && trailingRun(letters) >= NBACK_MAX_RUN) banned.add(last);
+    const [picked, afterPick] = rngPick(
+      state,
+      NBACK_LETTERS.filter((candidate) => !banned.has(candidate)),
+    );
     state = afterPick;
-    let letter = picked;
-    if (back !== undefined && letter === back) {
-      const [replacement, afterReplace] = rngPick(
-        state,
-        NBACK_LETTERS.filter((candidate) => candidate !== back),
-      );
-      state = afterReplace;
-      letter = replacement;
-    }
-    letters.push(letter);
-    targets.push(false);
+    letters.push(picked);
   }
   return [{ letters, targets }, state];
+}
+
+/** Больше предела одинаковых букв подряд: при N больше единицы это даёт совпадение проб разных цепочек. */
+function clumped(letters: readonly string[]): boolean {
+  let run = 1;
+  for (let i = 1; i < letters.length; i++) {
+    run = letters[i] === letters[i - 1] ? run + 1 : 1;
+    if (run > NBACK_MAX_RUN) return true;
+  }
+  return false;
+}
+
+/**
+ * Сколько раз пересобирать блок, наткнувшись на залипание. Пересборка целиком, а
+ * не правка одной буквы: буква целевой пробы задана предыдущей, и «починить» её
+ * на месте нельзя, не сломав либо совпадение, либо долю совпадений.
+ */
+const REDRAFTS = 16;
+
+/**
+ * Поток на весь блок: сначала позиции совпадений, потом буквы под них.
+ * Непреднамеренное совпадение сделало бы нецелевую пробу целевой, поэтому такая
+ * буква перевыбирается из остальных. Блок с залипанием отбрасывается целиком —
+ * доля совпадений от этого не страдает, потому что каждая пересборка планирует
+ * ровно столько же совпадений.
+ */
+export function buildNBackStream(rng: RngState, params: NBackParams): [NBackStream, RngState] {
+  const n = Math.max(1, Math.round(params.n));
+  let state = rng;
+  let stream: NBackStream | null = null;
+  for (let attempt = 0; attempt < REDRAFTS; attempt++) {
+    const [draft, next] = draftStream(state, params, n);
+    state = next;
+    stream = draft;
+    if (!clumped(draft.letters)) break;
+  }
+  return [stream as NBackStream, state];
 }
 
 export function nbackAccuracy(state: NBackState): number {
@@ -221,6 +302,8 @@ export const nbackCore: GameCore<NBackState> = {
     training: Boolean(config.training),
     lastDebrief: null,
     holding: false,
+    stage: 0,
+    awaitingStage: false,
   }),
 
   reduce(state, input): ReduceResult<NBackState> {
@@ -280,7 +363,10 @@ export const nbackCore: GameCore<NBackState> = {
 };
 
 function startBlock(state: NBackState, params: NBackParams, tMs: number): ReduceResult<NBackState> {
-  const [stream, rng] = buildNBackStream(state.rng, params);
+  const [stream, rng] = buildNBackStream(state.rng, {
+    ...params,
+    blockLength: stageLength({ training: state.training, stage: 0 }, params),
+  });
   const fresh: NBackState = {
     ...state,
     rng,
@@ -304,6 +390,8 @@ function startBlock(state: NBackState, params: NBackParams, tMs: number): Reduce
     feedback: null,
     lastDebrief: null,
     holding: false,
+    stage: 0,
+    awaitingStage: false,
   };
   return present(fresh, tMs);
 }
@@ -407,15 +495,116 @@ function hide(state: NBackState): ReduceResult<NBackState> {
 
 /** Участник прочитал разбор: дальше поток идёт как обычно, со следующей буквы. */
 function release(state: NBackState, tMs: number): ReduceResult<NBackState> {
-  const result = advance({ ...state, holding: false, feedback: null, lastDebrief: null }, tMs);
+  const cleared = { ...state, holding: false, feedback: null, lastDebrief: null };
+  const result = cleared.awaitingStage ? startStage(cleared, tMs) : advance(cleared, tMs);
   return { state: result.state, effects: [{ kind: "cancel", timerId: NB_ISI }, ...result.effects] };
 }
 
 function advance(state: NBackState, tMs: number): ReduceResult<NBackState> {
   const params = state.params;
   if (!params || state.finished) return { state, effects: [] };
-  if (state.index + 1 >= params.blockLength) return endBlock(state, true);
+  if (state.index + 1 >= stageLength(state, params)) return closeStage(state);
   return present({ ...state, index: state.index + 1 }, tMs);
+}
+
+/**
+ * Первая ступень обучения короче зачётного блока: её дело — показать правило, а
+ * не измерить точность, и измеряется участник на второй, полной. Длина здесь
+ * важнее аккуратности: на полном блоке обе ступени вместе занимали больше
+ * минуты, и до глубины N = 2 участник не доходил — попытка кончалась раньше.
+ */
+const INTRO_LENGTH = 10;
+
+function stageLength(state: { training: boolean; stage: number }, params: NBackParams): number {
+  if (!state.training || state.stage > 0) return params.blockLength;
+  return Math.min(params.blockLength, INTRO_LENGTH);
+}
+
+/**
+ * Сколько ступеней проходит участник в обучении. Одной мало: на 1-back правило
+ * «та же буква, что N шагов назад» неотличимо от «две одинаковые подряд», и
+ * участник выучивает не то. Вторая ступень на шаг глубже показывает, что
+ * сравнивать нужно с буквой через одну, — и только после неё видно, понял он
+ * принцип или запомнил частный случай.
+ */
+const TRAINING_STAGES = 2;
+/** Глубже манифест не пускает: там же объявлен верхний предел N. */
+const MAX_N = 4;
+
+function deeperN(state: NBackState): number | null {
+  const params = state.params;
+  if (!params || !state.training) return null;
+  if (state.stage + 1 >= TRAINING_STAGES) return null;
+  const next = params.n + 1;
+  return next <= MAX_N ? next : null;
+}
+
+/** Конец потока: в зачёте это конец блока, в обучении — ещё и переход к следующей ступени. */
+function closeStage(state: NBackState): ReduceResult<NBackState> {
+  const next = deeperN(state);
+  if (next === null) return endBlock(state, true);
+  const held: NBackState = {
+    ...state,
+    visible: false,
+    holding: true,
+    awaitingStage: true,
+    feedback: null,
+    lastDebrief: {
+      expected: null,
+      got: null,
+      hint: `Ступень пройдена. Дальше N = ${next}: сравнивать нужно с буквой через ${next - 1}, а не с предыдущей.`,
+    },
+  };
+  return {
+    state: held,
+    effects: [
+      { kind: "emit", event: { type: "block.end", ...nbackSummary(state), stage: state.stage } },
+      render(held),
+      // Та же страховка, что у разбора ошибки: участник мог отвернуться, а блок
+      // обязан кончиться сам.
+      { kind: "schedule", timerId: NB_ISI, afterMs: HOLD_MS },
+    ],
+  };
+}
+
+/** Следующая ступень обучения: тот же блок, но на шаг глубже и со своим счётом. */
+function startStage(state: NBackState, tMs: number): ReduceResult<NBackState> {
+  const params = state.params;
+  const n = deeperN(state);
+  if (!params || n === null) return endBlock(state, true);
+  const deeper: NBackParams = { ...params, n };
+  const [stream, rng] = buildNBackStream(state.rng, deeper);
+  const fresh: NBackState = {
+    ...state,
+    rng,
+    params: deeper,
+    stage: state.stage + 1,
+    awaitingStage: false,
+    stream: stream.letters,
+    targetFlags: stream.targets,
+    index: 0,
+    visible: false,
+    responded: false,
+    trials: 0,
+    targets: 0,
+    hits: 0,
+    falseAlarms: 0,
+    misses: 0,
+    correctRejections: 0,
+    rtSum: 0,
+    rtCount: 0,
+    feedback: null,
+    lastDebrief: null,
+    holding: false,
+  };
+  const started = present(fresh, tMs);
+  return {
+    state: started.state,
+    effects: [
+      { kind: "emit", event: { type: "block.start", blockLength: deeper.blockLength, n: deeper.n } },
+      ...started.effects,
+    ],
+  };
 }
 
 /**
@@ -432,6 +621,7 @@ function endBlock(state: NBackState, scored: boolean): ReduceResult<NBackState> 
     visible: false,
     feedback: null,
     holding: false,
+    awaitingStage: false,
     lastDebrief: null,
   };
   const result = nbackSummary(next);

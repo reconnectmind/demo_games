@@ -159,6 +159,9 @@ describe("закрепление доходит до дочерней задач
       seed: 3,
       policy: new Manual({ start: 6 }),
       childOverrides: battery.overrides,
+      // Состав и шаг смены объявлены, иначе ожидание stroop зависит от того,
+      // каким по счёту его поставит перемешивание всех пяти задач.
+      overrides: { tasks: "stroop,arithmetic", switchEveryMs: 5000 },
     });
     instance.start();
     // Батарея сама выбирает, какую задачу смонтировать: ждём до появления stroop.

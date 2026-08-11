@@ -25,6 +25,10 @@ export class DomSurface implements Surface {
   setTask(text: string, label = "Задание"): void {
     if (this.el.task) this.el.task.textContent = text;
     if (this.el.taskLabel) this.el.taskLabel.textContent = label;
+    this.setReminder(text);
+  }
+
+  setReminder(text: string): void {
     if (this.el.reminder) this.el.reminder.textContent = text;
   }
 

@@ -193,7 +193,7 @@ export const interruptResumeCore: GameCore<InterruptResumeState> = {
 function beginInterruption(state: InterruptResumeState): ReduceResult<InterruptResumeState> {
   const params = state.params;
   if (!params) return { state, effects: [] };
-  const pool = childSet(INTERRUPTERS, params.tasks, INTERRUPTERS.length);
+  const pool = childSet(INTERRUPTERS, params.tasks);
   const [index, rng] = rngInt(state.rng, 0, pool.length - 1);
   const ref = INTERRUPTERS.find((child) => child.id === pool[index])!;
   const next: InterruptResumeState = { ...state, rng, stage: "interruption", currentInterrupter: ref.id };

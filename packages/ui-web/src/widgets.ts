@@ -125,6 +125,13 @@ export class OptionRow {
   }
 
   render(items: OptionItem[]): void {
+    // Пустой ряд между пробами не убирает кнопки, а прячет их: иначе сцена
+    // схлопывается на треть секунды и весь текст уезжает вверх-вниз.
+    if (items.length === 0 && this.root.childElementCount > 0) {
+      this.root.style.visibility = "hidden";
+      return;
+    }
+    this.root.style.visibility = "";
     for (const item of items) this.watch(item.actionId ?? this.defaultActionId, item.actionId ? item.index : null);
     this.root.replaceChildren(
       ...items.map((item) => {
@@ -146,6 +153,15 @@ export class OptionRow {
     );
   }
 
+  /**
+   * Сколько вариантов сейчас стоит на сцене — вместе со спрятанными между
+   * пробами. Столько же клавиш должно быть живо: ответ участника снимает разбор
+   * ошибки, и клавиша обязана делать то же, что кнопка «Дальше».
+   */
+  get count(): number {
+    return this.root.childElementCount;
+  }
+
   /** Подсветка нажатия: одна и та же и для мыши, и для клавиши. */
   flash(index: number, kind: "correct" | "wrong" | "press" = "press"): void {
     const button = this.root.querySelector<HTMLButtonElement>(`[data-index="${index}"]`);
@@ -156,16 +172,20 @@ export class OptionRow {
 
   clear(): void {
     this.root.replaceChildren();
+    this.root.style.visibility = "";
     for (const handle of this.subscriptions.values()) handle.dispose();
     this.subscriptions.clear();
   }
 }
 
+/** Пустая строка стимула держит строку того же кегля, что и сам стимул. */
+const BLANK = "\u200b";
+
 export class Stimulus {
   readonly root = el("div", { class: "gs-stim" });
 
   show(content: string, style: Partial<CSSStyleDeclaration> = {}): void {
-    this.root.textContent = content;
+    this.root.textContent = content === "" ? BLANK : content;
     Object.assign(this.root.style, { color: "", ...style });
   }
 
@@ -357,6 +377,9 @@ export function verdictOf(feedback: string | null | undefined): Verdict {
 export class FeedbackMark {
   readonly root = el("div", { class: "gs-feedback" });
   private readonly mark = el("span", { class: "gs-mark" });
+  // Разбор висит под знаком и вне потока: он длиннее знака и меняет высоту от
+  // фразы к фразе, а в потоке этой высотой двигал бы всю сцену вверх.
+  private readonly aside = el("div", { class: "gs-feedback-aside" });
   private readonly reason = el("span", { class: "gs-mark-reason" });
   private readonly next = el("button", { class: "btn gs-mark-next", type: "button" });
   private onNext: (() => void) | null = null;
@@ -370,7 +393,8 @@ export class FeedbackMark {
     );
     this.next.hidden = true;
     this.next.addEventListener("click", () => this.onNext?.());
-    this.root.append(this.mark, this.reason, this.next);
+    this.aside.append(this.reason, this.next);
+    this.root.append(this.mark, this.aside);
   }
 
   /**
@@ -381,7 +405,9 @@ export class FeedbackMark {
    */
   show(verdict: Verdict, reason = "", next?: (() => void) | null): void {
     this.mark.textContent = verdict === "hit" ? "✓" : verdict === "miss" ? "✗" : "";
-    this.reason.textContent = verdict ? reason : "";
+    // Строка живёт отдельно от знака: обучение объявляет ею и переход к
+    // следующей ступени, где оценивать ещё нечего и знака нет.
+    this.reason.textContent = reason;
     this.onNext = next ?? null;
     this.next.hidden = !next;
   }

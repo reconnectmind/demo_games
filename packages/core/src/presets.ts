@@ -60,20 +60,19 @@ export function asPresets(data: unknown): PresetTable {
  * Состав дочерних задач составной игры. Параметры протокола скалярны, поэтому
  * список приходит строкой имён через запятую и тем же путём, что все прочие
  * закрепления, — иначе для него пришлось бы заводить второй канал настройки.
- * Пустая строка означает прежнее правило: первые `poolSize` из манифеста.
+ * Пустая строка означает весь состав из манифеста: «ничего не выбрано» и
+ * «выбрано всё» для исследователя одно и то же, а прежнее усечение до первых
+ * нескольких давало обратное — в конструкторе стояли все галочки, а в блоке шли
+ * две задачи.
  * Неизвестное имя — ошибка на месте: молча выкинуть задачу из состава хуже, чем
  * не запуститься, потому что расхождение обнаружится только в записи.
  */
-export function childSet(
-  pool: readonly { id: string }[],
-  tasks: string | undefined,
-  poolSize: number,
-): string[] {
+export function childSet(pool: readonly { id: string }[], tasks: string | undefined): string[] {
   const names = (tasks ?? "")
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean);
-  if (names.length === 0) return pool.slice(0, poolSize).map((child) => child.id);
+  if (names.length === 0) return pool.map((child) => child.id);
   return names.map((name) => {
     const found = pool.find((child) => child.id === name || child.id.endsWith(`.${name}`));
     if (!found) throw new Error(`Задача «${name}» не объявлена дочерней у этого модуля`);

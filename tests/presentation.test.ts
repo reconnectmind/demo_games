@@ -120,6 +120,115 @@ describe("предъявление стимулов", () => {
     }
   });
 
+  it("на покое с крестиком не остаётся ни текста, ни напоминания", () => {
+    // Любая строка рядом с точкой фиксации читается, а чтение — это задача:
+    // инструкцию участник получает до блока, на отбивке.
+    const { stage, runtime, registry, clock } = root();
+    const reminder = document.createElement("div");
+    document.body.append(reminder);
+    const instance = runtime.mount(registry.ref("org.reconnect.baseline"), {
+      surface: new DomSurface({ stage, reminder }),
+      seed: 1,
+      policy: new Manual({ start: 1 }),
+      overrides: { durationMs: 60_000, showTimer: false, text: "Сидите спокойно", fixation: true },
+    });
+    instance.start();
+    clock.advance(600);
+    expect((stage.querySelector(".gs-baseline-fixation") as HTMLElement).style.display).not.toBe("none");
+    expect(stage.querySelector(".gs-baseline-text")!.textContent).toBe("");
+    expect(reminder.textContent).toBe("");
+    instance.stop();
+  });
+
+  it("перерыв без крестика, наоборот, объясняет себя словами", () => {
+    const { stage, runtime, registry, clock } = root();
+    const reminder = document.createElement("div");
+    document.body.append(reminder);
+    const instance = runtime.mount(registry.ref("org.reconnect.baseline"), {
+      surface: new DomSurface({ stage, reminder }),
+      seed: 1,
+      policy: new Manual({ start: 1 }),
+      overrides: { durationMs: 60_000, showTimer: true, text: "Перерыв: можно отвести глаза", fixation: false },
+    });
+    instance.start();
+    clock.advance(600);
+    expect(stage.querySelector(".gs-baseline-text")!.textContent).toBe("Перерыв: можно отвести глаза");
+    expect((stage.querySelector(".gs-baseline-fixation") as HTMLElement).style.display).toBe("none");
+    expect(reminder.textContent).not.toBe("");
+    instance.stop();
+  });
+
+  it("место под знак ответа занято всегда и тем же размером, что и знак", () => {
+    // Строка в 26 px не вмещала знак в 30 px, и каждая проба дёргала сцену:
+    // стимул подпрыгивал ровно в момент, когда участник смотрит на него.
+    const feedback = css.slice(css.indexOf(".gs-feedback"));
+    expect(feedback.slice(0, feedback.indexOf("}"))).toMatch(
+      /min-height:\s*calc\(26px \* var\(--gs-scale\)\)/,
+    );
+    const mark = css.slice(css.indexOf(".gs-mark {"));
+    const block = mark.slice(0, mark.indexOf("}"));
+    expect(block).toMatch(/min-height:\s*1\.2em/);
+    expect(block).toMatch(/display:\s*inline-block/);
+  });
+
+  it("пауза между пробами не убирает со сцены ни строку стимула, ни ряд вариантов", () => {
+    // Настоящая причина «прыгающего» текста была не в знаке, а в том, что на
+    // треть секунды исчезали и пример, и кнопки: центрированная сцена
+    // схлопывалась и весь текст уезжал вверх.
+    const { stage, runtime, registry, clock } = root();
+    const instance = runtime.mount(registry.ref("org.reconnect.arithmetic"), {
+      surface: new DomSurface({ stage }),
+      seed: 3,
+      policy: new Manual({ start: 1 }),
+      input: THREE_KEYS,
+    });
+    instance.start();
+    clock.advance(50);
+    const stim = stage.querySelector(".gs-stim") as HTMLElement;
+    const options = stage.querySelector(".gs-options") as HTMLElement;
+    const shown = options.childElementCount;
+    expect(shown).toBeGreaterThan(0);
+    expect(stim.textContent).not.toBe("");
+
+    (options.firstElementChild as HTMLButtonElement).click();
+    // Проба ответена: пример и варианты сняты с показа, но место осталось за ними.
+    expect(options.childElementCount, "кнопки исчезли, и ряд схлопнулся").toBe(shown);
+    expect(options.style.visibility).toBe("hidden");
+    expect(stim.textContent, "строка стимула осталась без строки текста").not.toBe("");
+    instance.stop();
+  });
+
+  it("разбор ошибки висит под знаком и не двигает сцену", () => {
+    // Строка разбора занимает от одной строки до трёх, и в потоке эта разница
+    // поднимала сцену вверх ровно в тот момент, когда участник смотрит на свою
+    // ошибку. Поэтому разбор вынесен из потока под знак.
+    const { stage, runtime, registry, clock } = root();
+    const instance = runtime.mount(registry.ref("org.reconnect.stroop"), {
+      surface: new DomSurface({ stage }),
+      seed: 11,
+      policy: new Manual({ start: 0 }),
+      input: THREE_KEYS,
+      training: true,
+    });
+    instance.start();
+    clock.advance(100);
+    const aside = stage.querySelector(".gs-feedback-aside") as HTMLElement;
+    expect(aside, "разбор лежит отдельным слоем, а не в строке знака").toBeTruthy();
+    expect(aside.querySelector(".gs-mark-reason")).toBeTruthy();
+    expect(aside.querySelector(".gs-mark-next")).toBeTruthy();
+    // Знак остаётся единственным, что занимает место в строке.
+    expect([...(stage.querySelector(".gs-feedback") as HTMLElement).children].map((c) => c.className)).toEqual([
+      "gs-mark",
+      "gs-feedback-aside",
+    ]);
+    instance.stop();
+
+    const row = css.slice(css.indexOf(".gs-feedback {"));
+    expect(row.slice(0, row.indexOf("}"))).toMatch(/position:\s*relative/);
+    const layer = css.slice(css.indexOf(".gs-feedback-aside {"));
+    expect(layer.slice(0, layer.indexOf("}"))).toMatch(/position:\s*absolute/);
+  });
+
   it("крестик фиксации стоит в середине сцены", () => {
     // Сцена растягивает детей на всю ширину, поэтому выравнивание обязательно.
     const fixation = css.slice(css.indexOf(".gs-baseline-fixation"));

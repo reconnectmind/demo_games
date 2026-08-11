@@ -421,6 +421,28 @@ describe("разбор ошибки в обучении", () => {
     instance.stop();
   });
 
+  it("разбор снимается клавишей ответа, а не только кнопкой", () => {
+    // Обещание под знаком — «или любая клавиша ответа», и в арифметике оно не
+    // работало: между пробами вариантов на сцене нет, а клавиши раздаются по их
+    // числу, и все три оказывались мёртвыми ровно тогда, когда нужны.
+    const { instance, stage, clock } = single("org.reconnect.arithmetic", { level: 1, seed: 5, training: true });
+    clock.advance(100);
+    const pending = () => (instance.state as { pending: { answer: number; options: number[] } | null }).pending;
+    const trial = pending()!;
+    const wrong = trial.options.findIndex((value) => value !== trial.answer);
+    instance.input.submit("choose", { index: wrong }, "pointer");
+    clock.advance(50);
+    expect(stage.querySelector(".gs-mark-reason")!.textContent).toMatch(/нужно было/);
+
+    // Клавиша варианта — тот же ответ участника, что и мышь, и снимать разбор
+    // она обязана так же.
+    expect(instance.input.handleKey("Q", "KeyQ")).toBe(true);
+    clock.advance(50);
+    expect(stage.querySelector(".gs-mark-reason")!.textContent).toBe("");
+    expect(pending()).not.toBeNull();
+    instance.stop();
+  });
+
   it("отвернувшийся участник не останавливает прогон навсегда", () => {
     const { instance, stage, clock } = single("org.reconnect.stroop", { level: 0, training: true });
     const ink = () => (instance.state as { pending: { inkIndex: number } | null }).pending?.inkIndex;

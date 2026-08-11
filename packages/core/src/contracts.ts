@@ -180,6 +180,13 @@ export interface GameCore<S = Json> {
 export interface Surface {
   readonly stage: HTMLElement;
   setTask(text: string, label?: string): void;
+  /**
+   * Напоминание о задании над сценой. Отдельно от `setTask`, потому что адресаты
+   * разные: подпись в шапке читает оператор, напоминание — участник. Покою с
+   * крестиком напоминание вредно: на экране не должно быть ничего, кроме точки
+   * фиксации, а подпись задания оператору при этом нужна.
+   */
+  setReminder(text: string): void;
   setHint(text: string): void;
   setStats(pairs: Array<[string, string | number]>): void;
   clear(): void;

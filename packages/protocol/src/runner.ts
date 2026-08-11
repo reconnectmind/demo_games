@@ -367,6 +367,11 @@ export class SectionRunner {
       // Закрепления дочерних задач идут целиком: их адресат — не эта игра, а её дети.
       ...(this.opts.section.overrides ? { childOverrides: this.opts.section.overrides } : {}),
       ...(this.opts.section.bounds ? { childBounds: this.opts.section.bounds } : {}),
+      // Уровень дочерней задачи считает то же расписание, что и уровень
+      // самостоятельной: иначе внутри батареи задача осталась бы на стартовом
+      // уровне весь блок, а протокольная политика применялась бы только к самой
+      // батарее — то есть ни к чему из того, что видит участник.
+      childPolicyFor: (childId: string) => this.policy(childId),
       training: this.opts.section.training,
       headless: this.opts.headless,
       ...(this.opts.input ? { input: this.opts.input } : {}),

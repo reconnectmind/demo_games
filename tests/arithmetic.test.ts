@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { headlessRun, Manual, type HeadlessRun } from "@gamespace/core";
-import { arithmetic, paramsForLevel } from "../packages/games/src/arithmetic/index.js";
-import type { ArithmeticState, ArithmeticView } from "../packages/games/src/arithmetic/index.js";
+import { createRngState, headlessRun, Manual, type HeadlessRun } from "@gamespace/core";
+import { arithmetic, buildExpression, paramsForLevel } from "../packages/games/src/arithmetic/index.js";
+import type { ArithmeticParams, ArithmeticState, ArithmeticView } from "../packages/games/src/arithmetic/index.js";
 import { describeContract } from "./contract-suite.js";
 
 const games = [arithmetic];
@@ -60,6 +60,42 @@ describe("арифметический спринт", () => {
     }
     expect(checked).toBeGreaterThan(4);
     expect(core(run).correct).toBe(checked);
+  });
+
+  it("внутри уровня примеры одной трудности: операнды из объявленной полосы", () => {
+    // Раньше на одном уровне соседствовали «3 + 2» и «27 + 24»: операнды брались
+    // от единицы, и уровень задавал только потолок. Участник видел случайный
+    // разброс, а не ступень.
+    for (let level = 0; level <= 10; level++) {
+      const params = paramsForLevel(level) as unknown as ArithmeticParams;
+      const low = Math.ceil(Math.max(2, params.operandMax) / 2);
+      let rng = createRngState(level + 1);
+      for (let trial = 0; trial < 200; trial++) {
+        const [expr, next] = buildExpression(rng, params);
+        rng = next;
+        const numbers = expr.expr.split(/[^0-9]+/).filter(Boolean).map(Number);
+        if (expr.expr.includes("×")) {
+          // У умножения своя полоса: «32 × 9» и «32 + 17» — разная работа.
+          const [a, b] = numbers as [number, number];
+          expect(a).toBeLessThanOrEqual(params.factorMax);
+          expect(b).toBeLessThanOrEqual(params.factorMax);
+          const addend = numbers[2];
+          if (addend !== undefined) expect(addend).toBeGreaterThanOrEqual(low);
+          continue;
+        }
+        for (const value of numbers) {
+          expect(value, `уровень ${level}: ${expr.expr}`).toBeGreaterThanOrEqual(low);
+          expect(value, `уровень ${level}: ${expr.expr}`).toBeLessThanOrEqual(params.operandMax);
+        }
+      }
+    }
+  });
+
+  it("уровень поднимает и полосу операндов, и множители", () => {
+    const easy = paramsForLevel(1) as unknown as ArithmeticParams;
+    const hard = paramsForLevel(9) as unknown as ArithmeticParams;
+    expect(hard.operandMax).toBeGreaterThan(easy.operandMax);
+    expect(hard.factorMax).toBeGreaterThan(easy.factorMax);
   });
 
   it("спринт заканчивается ровно по timeLimitMs", () => {

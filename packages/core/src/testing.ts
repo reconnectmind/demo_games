@@ -8,14 +8,24 @@ import { GameRuntime, type GameInstanceImpl, type MountOptions } from "./runtime
 import { SeededRng } from "./rng.js";
 
 /** Поверхность без DOM: ядро и логика проверяются без браузера. */
-export function headlessSurface(): Surface & { task: string; hint: string; stats: Array<[string, string | number]> } {
+export function headlessSurface(): Surface & {
+  task: string;
+  reminder: string;
+  hint: string;
+  stats: Array<[string, string | number]>;
+} {
   const surface = {
     stage: { appendChild() {}, innerHTML: "" } as unknown as HTMLElement,
     task: "",
+    reminder: "",
     hint: "",
     stats: [] as Array<[string, string | number]>,
     setTask(text: string) {
       surface.task = text;
+      surface.reminder = text;
+    },
+    setReminder(text: string) {
+      surface.reminder = text;
     },
     setHint(text: string) {
       surface.hint = text;
@@ -25,6 +35,7 @@ export function headlessSurface(): Surface & { task: string; hint: string; stats
     },
     clear() {
       surface.task = "";
+      surface.reminder = "";
       surface.hint = "";
       surface.stats = [];
     },

@@ -110,12 +110,14 @@ describe("состав дочерних задач составной игры",
     { id: "org.reconnect.stroop" },
   ];
 
-  it("без объявленного состава действует прежнее правило пула", () => {
-    expect(childSet(pool, "", 2)).toEqual(["org.reconnect.arithmetic", "org.reconnect.n-back"]);
+  it("без объявленного состава в блок идут все задачи, а не первые из пула", () => {
+    // Усечение до первых нескольких означало, что в конструкторе стоят все
+    // галочки, а в блоке идут две задачи, — и расхождение видно только в записи.
+    expect(childSet(pool, "")).toEqual(pool.map((child) => child.id));
   });
 
   it("состав задаётся именами и в объявленном порядке", () => {
-    expect(childSet(pool, "stroop, arithmetic", 2)).toEqual([
+    expect(childSet(pool, "stroop, arithmetic")).toEqual([
       "org.reconnect.stroop",
       "org.reconnect.arithmetic",
     ]);
@@ -124,7 +126,7 @@ describe("состав дочерних задач составной игры",
   it("неизвестное имя — отказ, а не молчаливый пропуск", () => {
     // Молча выкинутая задача обнаружилась бы только в записи, когда переделывать
     // сессию уже поздно.
-    expect(() => childSet(pool, "stroop,тетрис", 3)).toThrow(/тетрис/);
+    expect(() => childSet(pool, "stroop,тетрис")).toThrow(/тетрис/);
   });
 
   it("батарея берёт задачи из объявленного состава", () => {
