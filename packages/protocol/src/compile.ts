@@ -380,6 +380,35 @@ function withDuration(spec: Termination, ms: number, perAttempt: boolean): Termi
   return spec;
 }
 
+/**
+ * Из чего сложено завершение участка. Нужно предпросмотру: у участка по покрытию
+ * время — это страховка от зависания, а не расписание, и обещать его как
+ * длительность нельзя. Разбор живёт здесь, рядом с `withDuration`, чтобы витрина
+ * не описывала завершение своими словами и не разошлась с тем, что исполняется.
+ */
+export interface TerminationShape {
+  /** Участок кончается покрытием: время у него потолок, а не длительность. */
+  coverage: boolean;
+  /** Объявленное время участка, мс; `null` — времени участку не назначено. */
+  capMs: number | null;
+  /** Потолок одной попытки, мс; `null` — не объявлен. */
+  attemptMs: number | null;
+  /** Объявленное число прогонов; `null` — не объявлено. */
+  runs: number | null;
+}
+
+export function terminationShape(spec: Termination): TerminationShape {
+  const shape: TerminationShape = { coverage: coversAll(spec), capMs: null, attemptMs: null, runs: null };
+  const walk = (part: Termination): void => {
+    if (part.by === "time") shape.capMs = shape.capMs === null ? part.ms : Math.min(shape.capMs, part.ms);
+    else if (part.by === "run-limit") shape.attemptMs = shape.attemptMs === null ? part.ms : Math.min(shape.attemptMs, part.ms);
+    else if (part.by === "runs") shape.runs = shape.runs === null ? part.count : Math.min(shape.runs, part.count);
+    else if (part.by === "first") part.of.forEach(walk);
+  };
+  walk(spec);
+  return shape;
+}
+
 /** Ожидаемая длительность участка: для предпросмотра расписания оператору. */
 export function plannedMs(spec: Termination): number | null {
   switch (spec.by) {

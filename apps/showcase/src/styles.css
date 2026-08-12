@@ -132,6 +132,8 @@ body {
 .builder-status { flex-basis: 100%; font-size: 12px; line-height: 1.6; }
 .builder-status.is-ok { color: var(--muted); }
 .builder-status.is-bad { color: var(--bad, #e2a0a0); }
+/* Конструктор поправил план сам — это заметно, но не ошибка. */
+.builder-status.is-warn { color: var(--accent, #d6c48a); margin-top: 8px; }
 .builder-body { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
 /* Уточнение течёт слева направо: расписание — блок — задача, открытая в блоке. */
 .builder-body.is-deep { grid-template-columns: minmax(200px, 280px) minmax(240px, 1fr) minmax(240px, 1fr); gap: 16px; }

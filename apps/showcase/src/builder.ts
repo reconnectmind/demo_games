@@ -307,6 +307,18 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
    * это простыня, в которой не видно, чьи параметры правишь.
    */
   let pickedTask: string | null = null;
+  /** Что конструктор сделал сам, вслед за правкой исследователя. Живёт до следующей. */
+  let notice: string | null = null;
+
+  /**
+   * Снять контрбалансировку, если она называла этот блок. Возвращает, случилось
+   * ли снятие: об изменении плана сессии молчать нельзя.
+   */
+  const unpair = (id: string): boolean => {
+    if (!doc.counterbalance?.swap.includes(id)) return false;
+    delete doc.counterbalance;
+    return true;
+  };
 
   const byId = (id: string): Manifest | undefined => deps.manifests.find((m) => m.id === id);
   const playable = deps.manifests.filter((m) => m.id !== BASELINE);
@@ -728,6 +740,12 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       if (to < 0 || to >= doc.sections.length) return;
       const [moved] = doc.sections.splice(index, 1);
       doc.sections.splice(to, 0, moved!);
+      // Ручной порядок старше жребия. Контрбалансировка меняет пару местами у
+      // половины участников, и она же сделала бы бессмысленной эту стрелку:
+      // список показывал бы одно, а сессия шла в другом порядке. Кто двигает
+      // блок пары руками, тот назначает порядок сам — пару снимаем и говорим об
+      // этом вслух, чтобы снятая контрбалансировка не стала тихой правкой плана.
+      if (unpair(moved!.id)) notice = `Порядок задан вручную, контрбалансировка снята: блоки пойдут так у всех участников. Пару можно объявить заново в «Сессия целиком».`;
       render();
     };
     const remove = (): void => {
@@ -960,7 +978,7 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       h(
         "div",
         { class: "note" },
-        "Два блока меняются местами у половины участников. Порядок назначается по идентификатору участника, а не жребием на месте.",
+        "Два блока меняются местами у половины участников. Порядок назначается по идентификатору участника, а не жребием на месте — поэтому пока пара объявлена, порядок в списке верен лишь для половины участников; настоящий покажет предпросмотр расписания рядом с полем «Участник». Двинуть блок пары стрелкой — значит назначить порядок вручную: пара при этом снимается.",
       ),
     );
     const options: [string, string][] = [["", "—"], ...doc.sections.map((s) => [s.id, s.id] as [string, string])];
@@ -1106,7 +1124,13 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
     // Колонки начинаются с одной высоты. Панель, встающая напротив своей строки,
     // читалась как связь с ней, но платой был прыгающий верх: у восьмого блока
     // настройки уезжали под сгиб, а на длинном списке — и вовсе за экран.
-    host.replaceChildren(toolbar(), body);
+    const said = notice;
+    notice = null;
+    host.replaceChildren(
+      toolbar(),
+      ...(said ? [h("div", { class: "builder-status is-warn" }, said)] : []),
+      body,
+    );
   }
 
   const handle: BuilderHandle = {

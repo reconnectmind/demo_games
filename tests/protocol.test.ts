@@ -9,7 +9,16 @@ import {
   headlessSurface,
 } from "@gamespace/core";
 import { protocolGames } from "@gamespace/games";
-import { ProtocolError, SessionRunner, compileProtocol, plannedMs, validateProtocol } from "@gamespace/protocol";
+import {
+  ProtocolError,
+  SessionRunner,
+  compileProtocol,
+  plannedMs,
+  terminationShape,
+  validateProtocol,
+  type RunRecord,
+  type Termination,
+} from "@gamespace/protocol";
 import pilot from "../packages/protocol/examples/reconnect-pilot.json" with { type: "json" };
 
 function registry() {
@@ -221,6 +230,25 @@ describe("протокол: исполнение", () => {
   });
 });
 
+describe("протокол: из чего сложено завершение участка", () => {
+  const sectionOf = (id: string) =>
+    (pilot as unknown as { sections: Array<{ id: string; end: Termination }> }).sections.find((s) => s.id === id)!;
+
+  it("у зачётного блока время — длительность", () => {
+    const shape = terminationShape(sectionOf("battery").end);
+    expect(shape).toEqual({ coverage: false, capMs: 2_400_000, attemptMs: null, runs: null });
+  });
+
+  it("у обучения время — потолок при покрытии, и попытка объявлена отдельно", () => {
+    // Предпросмотр обязан различать эти два времени: обещать потолок как
+    // длительность значит обещать оператору не то, что он увидит.
+    const shape = terminationShape(sectionOf("training").end);
+    expect(shape.coverage).toBe(true);
+    expect(shape.capMs).toBe(600_000);
+    expect(shape.attemptMs).toBe(180_000);
+  });
+});
+
 describe("протокол: повтор внутри участка", () => {
   /** Пауза на пять секунд внутри участка на тридцать: разница и проверяется. */
   const doc = (over: Record<string, unknown> = {}) => ({
@@ -286,6 +314,69 @@ describe("протокол: повтор внутри участка", () => {
     expect(runs).toBe(1);
     expect(endedAtMs).toBeGreaterThanOrEqual(5000);
     expect(endedAtMs).toBeLessThan(8000);
+  });
+
+  it("объявленные десять минут блок держит по каждому модулю, а не в среднем", () => {
+    // Жалоба звучала как «настроил на десять минут, а блок вышел за рамки».
+    // Проверяем по каждому зачётному модулю отдельно: участок обязан кончиться
+    // ровно на объявленном времени, а последний прогон — закрыться по команде
+    // протокола, а не быть оборванным по истечении отсрочки.
+    for (const gameId of [
+      "org.reconnect.adaptive-battery",
+      "org.reconnect.interrupt-resume",
+      "org.reconnect.n-back",
+      "org.reconnect.baseline",
+    ]) {
+      const reg = registry();
+      const clock = new VirtualClock();
+      const runtime = new GameRuntime({
+        registry: reg,
+        clock,
+        capabilities: ["keyboard", "pointer", "audio-output", "canvas"],
+        t0WallMs: 0,
+        wallNow: () => clock.now(),
+      });
+      const source = (pilot as { sections: Array<Record<string, unknown>> }).sections.find(
+        (s) => (s.games as string[]).includes(gameId),
+      );
+      const protocol = {
+        protocolVersion: "1.0",
+        id: "ten-minutes",
+        title: "Десять минут",
+        locale: "ru",
+        interaction: (pilot as { interaction: unknown }).interaction,
+        difficulty: (pilot as { difficulty: unknown }).difficulty,
+        overrides: (pilot as { overrides?: unknown }).overrides,
+        bounds: (pilot as { bounds?: unknown }).bounds,
+        sections: [{ ...source, id: "block", games: [gameId], end: { by: "time", ms: 600_000 } }],
+      };
+      const compiled = compileProtocol(protocol, { participantId: "p-001", registry: reg });
+      let startedAtMs = 0;
+      let endedAtMs = 0;
+      let last: RunRecord | undefined;
+      const session = new SessionRunner({
+        runtime,
+        surface: headlessSurface(),
+        headless: true,
+        sessionId: "s",
+        seed: 1,
+        sections: compiled.sections,
+        input: compiled.input,
+        policyFor: (id) => compiled.policyFor(id),
+        onSectionStart: () => (startedAtMs = clock.now()),
+        onSectionEnd: (_s, records) => {
+          endedAtMs = clock.now();
+          last = records.at(-1);
+        },
+      });
+      session.start();
+      clock.advance(70 * 60_000);
+
+      expect(session.finished, gameId).toBe(true);
+      expect(endedAtMs - startedAtMs, gameId).toBeGreaterThanOrEqual(600_000);
+      expect(endedAtMs - startedAtMs, gameId).toBeLessThan(601_000);
+      expect(last?.reason, gameId).toBe("finished-by-protocol");
+    }
   });
 
   it("репетиция участки укорачивает, а не выравнивает по себе", () => {

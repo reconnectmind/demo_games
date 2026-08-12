@@ -378,6 +378,32 @@ describe("конструктор сценария", () => {
     ).not.toThrow();
   });
 
+  it("порядок, заданный стрелкой, доходит до запуска: жребий пары отменяется", () => {
+    const box = host();
+    const builder = mountBuilder(box, deps({ base: () => structuredClone(pilotProtocol) as Protocol }));
+    const pair = builder.doc().counterbalance!.swap;
+    // У этого участника пара идёт наоборот к документу — именно поэтому перенос
+    // блока стрелкой без отмены жребия давал бы обратное задуманному.
+    const before = compileProtocol(builder.doc(), { participantId: "p-001", registry: registry() });
+    expect(before.order.indexOf(pair[1])).toBeLessThan(before.order.indexOf(pair[0]));
+
+    const rows = [...box.querySelectorAll(".builder-list .builder-row")];
+    const row = rows.find((r) => r.querySelector(".builder-row-id")?.textContent === pair[1])!;
+    (row.querySelector(".builder-row-ops .btn") as HTMLButtonElement).click();
+
+    const listed = [...box.querySelectorAll(".builder-list .builder-row .builder-row-id")]
+      .map((el) => el.textContent)
+      .filter((id) => (pair as string[]).includes(id ?? ""));
+    expect(builder.doc().counterbalance).toBeUndefined();
+    expect(listed).toEqual([pair[1], pair[0]]);
+    // Список и запуск совпадают теперь у любого участника, а не у половины.
+    for (const participantId of ["p-000", "p-001", "p-002"]) {
+      const after = compileProtocol(builder.doc(), { participantId, registry: registry() });
+      expect(after.order.filter((id) => (pair as string[]).includes(id))).toEqual([pair[1], pair[0]]);
+    }
+    expect(box.querySelector(".builder-status.is-warn")?.textContent).toMatch(/контрбалансировка снята/i);
+  });
+
   it("повтор внутри блока переключается у любого блока", () => {
     const box = host();
     const builder = mountBuilder(box, deps({ base: () => structuredClone(pilotProtocol) as Protocol }));

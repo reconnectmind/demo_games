@@ -137,6 +137,23 @@ describe("экран настройки до старта, экран участ
     expect(main).toMatch(/event\.key === "Escape" && finished/);
   });
 
+  it("сохранённая в конструкторе правка доходит до выбранного сценария", () => {
+    // Иначе оператор менял порядок блоков и длительности, сохранял, нажимал
+    // «Начать сессию» — и сессия шла по прошлой версии документа, ничем на
+    // экране от новой не отличимой.
+    const save = main.slice(main.indexOf("save: (candidate)"), main.indexOf("remove: (id)"));
+    expect(save).toMatch(/if \(doc\.id === candidate\.id\) doc = structuredClone\(candidate\)/);
+  });
+
+  it("предпросмотр не обещает длительность участку по покрытию", () => {
+    // У обучения объявленное время — потолок, и укорочение правит попытку, а не
+    // его. Строка «30 с» на таком участке была обещанием, которое не исполняется.
+    expect(main).toMatch(/terminationShape/);
+    const note = main.slice(main.indexOf("function lengthNote"), main.indexOf("Предпросмотр расписания"));
+    expect(note).toContain("по покрытию");
+    expect(note).toMatch(/потолок/);
+  });
+
   it("ручки сложности переезжают на отладочный прогон одним узлом", () => {
     // Отладке они нужны живыми, но второй копии, расходящейся по состоянию, нет.
     expect(main).toMatch(/\$\("side"\)\.prepend\(\$\("setupDifficulty"\)\)/);

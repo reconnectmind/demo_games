@@ -26,7 +26,7 @@ import {
   SessionRunner,
   compileProtocol,
   pilotProtocol,
-  plannedMs,
+  terminationShape,
   type Protocol,
   type RunRecord,
   type Screen,
@@ -502,6 +502,32 @@ function rehearsing(): boolean {
   return ($("pace") as HTMLSelectElement).value === "short";
 }
 
+const mins = (ms: number) => `${Math.round(ms / 60000)} мин`;
+
+/**
+ * Чем кончится участок, словами. Участок по покрытию не имеет длительности: он
+ * идёт, пока каждая задача не пройдёт критерий, и время у него — потолок, за
+ * которым участок обрывают. Укорочение оператора правит там попытку, а не
+ * потолок, поэтому обещать «тридцать секунд» на обучении нельзя: обещание не
+ * исполнится, и оператор решит, что расписание врёт.
+ */
+function lengthNote(section: { end: unknown }, short: boolean, perSection: number): string {
+  const shape = terminationShape(section.end as never);
+  const attempt = short ? perSection : shape.attemptMs;
+  if (shape.coverage) {
+    const parts = ["по покрытию"];
+    if (attempt !== null) parts.push(`попытка ≤ ${secs(attempt)}`);
+    if (shape.capMs !== null) parts.push(`потолок ${mins(shape.capMs)}`);
+    return parts.join(" · ");
+  }
+  if (shape.capMs === null) return shape.runs === null ? "по решению модуля" : `прогонов ${shape.runs}`;
+  // Укорачивают только вниз: выбранные оператором полчаса не растянут паузу на
+  // двадцать секунд, поэтому обещать здесь нужно меньшее из двух.
+  const planned = short ? Math.min(shape.capMs, perSection) : shape.capMs;
+  const shown = planned < 60_000 ? secs(planned) : mins(planned);
+  return short && planned < shape.capMs ? `${shown} (в протоколе ${mins(shape.capMs)})` : shown;
+}
+
 /** Предпросмотр расписания до старта: оператор обязан видеть, что запустит. */
 function renderSchedule(): void {
   const compiled = compile();
@@ -509,24 +535,24 @@ function renderSchedule(): void {
   const short = rehearsing();
   const rows = compiled.order.map((id, i) => {
     const source = doc.sections.find((s) => s.id === id)!;
-    const full = plannedMs(source.end as never);
-    const length =
-      full === null
-        ? "по числу прогонов"
-        : short
-          ? `${secs(perSection)} (в протоколе ${Math.round(full / 60000)} мин)`
-          : `${Math.round(full / 60000)} мин`;
-    return `<div>${i + 1}. <b>${id}</b> · ${source.games.length === 1 ? source.games[0]!.replace("org.reconnect.", "") : `ротация ${source.games.length}`} · ${length}</div>`;
+    return `<div>${i + 1}. <b>${id}</b> · ${source.games.length === 1 ? source.games[0]!.replace("org.reconnect.", "") : `ротация ${source.games.length}`} · ${lengthNote(source, short, perSection)}</div>`;
   });
-  const total = doc.sections.reduce((sum, s) => sum + (plannedMs(s.end as never) ?? 0), 0);
+  // Оценка считается по тому же правилу, что и строки: участок по покрытию в
+  // репетиции не укорачивается, и складывать его как «столько же, сколько
+  // прочие» значило бы обещать репетицию короче, чем она бывает.
+  const estimate = doc.sections.reduce((sum, s) => {
+    const shape = terminationShape(s.end as never);
+    if (shape.capMs === null) return sum;
+    return sum + (short && !shape.coverage ? Math.min(shape.capMs, perSection) : shape.capMs);
+  }, 0);
   $("schedule").innerHTML = `
     <div class="schedule">${rows.join("")}</div>
     <div style="margin-top:8px" class="pill">сессия ${compiled.sessionId}</div>
     <div class="pill">seed ${compiled.seed}</div>
-    <div class="pill">${short ? `репетиция ≈ ${secs(perSection * compiled.order.length)}` : `≈ ${Math.round(total / 60000)} мин`}</div>`;
+    <div class="pill">${short ? `репетиция ≤ ${mins(estimate)}` : `≈ ${mins(estimate)}`}</div>`;
   $("launchNote").textContent = short
-    ? "Репетиция: участки укорочены, данные для анализа не годятся."
-    : "Полная сессия по документу протокола.";
+    ? "Репетиция: участки укорочены, данные для анализа не годятся. Обучение идёт по покрытию — укорачивается попытка, а не участок."
+    : "Полная сессия по документу протокола. Время участка отсчитывается с первого стимула: чтение отбивки в него не входит.";
 }
 
 function compile() {
@@ -951,6 +977,11 @@ const builder = mountBuilder($("builder"), {
   },
   save: (candidate) => {
     keep(candidate);
+    // Правка обязана дойти до запуска. Прежде сохранение писало сценарий в
+    // хранилище, а выбранный документ оставался тем, который открыли: оператор
+    // менял порядок блоков и длительности, нажимал «Начать сессию» — и сессия
+    // шла по прошлой версии, ничем на экране от новой не отличимой.
+    if (doc.id === candidate.id) doc = structuredClone(candidate);
     renderScenarios();
   },
   remove: (id) => {
