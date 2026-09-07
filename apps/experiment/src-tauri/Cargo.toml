@@ -1,0 +1,32 @@
+[package]
+name = "reconnect-experiment"
+version = "0.1.0"
+description = "Portable host for the Reconnect laboratory protocol"
+edition = "2021"
+
+[lib]
+name = "reconnect_experiment_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+chrono = { version = "0.4.45", features = ["serde"] }
+csv = "1"
+lsl = { git = "https://github.com/labstreaminglayer/liblsl-rust.git", version = "0.1.1" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tauri = { version = "2", features = [] }
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem", "Win32_UI_WindowsAndMessaging"] }

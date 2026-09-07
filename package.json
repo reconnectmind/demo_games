@@ -9,6 +9,10 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace @gamespace/showcase",
+    "experiment:dev": "npm run dev --workspace @gamespace/experiment",
+    "experiment:build": "npm run build --workspace @gamespace/experiment",
+    "experiment:build:windows": "npm run build:windows --workspace @gamespace/experiment",
+    "experiment:test": "npm run test:rust --workspace @gamespace/experiment",
     "build": "npm run build --workspace @gamespace/showcase",
     "preview": "npm run preview --workspace @gamespace/showcase",
     "test": "vitest run",

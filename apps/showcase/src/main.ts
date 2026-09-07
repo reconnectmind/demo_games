@@ -1,6 +1,7 @@
 import "./styles.css";
 import {
   AdaptiveStaircase,
+  DEFAULT_CODEBOOK,
   Fixed,
   GameRegistry,
   GameRuntime,
@@ -9,7 +10,6 @@ import {
   Monotonic,
   NullMarkerSink,
   RealClock,
-  prepareGames,
   type DifficultyPolicy,
   type GameInstanceImpl,
   type Json,
@@ -20,7 +20,6 @@ import {
 import type { DurableSink } from "@gamespace/core";
 import { DomSurface, bindKeyboard, keyLabel } from "@gamespace/ui-web";
 import { protocolGames } from "@gamespace/games";
-import { race } from "@gamespace/race";
 import {
   ProtocolError,
   SessionRunner,
@@ -32,21 +31,29 @@ import {
   type Screen,
 } from "@gamespace/protocol";
 import { mountBuilder } from "./builder.js";
+import {
+  abortDesktopSession,
+  appendDesktopEvent,
+  desktop,
+  desktopBootstrap,
+  desktopProtocols,
+  desktopReady,
+  experimentProduction,
+  experimentTools,
+  finishDesktopSession,
+  labRecorderRequired,
+  openDesktopSessionFolder,
+  readDesktopSessionFile,
+  runLslPreflight,
+  startDesktopSession,
+  type LslStatus,
+} from "./desktop.js";
 import { forget, keep, stored } from "./store.js";
 
-/**
- * Заезд живёт в своём пакете: он один тянет за собой трёхмерный движок, и
- * платить за это бандлом остальные модули не должны. В каталоге он рядовой.
- */
-const games: Microgame<any, any>[] = [...protocolGames, race];
+const games: Microgame<any, any>[] = protocolGames;
 
 const registry = new GameRegistry();
 for (const game of games) registry.register(game);
-
-// Пока человек читает каталог, модули догружают то, без чего им не шагнуть:
-// заезду нужен WASM с физикой. Запуск не ждёт сети, а игра, не успевшая
-// подготовиться, просто стоит на месте, не тратя время блока.
-void prepareGames(games);
 
 const app = document.getElementById("app")!;
 /**
@@ -98,6 +105,18 @@ app.innerHTML = `
             </select>
           </div>
           <div class="note" id="inputNote"></div>
+          <div class="desktop-checks" id="desktopChecks" hidden>
+            <h3>Готовность стенда</h3>
+            <div class="desktop-check" id="portableStatus">Проверяем папку данных…</div>
+            <div class="desktop-check" id="protocolStatus">Проверяем протокол…</div>
+            <div class="desktop-check" id="lslStatus">LSL ещё не проверен.</div>
+            <button class="btn" id="lslCheck" type="button">Проверить LSL</button>
+            <label class="desktop-confirm">
+              <input id="labRecorderConfirm" type="checkbox" />
+              Рабочий поток виден в LabRecorder
+            </label>
+            <div class="note">Во время записи: Ctrl+Shift+Space — пауза/продолжение; Ctrl+Shift+End — аварийная остановка.</div>
+          </div>
         </div>
         <div id="setupBuilder" hidden>
           <h3>Конструктор сценария</h3>
@@ -106,10 +125,6 @@ app.innerHTML = `
         <div id="setupModule" hidden>
           <h3>Модуль</h3>
           <div class="catalog-body" id="catalog"></div>
-          <a class="catalog-link" href="./catalog/index.html">
-            Прежний каталог: 47 игр
-            <small>витрина одним файлом, эталон механик</small>
-          </a>
         </div>
       </div>
       <aside class="setup-aside" id="setupAside">
@@ -191,12 +206,14 @@ app.innerHTML = `
     <div class="debrief-card">
       <h1>Сессия закончена</h1>
       <div id="debriefSummary"></div>
+      <div class="note" id="sessionPath"></div>
       <h3>Выгрузка</h3>
       <div class="debrief-exports">
         <button class="btn" id="exportJsonl">events.jsonl</button>
         <button class="btn" id="exportCsv">events.csv</button>
         <button class="btn" id="exportMarkers">markers.csv</button>
         <button class="btn" id="exportCodebook">codebook.csv</button>
+        <button class="btn" id="openSessionFolder">Открыть папку сессии</button>
       </div>
       <div class="debrief-foot">
         <button class="btn is-primary" id="toSetup">К настройке</button>
@@ -254,6 +271,9 @@ let mode: "game" | "protocol" | "builder" = "protocol";
 let doc: Protocol = pilotProtocol;
 let session: SessionRunner | null = null;
 let sessionSink: LoggedEvent[] | null = null;
+let lslReady: LslStatus | null = null;
+let desktopReadyForRun = !desktop;
+let lastSessionDirectory = "";
 
 /**
  * Отбивка перед участком. Пролистывает её оператор мышью: у участника руки на
@@ -505,17 +525,21 @@ function rehearsing(): boolean {
 const mins = (ms: number) => `${Math.round(ms / 60000)} мин`;
 
 /**
- * Чем кончится участок, словами. Участок по покрытию не имеет длительности: он
- * идёт, пока каждая задача не пройдёт критерий, и время у него — потолок, за
- * которым участок обрывают. Укорочение оператора правит там попытку, а не
- * потолок, поэтому обещать «тридцать секунд» на обучении нельзя: обещание не
- * исполнится, и оператор решит, что расписание врёт.
+ * Чем кончится участок, словами. Обучение по умолчанию делает один проход;
+ * критерий допуска там остаётся измерением, а не причиной повторить задачу.
  */
-function lengthNote(section: { end: unknown }, short: boolean, perSection: number): string {
+function lengthNote(
+  section: { end: unknown; training?: boolean; repeat?: boolean; games: string[] },
+  short: boolean,
+  perSection: number,
+): string {
   const shape = terminationShape(section.end as never);
   const attempt = short ? perSection : shape.attemptMs;
   if (shape.coverage) {
-    const parts = ["по покрытию"];
+    const parts =
+      section.training && section.repeat !== true
+        ? [`один проход · заданий ${section.games.length}`]
+        : ["по покрытию"];
     if (attempt !== null) parts.push(`попытка ≤ ${secs(attempt)}`);
     if (shape.capMs !== null) parts.push(`потолок ${mins(shape.capMs)}`);
     return parts.join(" · ");
@@ -543,6 +567,9 @@ function renderSchedule(): void {
   const estimate = doc.sections.reduce((sum, s) => {
     const shape = terminationShape(s.end as never);
     if (shape.capMs === null) return sum;
+    if (short && s.training && s.repeat !== true) {
+      return sum + Math.min(shape.capMs, s.games.length * perSection);
+    }
     return sum + (short && !shape.coverage ? Math.min(shape.capMs, perSection) : shape.capMs);
   }, 0);
   $("schedule").innerHTML = `
@@ -576,12 +603,78 @@ function renderInputNote(): void {
     " Раскладку задаёт документ протокола, здесь её не меняют.";
 }
 
+function checkLine(id: string, ok: boolean, text: string): void {
+  const line = $(id);
+  line.textContent = `${ok ? "✓" : "×"} ${text}`;
+  line.classList.toggle("is-ok", ok);
+  line.classList.toggle("is-bad", !ok);
+}
+
+function resetLslGate(): void {
+  if (!desktop) return;
+  lslReady = null;
+  ($("labRecorderConfirm") as HTMLInputElement).checked = false;
+  checkLine("lslStatus", false, "LSL ещё не проверен.");
+  refreshDesktopGate();
+}
+
+function refreshDesktopGate(): void {
+  if (!desktop) return;
+  let protocolOk = true;
+  let protocolMessage = `Протокол «${doc.title}» принят.`;
+  try {
+    compile();
+  } catch (error) {
+    protocolOk = false;
+    protocolMessage = String((error as Error).message ?? error);
+  }
+  checkLine("protocolStatus", protocolOk, protocolMessage);
+  const confirmed = ($("labRecorderConfirm") as HTMLInputElement).checked;
+  const blockers = [
+    !desktopReadyForRun && "папка данных недоступна",
+    !protocolOk && "протокол не принят",
+    !lslReady?.ok && "нажмите «Проверить LSL»",
+    labRecorderRequired && !confirmed && "подтвердите поток в LabRecorder",
+  ].filter(Boolean);
+  ($("launch") as HTMLButtonElement).disabled = mode === "protocol" && blockers.length > 0;
+  if (mode === "protocol" && blockers.length > 0) {
+    $("launchNote").textContent = `Чтобы начать сессию: ${blockers.join("; ")}.`;
+  } else if (mode === "protocol") {
+    renderSchedule();
+  }
+}
+
+async function preflightLsl(): Promise<void> {
+  if (!desktop) return;
+  const button = $("lslCheck") as HTMLButtonElement;
+  button.disabled = true;
+  checkLine("lslStatus", false, "Идёт outlet → inlet self-test…");
+  try {
+    lslReady = await runLslPreflight(
+      ($("participant") as HTMLInputElement).value || "p-000",
+      doc.id,
+    );
+    checkLine(
+      "lslStatus",
+      true,
+      `${lslReady.message}. Поток: ${lslReady.streamName}, source_id ${lslReady.sourceId}.`,
+    );
+  } catch (error) {
+    lslReady = null;
+    checkLine("lslStatus", false, String((error as Error).message ?? error));
+  } finally {
+    button.disabled = false;
+    refreshDesktopGate();
+  }
+}
+
 /**
  * Вкладка настройки. Их три, и у каждой своя работа: чем запускать сессию, из
  * чего собрать сценарий и чем проверить один модуль. Ручки блока показываются
  * только там, где им есть что настраивать.
  */
 function showTab(name: "protocol" | "builder" | "module"): void {
+  if (experimentProduction && !experimentTools && name !== "protocol") name = "protocol";
   $("setupProtocol").hidden = name !== "protocol";
   $("setupBuilder").hidden = name !== "builder";
   $("setupModule").hidden = name !== "module";
@@ -600,6 +693,7 @@ function selectProtocol(): void {
   ($("launch") as HTMLButtonElement).textContent = "Начать сессию";
   renderSchedule();
   renderInputNote();
+  refreshDesktopGate();
 }
 
 /** Конструктор ничего не запускает сам: он готовит документ и отдаёт его сценарию. */
@@ -609,6 +703,7 @@ function selectBuilder(): void {
   ($("launch") as HTMLButtonElement).textContent = "Начать сессию";
   $("launchNote").textContent = "Соберите сценарий и нажмите «Запустить» в конструкторе.";
   builder.render();
+  refreshDesktopGate();
 }
 
 function select(game: Microgame<any, any>): void {
@@ -616,6 +711,7 @@ function select(game: Microgame<any, any>): void {
   showTab("module");
   ($("launch") as HTMLButtonElement).textContent = "Запустить модуль";
   current = game;
+  refreshDesktopGate();
   manualOverrides = {};
   blockOverride = {};
   const levelInput = $("level") as HTMLInputElement;
@@ -638,24 +734,27 @@ function select(game: Microgame<any, any>): void {
 
 /** Сессия дошла до конца: только теперь оператору есть что выгружать. */
 let finished = false;
+let operatorPaused = false;
 /** Прогон в сводке подписан участком: сам `RunRecord` о своём участке не знает. */
 type DoneRun = { section: string; record: RunRecord };
 let summary = { participant: "", sessionId: "", runs: [] as DoneRun[], events: 0 };
 
-function stopRun(): void {
+async function stopRun(): Promise<void> {
   session?.abort();
   session = null;
+  if (desktop && mode === "protocol") await abortDesktopSession();
   instance?.stop();
   instance = null;
   surface.clear();
   stage.classList.remove("is-finished");
   ($("interstitial") as HTMLElement).hidden = true;
   $("banner").replaceChildren();
+  operatorPaused = false;
 }
 
 /** Возврат к настройке — операторский ход: он же прерывает прогон, если тот идёт. */
-function toSetup(): void {
-  stopRun();
+async function toSetup(): Promise<void> {
+  await stopRun();
   finished = false;
   $("setupAside").append($("setupDifficulty"));
   showScreen("setup");
@@ -679,21 +778,44 @@ function showDebrief(): void {
     <div class="pill">прогонов ${summary.runs.length}</div>
     <div class="pill">событий ${summary.events}</div>
     <div class="schedule" style="margin-top:10px">${rows.join("")}</div>`;
+  $("sessionPath").textContent = lastSessionDirectory
+    ? `Данные автоматически сохранены: ${lastSessionDirectory}`
+    : "Веб-витрина: данные доступны кнопками выгрузки.";
+  ($("openSessionFolder") as HTMLButtonElement).hidden = !desktop || !lastSessionDirectory;
   showScreen("debrief");
 }
 
 /** Прогон сценария: тот же runtime, но расписанием владеет раннер сессии. */
-function startProtocol(): void {
-  stopRun();
+async function startProtocol(): Promise<void> {
+  await stopRun();
   markers = new MarkerDispatcher(new NullMarkerSink());
   const compiled = compile();
   // Журнал общий на всю сессию: в него пишут все участки и все прогоны.
   const records: LoggedEvent[] = [];
   sessionSink = records;
+  if (desktop) {
+    const info = await startDesktopSession({
+      participantId: ($("participant") as HTMLInputElement).value || "p-000",
+      protocolId: doc.id,
+      protocolTitle: doc.title,
+      protocolJson: doc,
+      appVersion: "0.1.0",
+      seed: compiled.seed,
+      order: compiled.order,
+      input: compiled.input,
+      theme: ($("theme") as HTMLSelectElement).value,
+      pace: ($("pace") as HTMLSelectElement).value,
+      gameVersions: Object.fromEntries(games.map((game) => [game.manifest.id, game.manifest.version])),
+      codebookVersion: "1.0.0",
+      codebook: DEFAULT_CODEBOOK,
+    });
+    lastSessionDirectory = info?.directory ?? "";
+  }
   const wrapped: DurableSink = {
     append(record) {
       records.push(record);
       appendLog(record);
+      appendDesktopEvent(record);
     },
     flush() {},
   };
@@ -712,6 +834,7 @@ function startProtocol(): void {
 
   const done: DoneRun[] = [];
   finished = false;
+  operatorPaused = false;
   summary = {
     participant: ($("participant") as HTMLInputElement).value || "p-000",
     sessionId: compiled.sessionId,
@@ -746,14 +869,22 @@ function startProtocol(): void {
       );
     },
     onDone: () => {
-      finished = true;
       summary.events = records.length;
       stage.classList.add("is-finished");
       // Прощальный экран не принадлежит участку: сессия к этому моменту кончилась.
       // Пока он на мониторе, участник видит только его; сводка открывается тем же
       // действием оператора, что и любой другой переход, — кнопкой на экране.
-      if (compiled.outro) present(compiled.outro, 0, showDebrief);
-      else showDebrief();
+      const close = async (): Promise<void> => {
+        const directory = await finishDesktopSession("completed", summary);
+        if (directory) lastSessionDirectory = directory;
+        finished = true;
+        if (compiled.outro) present(compiled.outro, 0, showDebrief);
+        else showDebrief();
+      };
+      void close().catch((error) => {
+        banner(`<b>Ошибка записи данных.</b> ${String((error as Error).message ?? error)}`);
+        void emergencyStop(`finalize-error: ${String((error as Error).message ?? error)}`);
+      });
     },
   });
   session.start();
@@ -773,7 +904,7 @@ function banner(html: string): void {
  * второй их копии, расходящейся по состоянию, быть не должно.
  */
 function startModule(): void {
-  stopRun();
+  void stopRun();
   $("side").prepend($("setupDifficulty"));
   showScreen("run");
   markers = new MarkerDispatcher(new NullMarkerSink());
@@ -873,15 +1004,23 @@ function download(name: string, content: string): void {
   URL.revokeObjectURL(url);
 }
 
-$("launch").addEventListener("click", () => (mode === "protocol" ? startProtocol() : startModule()));
+$("launch").addEventListener("click", () => {
+  if (mode !== "protocol") return startModule();
+  void startProtocol().catch((error) => {
+    checkLine("portableStatus", false, String((error as Error).message ?? error));
+    showScreen("setup");
+    refreshDesktopGate();
+  });
+});
 // «Стоп» и возврат живут только на отладочном прогоне: у сессии участника
 // операторских кнопок на экране нет вовсе.
 $("stop").addEventListener("click", () => {
-  stopRun();
-  banner("<b>Прогон остановлен.</b> «Ещё раз» — новый блок того же модуля.");
+  void stopRun().then(() => {
+    banner("<b>Прогон остановлен.</b> «Ещё раз» — новый блок того же модуля.");
+  });
 });
-$("back").addEventListener("click", toSetup);
-$("toSetup").addEventListener("click", toSetup);
+$("back").addEventListener("click", () => void toSetup());
+$("toSetup").addEventListener("click", () => void toSetup());
 $("tabProtocol").addEventListener("click", selectProtocol);
 $("tabBuilder").addEventListener("click", selectBuilder);
 $("tabModule").addEventListener("click", () => select(current));
@@ -893,6 +1032,54 @@ document.addEventListener("keydown", (event) => {
   // Escape открывает сводку и только после конца сессии: во время прогона у
   // участника руки на клавиатуре, и случайное нажатие не должно уводить с экрана.
   if (event.key === "Escape" && finished && !$("run").hidden) showDebrief();
+  if (
+    desktop &&
+    mode === "protocol" &&
+    session &&
+    event.ctrlKey &&
+    event.shiftKey &&
+    event.code === "Space"
+  ) {
+    event.preventDefault();
+    operatorPaused = !operatorPaused;
+    if (operatorPaused) session.pause();
+    else session.resume();
+  }
+  if (
+    desktop &&
+    mode === "protocol" &&
+    session &&
+    event.ctrlKey &&
+    event.shiftKey &&
+    event.code === "End" &&
+    window.confirm("Аварийно остановить сессию? Частичные данные будут сохранены.")
+  ) {
+    event.preventDefault();
+    void emergencyStop("operator");
+  }
+});
+
+async function emergencyStop(reason: string): Promise<void> {
+  if (!session) return;
+  session.note("emergency.stop", { reason });
+  session.abort();
+  session = null;
+  summary.events = sessionSink?.length ?? summary.events;
+  const directory = await abortDesktopSession();
+  if (directory) lastSessionDirectory = directory;
+  finished = true;
+  showDebrief();
+}
+
+window.addEventListener("blur", () => {
+  if (mode === "protocol" && session && !finished) session.note("window.blur", {});
+});
+window.addEventListener("focus", () => {
+  if (mode === "protocol" && session && !finished) session.note("window.focus", {});
+});
+window.addEventListener("reconnect-write-error", (event) => {
+  const message = (event as CustomEvent<string>).detail;
+  void emergencyStop(`storage-error: ${message}`);
 });
 $("policy").addEventListener("change", () => {
   // Политику можно перехватить посреди блока: уровень при этом сохраняется.
@@ -907,17 +1094,27 @@ $("level").addEventListener("input", (e) => {
   blockControl();
   paramControls();
 });
-$("participant").addEventListener("input", renderSchedule);
+$("participant").addEventListener("input", () => {
+  renderSchedule();
+  resetLslGate();
+});
 $("compress").addEventListener("input", (e) => {
   $("compressValue").textContent = (e.target as HTMLInputElement).value;
   renderSchedule();
 });
-$("exportJsonl").addEventListener("click", () => download("events.jsonl", exportLog("jsonl")));
-$("exportCsv").addEventListener("click", () => download("events.csv", exportLog("csv")));
-$("exportMarkers").addEventListener("click", () => download("markers.csv", markers.toCsv()));
+const exportFile = async (name: string, fallback: () => string): Promise<void> => {
+  const content = desktop ? await readDesktopSessionFile(name) : fallback();
+  download(name, content);
+};
+$("exportJsonl").addEventListener("click", () => void exportFile("events.jsonl", () => exportLog("jsonl")));
+$("exportCsv").addEventListener("click", () => void exportFile("events.csv", () => exportLog("csv")));
+$("exportMarkers").addEventListener("click", () => void exportFile("markers.csv", () => markers.toCsv()));
 // Артинис не различает значения меток: расшифровка живёт отдельным файлом, и без
 // выгрузки книги поток меток нечем читать.
-$("exportCodebook").addEventListener("click", () => download("codebook.csv", markers.codebookCsv()));
+$("exportCodebook").addEventListener("click", () => void exportFile("codebook.csv", () => markers.codebookCsv()));
+$("openSessionFolder").addEventListener("click", () => void openDesktopSessionFolder());
+$("lslCheck").addEventListener("click", () => void preflightLsl());
+$("labRecorderConfirm").addEventListener("change", refreshDesktopGate);
 
 /** Ввод адресуется активной задаче: у сценария это игра текущего участка. */
 function activeInput() {
@@ -939,17 +1136,46 @@ const protocolInputStub = { handleKey: () => false, handleKeyUp: () => false, re
  */
 function renderScenarios(): void {
   const box = $("scenario") as HTMLSelectElement;
-  const all = [pilotProtocol as Protocol, ...stored()];
+  const saved = stored();
+  const all = [
+    ...(saved.some((protocol) => protocol.id === pilotProtocol.id) ? [] : [pilotProtocol as Protocol]),
+    ...saved,
+  ];
+  const accepted = document.createElement("optgroup");
+  accepted.label = "Готовы к запуску";
+  const rejected = document.createElement("optgroup");
+  rejected.label = "Ошибочные файлы — запуск запрещён";
+  for (const protocol of all) {
+    let error = "";
+    try {
+      compileProtocol(protocol, {
+        participantId: ($("participant") as HTMLInputElement).value || "p-000",
+        registry,
+      });
+    } catch (reason) {
+      error = String((reason as Error).message ?? reason);
+    }
+    const option = document.createElement("option");
+    option.value = protocol.id;
+    option.textContent = error
+      ? `${protocol.title} · НЕ ПРИНЯТ: ${error}`
+      : `${protocol.title} · ${protocol.sections.length} блоков${
+          protocol.id === pilotProtocol.id ? "" : " · файл"
+        }`;
+    option.selected = protocol.id === doc.id;
+    option.disabled = Boolean(error);
+    (error ? rejected : accepted).append(option);
+  }
+  for (const file of desktopBootstrap()?.protocols ?? []) {
+    if (!file.error) continue;
+    const option = document.createElement("option");
+    option.disabled = true;
+    option.textContent = `${file.fileName} · НЕ JSON: ${file.error}`;
+    rejected.append(option);
+  }
   box.replaceChildren(
-    ...all.map((protocol) => {
-      const option = document.createElement("option");
-      option.value = protocol.id;
-      option.textContent = `${protocol.title} · ${protocol.sections.length} блоков${
-        protocol.id === pilotProtocol.id ? "" : " · собран здесь"
-      }`;
-      option.selected = protocol.id === doc.id;
-      return option;
-    }),
+    accepted,
+    ...(rejected.children.length ? [rejected] : []),
   );
 }
 
@@ -976,6 +1202,13 @@ const builder = mountBuilder($("builder"), {
     }
   },
   save: (candidate) => {
+    if (
+      desktop &&
+      stored().some((protocol) => protocol.id === candidate.id) &&
+      !window.confirm(`Файл сценария «${candidate.title}» уже существует. Заменить его?`)
+    ) {
+      return;
+    }
     keep(candidate);
     // Правка обязана дойти до запуска. Прежде сохранение писало сценарий в
     // хранилище, а выбранный документ оставался тем, который открыли: оператор
@@ -994,7 +1227,12 @@ const builder = mountBuilder($("builder"), {
     doc = candidate;
     renderScenarios();
     selectProtocol();
-    startProtocol();
+    void startProtocol().catch((error) => {
+      checkLine("portableStatus", false, String((error as Error).message ?? error));
+      showTab("protocol");
+      showScreen("setup");
+      refreshDesktopGate();
+    });
   },
 });
 
@@ -1003,11 +1241,50 @@ const builder = mountBuilder($("builder"), {
 renderScenarios();
 $("scenario").addEventListener("change", (event) => {
   const id = (event.target as HTMLSelectElement).value;
-  doc = [pilotProtocol as Protocol, ...stored()].find((p) => p.id === id) ?? pilotProtocol;
+  doc = stored().find((p) => p.id === id) ?? (pilotProtocol as Protocol);
   renderSchedule();
   renderInputNote();
+  resetLslGate();
 });
 renderCatalog();
 select(games[0]!);
 selectProtocol();
 showScreen("setup");
+
+if (desktop) {
+  $("desktopChecks").hidden = false;
+  ($("launch") as HTMLButtonElement).disabled = true;
+  if (experimentProduction && !experimentTools) {
+    $("tabBuilder").hidden = true;
+    $("tabModule").hidden = true;
+  }
+  void desktopReady
+    .then((info) => {
+      desktopReadyForRun = info?.writable ?? false;
+      checkLine(
+        "portableStatus",
+        desktopReadyForRun,
+        desktopReadyForRun
+          ? `Portable-root доступен для записи: ${info!.portableRoot}${
+              info!.interruptedSessions
+                ? `. Найдено незавершённых сессий: ${info!.interruptedSessions}`
+                : ""
+            }`
+          : (info?.storageError ?? "portable-root недоступен"),
+      );
+      const diskProtocols = desktopProtocols();
+      doc =
+        diskProtocols.find((protocol) => protocol.id === doc.id) ??
+        diskProtocols[0] ??
+        (pilotProtocol as Protocol);
+      renderScenarios();
+      renderSchedule();
+      renderInputNote();
+      refreshDesktopGate();
+    })
+    .catch((error) => {
+      desktopReadyForRun = false;
+      checkLine("portableStatus", false, String((error as Error).message ?? error));
+      refreshDesktopGate();
+    });
+}

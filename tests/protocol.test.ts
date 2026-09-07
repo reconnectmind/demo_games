@@ -348,7 +348,7 @@ describe("протокол: повтор внутри участка", () => {
         difficulty: (pilot as { difficulty: unknown }).difficulty,
         overrides: (pilot as { overrides?: unknown }).overrides,
         bounds: (pilot as { bounds?: unknown }).bounds,
-        sections: [{ ...source, id: "block", games: [gameId], end: { by: "time", ms: 600_000 } }],
+        sections: [{ ...source, id: "block", games: [gameId], training: false, end: { by: "time", ms: 600_000 } }],
       };
       const compiled = compileProtocol(protocol, { participantId: "p-001", registry: reg });
       let startedAtMs = 0;

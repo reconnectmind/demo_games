@@ -1,0 +1,75 @@
+name: Reconnect experiment Windows portable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/experiment/**"
+      - "apps/showcase/**"
+      - "packages/core/**"
+      - "packages/games/**"
+      - "packages/protocol/**"
+      - "packages/ui-web/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/experiment-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  portable-windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/experiment/src-tauri
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run full Vitest suite
+        run: npm test
+
+      - name: Build production renderer
+        run: npm run build --workspace @gamespace/showcase -- --mode experiment
+
+      - name: Test Rust storage and native LSL loopback
+        run: cargo test --manifest-path apps/experiment/src-tauri/Cargo.toml
+
+      - name: Build release executable
+        env:
+          VITE_EXPERIMENT_PROFILE: development
+        run: npm run build:binary --workspace @gamespace/experiment
+
+      - name: Assemble and smoke-test portable folder
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          apps/experiment/scripts/package-windows.ps1 -Version $version
+
+      - name: Upload portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reconnect-Experiment-${{ env.APP_VERSION }}-windows-x64
+          path: apps/experiment/build/Reconnect-Experiment-${{ env.APP_VERSION }}-windows-x64.zip
+          if-no-files-found: error
+          compression-level: 0

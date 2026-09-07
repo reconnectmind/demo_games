@@ -207,6 +207,11 @@ export class SectionRunner {
     this.opts.runtime.options.markers?.consider(record);
   }
 
+  /** Событие хоста (фокус окна, аварийная команда) в общем порядке журнала. */
+  note(type: string, payload: Json): void {
+    if (!this.done) this.mark(type, payload);
+  }
+
   private elapsed(): number {
     const paused = this.pausedAtMs === null ? 0 : this.clock.now() - this.pausedAtMs;
     return this.clock.now() - this.startedAtMs - this.pausedTotalMs - paused;

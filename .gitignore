@@ -2,3 +2,7 @@ node_modules/
 dist/
 *.local
 .DS_Store
+apps/experiment/portable/data/
+apps/experiment/portable/protocols/
+apps/experiment/src-tauri/target/
+apps/experiment/build/

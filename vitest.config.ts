@@ -5,14 +5,11 @@ const resolve = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
   resolve: {
+    preserveSymlinks: true,
     alias: {
       "@gamespace/core": resolve("./packages/core/src/index.ts"),
       "@gamespace/ui-web": resolve("./packages/ui-web/src/index.ts"),
       "@gamespace/games": resolve("./packages/games/src/index.ts"),
-      "@gamespace/race": resolve("./packages/race/src/index.ts"),
-      "@gamespace/env": resolve("./packages/env/src/index.ts"),
-      "@gamespace/car": resolve("./packages/car/src/index.ts"),
-      "@gamespace/flora": resolve("./packages/flora/src/index.ts"),
       "@gamespace/protocol": resolve("./packages/protocol/src/index.ts"),
     },
   },

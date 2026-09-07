@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { AdaptiveStaircase, autoDrive, headlessRun, Manual } from "@gamespace/core";
 import { protocolGames, stroop } from "@gamespace/games";
-import { race } from "@gamespace/race";
 
-const games = [...protocolGames, race];
+const games = protocolGames;
 
 const SESSION_MS = 110 * 60 * 1000;
 
 /**
  * Бюджет журнала в записях на секунду игры. Дискретные механики пишут по пробе,
- * а непрерывная симуляция — по шагу таймера, то есть на два порядка чаще: у неё
- * бюджет свой и явный, чтобы регресс в плотности всё равно был виден.
+ * а непрерывные механики — по шагу таймера, поэтому для них бюджет выше.
  */
-const DENSITY_BUDGET: Record<string, number> = { "org.reconnect.squash": 90, "org.reconnect.race": 90 };
+const DENSITY_BUDGET: Record<string, number> = { "org.reconnect.squash": 90 };
 const DEFAULT_DENSITY_BUDGET = 25;
 
 /**

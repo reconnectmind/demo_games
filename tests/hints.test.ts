@@ -12,9 +12,8 @@ import {
 } from "@gamespace/core";
 import { DomSurface, keyLabel } from "@gamespace/ui-web";
 import { protocolGames } from "@gamespace/games";
-import { race } from "@gamespace/race";
 
-const games = [...protocolGames, race];
+const games = protocolGames;
 
 /** Оркестраторы своих кнопок не рисуют: их проверяют дочерние модули. */
 const interactive = games.filter((game) => game.manifest.interaction.actions.length > 0);

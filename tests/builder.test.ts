@@ -274,6 +274,32 @@ describe("конструктор сценария", () => {
     expect(tasks.split(",")).toHaveLength(2);
   });
 
+  it("у батареи настраиваются равные временные окна для всех выбранных задач", () => {
+    const box = host();
+    const builder = mountBuilder(box, deps());
+    builder.open({
+      ...emptyProtocol(),
+      sections: [makeBlock("game", "load", ["org.reconnect.adaptive-battery"])],
+    });
+    const modeLabel = [...box.querySelectorAll(".builder-panel .param label")].find((label) =>
+      label.textContent?.includes("Смена задач"),
+    )!;
+    const mode = modeLabel.nextElementSibling as HTMLSelectElement;
+    mode.value = "equal";
+    mode.dispatchEvent(new Event("change"));
+    const params = builder.doc().sections[0]!.overrides?.["org.reconnect.adaptive-battery"];
+    expect(params?.switchEveryMs).toBe(30_000);
+    expect(params?.blocks).toBe(5);
+
+    const durationLabel = [...box.querySelectorAll(".builder-panel .param label")].find((label) =>
+      label.textContent?.includes("Время одной задачи"),
+    )!;
+    const duration = durationLabel.nextElementSibling as HTMLInputElement;
+    duration.value = "45";
+    duration.dispatchEvent(new Event("change"));
+    expect(builder.doc().sections[0]!.overrides?.["org.reconnect.adaptive-battery"]?.switchEveryMs).toBe(45_000);
+  });
+
   it("блок без модулей не запускается, и это сказано на месте", () => {
     const box = host();
     const builder = mountBuilder(box, deps());
@@ -303,6 +329,26 @@ describe("конструктор сценария", () => {
     const scratch = [...box.querySelectorAll(".builder-bar .btn")].find((b) => b.textContent === "С нуля")!;
     (scratch as HTMLButtonElement).click();
     expect(builder.doc().sections).toHaveLength(1);
+  });
+
+  it("загружает JSON, выгруженный сайтом, в локальный конструктор", async () => {
+    const box = host();
+    const builder = mountBuilder(box, deps());
+    const imported = {
+      ...emptyProtocol(),
+      id: "imported",
+      title: "Импортированный сценарий",
+      sections: [makeBlock("game", "load", ["org.reconnect.stroop"])],
+    };
+    const input = box.querySelector('input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, "files", {
+      value: [{ text: async () => JSON.stringify(imported) }],
+      configurable: true,
+    });
+    input.dispatchEvent(new Event("change"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(builder.doc().id).toBe("imported");
+    expect(builder.doc().sections[0]!.games).toEqual(["org.reconnect.stroop"]);
   });
 
   it("слева видно всё расписание, справа — ручки одного блока", () => {

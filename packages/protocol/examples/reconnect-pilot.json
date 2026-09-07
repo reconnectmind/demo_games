@@ -112,6 +112,12 @@
       "games": [
         "org.reconnect.adaptive-battery"
       ],
+      "overrides": {
+        "org.reconnect.adaptive-battery": {
+          "blocks": 5,
+          "switchEveryMs": 30000
+        }
+      },
       "end": {
         "by": "time",
         "ms": 2400000

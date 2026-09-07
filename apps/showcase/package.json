@@ -12,7 +12,6 @@
     "@gamespace/core": "*",
     "@gamespace/games": "*",
     "@gamespace/protocol": "*",
-    "@gamespace/race": "*",
     "@gamespace/ui-web": "*"
   }
 }

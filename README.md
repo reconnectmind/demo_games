@@ -1,19 +1,28 @@
-# demo_games
+# Webdemo
 
-Две витрины в одном репозитории.
+Конструктор экспериментальных протоколов и витрина когнитивных микроигр.
+В репозитории остаются только платформенные пакеты (`core`, `games`,
+`protocol`, `ui-web`), веб-витрина `apps/showcase` и настольное приложение
+`apps/experiment`.
 
-`index.html` в корне — прежняя витрина всего каталога игр, одним файлом. Она остаётся эталоном механик и публикуется рядом с новой витриной по адресу `/catalog/`, пока новая архитектура не догонит её по охвату.
-
-`packages/` и `apps/showcase` — новая архитектура: десять модулей протокола на общем runtime с чистыми ядрами, журналом событий, политиками сложности, оркестрацией составных задач и слоем расписания (`packages/protocol`), который проигрывает сценарий эксперимента целиком. Реализованная система описана в `../docs/architecture.md`, замысел и план — в `../microgame-architecture.md`, что осталось — в `../docs/backlog.md`, правила для авторов модулей — в `packages/games/AUTHORING.md`.
+Симуляция автомобиля и заезд вынесены в `projects/games/car`, а пакеты стихий
+и их стенды — в `projects/games/elements` и `projects/games/elements-stand`.
+Реализованная система описана в `../docs/architecture.md`, замысел и план — в
+`../microgame-architecture.md`, правила для авторов модулей — в
+`packages/games/AUTHORING.md`.
 
 ## Запуск
 
 ```bash
 npm install
 npm run dev        # витрина протокола на http://localhost:5173
-npm test           # 300 тестов: контракт, восстановление, оркестрация, расписание, длинная сессия
+npm test           # контракт, восстановление, оркестрация, расписание, длинная сессия
 npm run typecheck
 npm run build      # сборка витрины в apps/showcase/dist
+npm run experiment:dev    # Tauri host на macOS, protocols/data рядом в apps/experiment/portable
+npm run experiment:test   # Rust storage + настоящий LSL loopback
+npm run experiment:build  # macOS .app bundle в apps/experiment/build/macos
+npm run experiment:build:windows # Windows x64 portable ZIP локально на macOS
 ```
 
 Флаги Vite передаются через workspace напрямую, иначе npm съест их как позиционные аргументы:
@@ -49,11 +58,20 @@ npm run dev --workspace @gamespace/showcase -- --port 5188
 
 ## Публикация
 
-Сайт живёт на GitHub Pages: <https://reconnectmind.github.io/demo_games/>. Корень — витрина протокола, прежний каталог доступен по `/catalog/` и связан с корнем ссылками в обе стороны.
+Сайт живёт на GitHub Pages: <https://reconnectmind.github.io/demo_games/>.
+Корень сайта — витрина протокола.
 
-Сборку делает `.github/workflows/deploy-pages.yml` при пуше в `main` (или вручную через workflow_dispatch): `npm ci` → `typecheck` → `test` → `build`, и только потом публикация `apps/showcase/dist`. Прежний каталог попадает в `dist/catalog/index.html` сам: `apps/showcase/public/catalog/index.html` — симлинк на корневой `index.html`, поэтому файл не дублируется в репозитории и не расходится с эталоном.
+Сборку делает `.github/workflows/deploy-pages.yml` при пуше в `main` (или
+вручную через `workflow_dispatch`): `npm ci` → `typecheck` → `test` → `build`,
+и только потом публикуется `apps/showcase/dist`.
 
 Репозиторий публичный, так что минуты Actions и Pages бесплатны.
+
+Windows-лабораторная сборка создаётся workflow
+`.github/workflows/experiment-windows.yml` как portable ZIP с executable,
+fixed WebView2, пилотным протоколом и папкой данных. Инструкция оператора и
+preflight: [`apps/experiment/README.md`](./apps/experiment/README.md). Все
+локальные и CI-артефакты складываются в `apps/experiment/build/`.
 
 ## Схемы
 

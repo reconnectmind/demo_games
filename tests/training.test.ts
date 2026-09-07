@@ -229,17 +229,17 @@ describe("обучение по покрытию", () => {
     }
   });
 
-  it("попытки ограничены объявленным числом", () => {
-    const { runner, clock, done } = trainingSection(() => {});
+  it("после одного круга обучение заканчивается, даже если допуск не пройден", () => {
+    const { runner, clock, done } = trainingSection(() => {}, 3_600_000, { training: 60_000 });
     runner.start();
-    // Автоответчик молчит: критерий не выполнится ни разу.
+    // Автоответчик молчит: ни один критерий не выполнится, но знакомство с
+    // задачами не должно превращаться в цикл до победы.
     drive(runner, clock, false);
     const attempts = new Map<string, number>();
     for (const record of done) attempts.set(record.gameId, (attempts.get(record.gameId) ?? 0) + 1);
-    for (const [gameId, count] of attempts) {
-      const limit = registry().resolve(gameId).manifest.training.admission?.maxAttempts ?? 1;
-      expect(count, `${gameId}: попыток ${count} при пределе ${limit}`).toBeLessThanOrEqual(limit);
-    }
+    expect(runner.finished).toBe(true);
+    expect(attempts.size).toBe(6);
+    for (const [gameId, count] of attempts) expect(count, gameId).toBe(1);
   });
 
   it("итог попытки записан числами: сколько верных в окне и какой порог", () => {

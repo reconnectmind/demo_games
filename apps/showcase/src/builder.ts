@@ -31,6 +31,7 @@ function setGames(section: Section, ids: string[]): void {
 export type BlockKind = "baseline" | "training" | "game" | "pause" | "micro";
 
 const BASELINE = "org.reconnect.baseline";
+const ADAPTIVE_BATTERY = "org.reconnect.adaptive-battery";
 const short = (id: string): string => id.replace("org.reconnect.", "");
 const long = (name: string): string => (name.includes(".") ? name : `org.reconnect.${name}`);
 
@@ -431,6 +432,68 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
     return h("div", { class: "builder-bounds" }, ...rows);
   }
 
+  function writeOverride(section: Section, gameId: string, patch: Params, remove: string[] = []): void {
+    const overrides = { ...(section.overrides ?? {}) };
+    const next = { ...(overrides[gameId] ?? {}), ...patch };
+    for (const key of remove) delete next[key];
+    if (Object.keys(next).length === 0) delete overrides[gameId];
+    else overrides[gameId] = next;
+    if (Object.keys(overrides).length === 0) delete section.overrides;
+    else section.overrides = overrides;
+  }
+
+  /** Равные окна убирают перекос естественной длины дочерних игр батареи. */
+  function batteryTimingEditor(section: Section, manifest: Manifest): HTMLElement {
+    const params = section.overrides?.[manifest.id] ?? {};
+    const switchEveryMs = Number(params.switchEveryMs ?? 0);
+    const rawTasks = String(params.tasks ?? "").split(",").map((task) => task.trim()).filter(Boolean);
+    const taskCount = rawTasks.length || manifest.children?.length || 1;
+    const equal = switchEveryMs > 0;
+    const duration = number(
+      Math.round((switchEveryMs || 30_000) / 1000),
+      (seconds) => {
+        writeOverride(section, manifest.id, {
+          switchEveryMs: Math.max(1, seconds) * 1000,
+          blocks: taskCount,
+        });
+        render();
+      },
+      { min: "1", step: "1", ...(equal ? {} : { disabled: "disabled" }) },
+    );
+    return h(
+      "div",
+      { class: "builder-screen" },
+      h("h5", {}, "Распределение времени"),
+      h(
+        "div",
+        { class: "note" },
+        "Равные окна дают каждой выбранной задаче одинаковое время и проводят все задачи один раз за цикл.",
+      ),
+      field(
+        "Смена задач",
+        select(
+          [
+            ["natural", "по естественному концу задачи"],
+            ["equal", "через одинаковое время"],
+          ],
+          equal ? "equal" : "natural",
+          (mode) => {
+            writeOverride(
+              section,
+              manifest.id,
+              mode === "equal"
+                ? { switchEveryMs: switchEveryMs || 30_000, blocks: taskCount }
+                : {},
+              mode === "equal" ? [] : ["switchEveryMs", "blocks"],
+            );
+            render();
+          },
+        ),
+      ),
+      field("Время одной задачи, с", duration),
+    );
+  }
+
   /**
    * Задача списком: галочка решает, входит ли она в блок, а щелчок по строке
    * открывает её параметры. Одна строка на задачу, а не галочки отдельно и
@@ -536,6 +599,9 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       const forGame: Params = { ...(overrides[manifest.id] ?? {}) };
       if (list.length === 0 || list.length === choosable.length) delete forGame.tasks;
       else forGame.tasks = list.join(",");
+      if (manifest.id === ADAPTIVE_BATTERY && Number(forGame.switchEveryMs ?? 0) > 0) {
+        forGame.blocks = list.length || choosable.length;
+      }
       if (Object.keys(forGame).length === 0) delete overrides[manifest.id];
       else overrides[manifest.id] = forGame;
       if (Object.keys(overrides).length === 0) delete section.overrides;
@@ -805,7 +871,7 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
    * время, повтора не хочет: время участка тогда перекрывает время блока, и
    * пауза на десять секунд внутри тридцатисекундного участка идёт трижды.
    */
-  function repeatField(section: Section): HTMLElement {
+  function repeatField(section: Section, defaultValue = true): HTMLElement {
     return field(
       "Повтор внутри блока",
       select(
@@ -813,10 +879,11 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
           ["true", "перезапускать, пока идёт блок"],
           ["false", "один проход: блок кончается вместе с модулями"],
         ],
-        String(section.repeat !== false),
+        String(section.repeat ?? defaultValue),
         (v) => {
-          if (v === "false") section.repeat = false;
-          else delete section.repeat;
+          const next = v === "true";
+          if (next === defaultValue) delete section.repeat;
+          else section.repeat = next;
           render();
         },
       ),
@@ -894,9 +961,10 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
         h(
           "div",
           { class: "note" },
-          "Участок кончается по покрытию: каждое задание идёт, пока не пройдёт критерий допуска из своего манифеста.",
+          "По умолчанию каждое выбранное задание показывается один раз. Результат допуска записывается, но не запускает задачу повторно.",
         ),
         gamesEditor(section, simple),
+        repeatField(section, false),
         field(
           "Потолок по времени, мин",
           number(
@@ -928,6 +996,7 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
     // отдельной задачи уходят в колонку справа.
     const module = focusOf(section).module;
     if (module && (module.children ?? []).length > 0) {
+      if (module.id === ADAPTIVE_BATTERY) panel.append(batteryTimingEditor(section, module));
       panel.append(h("h5", {}, `Диапазоны: ${module.title.ru}`), boundsEditor(section, module));
     }
     return panel;
@@ -1027,6 +1096,29 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
       button.addEventListener("click", onClick);
       return button;
     };
+    const upload = h("input", { type: "file", accept: "application/json,.json" });
+    upload.hidden = true;
+    upload.addEventListener("change", () => {
+      const file = upload.files?.[0];
+      if (!file) return;
+      void file
+        .text()
+        .then((content) => {
+          const imported = JSON.parse(content) as Partial<Protocol>;
+          if (
+            typeof imported.id !== "string" ||
+            typeof imported.title !== "string" ||
+            !Array.isArray(imported.sections)
+          ) {
+            throw new Error("в JSON нет обязательных полей id, title или sections");
+          }
+          handle.open(imported as Protocol);
+        })
+        .catch((error) => window.alert(`Не удалось загрузить сценарий: ${String(error)}`))
+        .finally(() => {
+          upload.value = "";
+        });
+    });
 
     const issues = deps.validate(doc);
     const status = h(
@@ -1052,6 +1144,8 @@ export function mountBuilder(host: HTMLElement, deps: BuilderDeps): BuilderHandl
         deps.remove(doc.id);
         render();
       }),
+      mk("Загрузить JSON", () => upload.click()),
+      upload,
       mk("Выгрузить JSON", () => deps.download(`${doc.id}.json`, JSON.stringify(doc, null, 2))),
       runButton,
       status,

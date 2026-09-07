@@ -340,7 +340,11 @@ function toSpec(
  */
 function endPolicy(section: Section, end: Termination): TerminationPolicy {
   const policy = terminationOf(end);
-  if (section.repeat !== false) return policy;
+  // Обучение по умолчанию — один ознакомительный проход. Критерий допуска всё
+  // равно записывается в журнал, но не заставляет участника снова проходить уже
+  // показанные задачи. Повторы включаются только явным `repeat: true`.
+  const repeats = section.repeat ?? !section.training;
+  if (repeats) return policy;
   // Проход — это по разу на каждый объявленный модуль: у ротации из двух задач
   // один проход честно означает два прогона, а не один.
   return firstOf(byRuns(section.games.length), policy);

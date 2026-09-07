@@ -270,19 +270,6 @@ body {
   color: var(--text);
   cursor: pointer;
 }
-/* Ссылка на прежнюю витрину: под списком модулей, не мешает выбору. */
-.catalog-link {
-  display: block;
-  margin: 12px 0 0;
-  padding: 10px 12px;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 13px;
-}
-.catalog-link:hover { border-color: var(--accent); color: var(--text); }
-.catalog-link small { display: block; font-size: 11px; }
 
 .game-item:hover { border-color: var(--border); }
 .game-item.is-active { border-color: var(--accent); }
@@ -590,7 +577,7 @@ select, input[type="range"], input[type="number"] {
 .gs-banner.is-interruption { color: var(--bad); font-weight: 600; }
 .gs-slot { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .gs-slot-stats { display: flex; gap: 12px; color: var(--muted); font-size: 12px; }
-.gs-slot-task { color: var(--muted); font-size: 12px; text-align: center; }
+.gs-slot-task { color: var(--text); font-size: 13px; font-weight: 500; text-align: center; }
 
 .keycast { display: flex; gap: 6px; min-height: 28px; align-items: center; }
 .keycast kbd {
@@ -632,6 +619,28 @@ select, input[type="range"], input[type="number"] {
   background: rgba(63, 185, 80, 0.08);
   text-align: center;
 }
+
+.desktop-checks {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.desktop-check {
+  margin: 7px 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.desktop-check.is-ok { color: var(--ok); }
+.desktop-check.is-bad { color: var(--bad); }
+.desktop-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+#sessionPath { margin: 12px 0; overflow-wrap: anywhere; }
 
 /* Последним правилом и с запасом: `hidden` обязан выключать элемент при любом
    `display` из класса. Иначе «скрытый» узел остаётся на мониторе — так отбивка

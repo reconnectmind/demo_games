@@ -88,7 +88,7 @@ export class SessionRunner {
       ...(this.opts.policyFor ? { policyFor: (id: string) => this.policyFor(id)! } : {}),
       onDone: (records) => {
         this.opts.onSectionEnd?.(section, records);
-        this.advance();
+        if (!this.done) this.advance();
       },
     });
     this.opts.onSectionStart?.(section, this.index);
@@ -101,6 +101,10 @@ export class SessionRunner {
 
   resume(): void {
     this.runner?.resume();
+  }
+
+  note(type: string, payload: import("@gamespace/core").Json): void {
+    this.runner?.note(type, payload);
   }
 
   /** Аварийное завершение: текущий участок закрывается, остальные не запускаются. */
