@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0715" />
+    <title>Campfire in the wind</title>
+    <link rel="stylesheet" href="./assets/campfire.css" />
+  </head>
+  <body>
+    <main class="stage">
+      <div class="scene-frame">
+        <canvas id="scene"></canvas>
+
+        <section class="control wind" aria-label="Wind strength">
+          <div class="control-head">
+            <label for="wind">Wind</label>
+            <output id="wind-out">—</output>
+          </div>
+          <input type="range" id="wind" min="0" max="100" step="1" value="18" />
+        </section>
+
+        <section class="control fire" aria-label="Fire intensity">
+          <div class="control-head">
+            <label for="fire">Fire</label>
+            <output id="fire-out">—</output>
+          </div>
+          <input type="range" id="fire" min="0" max="100" step="1" value="55" />
+        </section>
+
+        <div class="game-title" aria-hidden="true">
+          <span>Campfire</span>
+          <small>in the wind</small>
+        </div>
+      </div>
+    </main>
+
+    <script src="./assets/core.js"></script>
+    <script src="./assets/signal.js"></script>
+    <script src="./assets/scene.js"></script>
+    <script src="./assets/flame.js"></script>
+    <script src="./assets/prune.js"></script>
+    <script src="./assets/debris.js"></script>
+    <script src="./assets/main.js"></script>
+  </body>
+</html>

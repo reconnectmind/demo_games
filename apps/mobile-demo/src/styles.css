@@ -810,6 +810,1088 @@ button:focus-visible {
   transform: translate(-50%, 0);
 }
 
+/* Experience chooser */
+
+.screen-start {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 35%),
+    var(--phone);
+}
+
+.choice-header {
+  padding: 1.1rem 1.45rem 0.8rem;
+}
+
+.choice-header > span {
+  display: block;
+  margin-top: 2.3rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 580;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.choice-header h1 {
+  margin: 0.55rem 0 0;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 2rem;
+  font-weight: 450;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.choice-header p {
+  max-width: 19rem;
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.choice-main {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  gap: 0.8rem;
+  padding: 0.65rem 1.25rem 1.25rem;
+}
+
+.experience-card {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  color: var(--text);
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.experience-card:hover {
+  border-color: rgba(229, 233, 239, 0.2);
+  transform: translateY(-2px);
+}
+
+.experience-index {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experience-title {
+  margin-top: 0.3rem;
+  font-size: 1.2rem;
+  font-weight: 540;
+  letter-spacing: -0.025em;
+}
+
+.experience-copy {
+  z-index: 1;
+  max-width: 13rem;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.experience-action {
+  display: flex;
+  z-index: 1;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: auto;
+  font-size: 0.78rem;
+  font-weight: 580;
+}
+
+.experience-action .icon {
+  width: 1rem;
+}
+
+.experience-art {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.85rem;
+  width: 7.2rem;
+  height: 6.5rem;
+  pointer-events: none;
+}
+
+.precision-art {
+  display: grid;
+  place-items: center;
+}
+
+.precision-art i {
+  position: absolute;
+  border: 1px solid rgba(85, 221, 176, 0.22);
+  border-radius: 50%;
+}
+
+.precision-art i:nth-child(1) {
+  width: 5.6rem;
+  height: 5.6rem;
+  border-right-color: var(--mint);
+}
+
+.precision-art i:nth-child(2) {
+  width: 3.8rem;
+  height: 3.8rem;
+}
+
+.precision-art i:nth-child(3) {
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 0;
+  background: var(--mint);
+}
+
+.experience-ember {
+  border-color: rgba(224, 167, 106, 0.16);
+  background: #171017;
+}
+
+.experience-ember .experience-index,
+.experience-ember .experience-action {
+  color: #e0a76a;
+}
+
+.experience-ember .experience-title {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 480;
+}
+
+.ember-art {
+  overflow: hidden;
+  border-radius: 0.8rem;
+  background: #35101b;
+}
+
+.ember-art::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1.35rem;
+  background: #16070d;
+  content: "";
+}
+
+.ember-moon {
+  position: absolute;
+  top: 0.8rem;
+  right: 1rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: #c7afa7;
+}
+
+.ember-wind-line {
+  position: absolute;
+  left: -0.7rem;
+  width: 5.8rem;
+  height: 1rem;
+  border-top: 1px solid rgba(143, 199, 212, 0.18);
+  border-radius: 50%;
+  transform: rotate(-5deg);
+}
+
+.ember-wind-line.one {
+  top: 1.8rem;
+}
+
+.ember-wind-line.two {
+  top: 3.25rem;
+  left: 1.1rem;
+}
+
+.ember-flame,
+.sky-flame,
+.weather-flame {
+  position: absolute;
+  z-index: 2;
+  bottom: 1rem;
+  left: 50%;
+  width: 1.2rem;
+  height: 3.7rem;
+  border-radius: 65% 35% 58% 42% / 78% 52% 48% 22%;
+  background: #efa95e;
+  transform: translateX(-50%) rotate(5deg);
+  transform-origin: 50% 100%;
+}
+
+/* Ember visual system */
+
+.is-ember-phone {
+  border-color: rgba(224, 167, 106, 0.16);
+  background: #0d090e;
+}
+
+.is-ember {
+  --ember-bg: #0d090e;
+  --ember-surface: #171117;
+  --ember-raised: #1d151d;
+  --ember-line: rgba(235, 216, 207, 0.09);
+  --ember-text: #f0e7e3;
+  --ember-muted: #aa9ba7;
+  --ember-fire: #e0a76a;
+  --ember-fire-bright: #f1b96f;
+  --ember-wind: #8fc7d4;
+  color: var(--ember-text);
+  background: var(--ember-bg);
+}
+
+.is-ember .status-bar {
+  color: rgba(240, 231, 227, 0.86);
+}
+
+.ember-app-header,
+.ember-today-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.45rem;
+}
+
+.ember-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ember-brand > .icon {
+  width: 1.15rem;
+  color: var(--ember-fire);
+  stroke-width: 1.5;
+}
+
+.ember-brand span {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.ember-brand b {
+  font-size: 0.82rem;
+  font-weight: 550;
+}
+
+.ember-brand small,
+.ember-phase {
+  color: var(--ember-muted);
+  font-size: 0.62rem;
+  font-weight: 540;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.ember-connect-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0.65rem 1.35rem 1rem;
+}
+
+.ember-sky {
+  position: relative;
+  height: 16rem;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--ember-line);
+  border-radius: 1.2rem;
+  background: linear-gradient(180deg, #260d19 0%, #4b1421 72%, #1b0910 72%);
+}
+
+.ember-detailed-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: detailed-flame-breathe 4.8s ease-in-out infinite;
+  object-fit: cover;
+  object-position: 50% 66%;
+  transform-origin: 50% 78%;
+}
+
+@keyframes detailed-flame-breathe {
+  50% {
+    filter: brightness(1.045) saturate(1.06);
+    transform: scale(1.018) translateY(-1px);
+  }
+}
+
+.sky-moon,
+.weather-moon {
+  position: absolute;
+  top: 1.5rem;
+  right: 2.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #c7afa7;
+}
+
+.sky-wind,
+.weather-wind {
+  position: absolute;
+  left: -2rem;
+  width: 20rem;
+  height: 2.5rem;
+  border-top: 1px solid rgba(143, 199, 212, 0.13);
+  border-radius: 50%;
+  transform: rotate(-4deg);
+}
+
+.wind-a {
+  top: 4.2rem;
+}
+
+.wind-b {
+  top: 7.4rem;
+  left: 2rem;
+}
+
+.wind-c {
+  top: 9.2rem;
+  left: -5rem;
+}
+
+.sky-leaf {
+  position: absolute;
+  z-index: 2;
+  width: 0.42rem;
+  height: 0.18rem;
+  border-radius: 100% 0 100% 0;
+  background: #18070d;
+  transform: rotate(24deg);
+  animation: leaf-drift 7s ease-in-out infinite;
+}
+
+.leaf-a {
+  top: 7rem;
+  left: 4rem;
+}
+
+.leaf-b {
+  top: 5.3rem;
+  right: 4.5rem;
+  animation-delay: -3.5s;
+}
+
+@keyframes leaf-drift {
+  50% {
+    translate: 2.5rem 0.8rem;
+    rotate: 120deg;
+  }
+}
+
+.sky-flame {
+  bottom: 1.2rem;
+  width: 2.15rem;
+  height: 7.8rem;
+  animation: ember-breathe 3.4s ease-in-out infinite;
+}
+
+.sky-flame::after,
+.weather-flame::after {
+  position: absolute;
+  right: 28%;
+  bottom: 0;
+  left: 28%;
+  height: 48%;
+  border-radius: 70% 30% 55% 45%;
+  background: #f7c77d;
+  content: "";
+}
+
+@keyframes ember-breathe {
+  50% {
+    scale: 0.9 1.07;
+    rotate: -3deg;
+  }
+}
+
+.sky-ground {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 0.92rem;
+  left: 0;
+  height: 0.55rem;
+  background: #10060b;
+  clip-path: polygon(20% 100%, 43% 10%, 50% 75%, 58% 5%, 80% 100%);
+}
+
+.ember-connect-copy {
+  padding: 1.1rem 0.2rem 0.85rem;
+}
+
+.ember-connect-copy > span,
+.ember-title-header > span {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ember-wind);
+  font-size: 0.66rem;
+  font-weight: 570;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ember-connect-copy > span .icon {
+  width: 1rem;
+}
+
+.ember-connect-copy h1,
+.ember-title-header h1,
+.ember-today-header h1,
+.ember-score-caption h2,
+.weather-summary h2 {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-weight: 450;
+  letter-spacing: -0.035em;
+}
+
+.ember-connect-copy h1 {
+  margin: 0.4rem 0 0;
+  font-size: 1.65rem;
+}
+
+.ember-connect-copy p {
+  max-width: 19rem;
+  margin: 0.3rem 0 0;
+  color: var(--ember-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.ember-device-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding: 0.8rem;
+  border-top: 1px solid var(--ember-line);
+  border-bottom: 1px solid var(--ember-line);
+}
+
+.ember-device-mark,
+.ember-check {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ember-wind);
+  background: rgba(143, 199, 212, 0.08);
+}
+
+.ember-device-mark .icon,
+.ember-check .icon {
+  width: 1rem;
+}
+
+.ember-device-card b,
+.ember-device-card small {
+  display: block;
+}
+
+.ember-device-card b {
+  font-size: 0.76rem;
+  font-weight: 550;
+}
+
+.ember-device-card small {
+  margin-top: 0.15rem;
+  color: var(--ember-muted);
+  font-size: 0.67rem;
+}
+
+.ember-check {
+  width: 1.65rem;
+  height: 1.65rem;
+  color: var(--ember-fire);
+  background: rgba(224, 167, 106, 0.08);
+}
+
+.ember-footer .text-button {
+  color: var(--ember-muted);
+}
+
+.ember-primary,
+.ember-outline {
+  display: flex;
+  min-height: 3.35rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 590;
+  cursor: pointer;
+}
+
+.ember-primary {
+  border: 0;
+  color: #21130c;
+  background: var(--ember-fire);
+}
+
+.ember-primary:hover {
+  background: var(--ember-fire-bright);
+}
+
+.ember-outline {
+  border: 1px solid rgba(224, 167, 106, 0.34);
+  color: var(--ember-fire-bright);
+  background: transparent;
+}
+
+.ember-primary .icon,
+.ember-outline .icon {
+  width: 1rem;
+}
+
+.ember-title-header {
+  padding: 1rem 1.45rem 0;
+}
+
+.ember-title-header h1 {
+  margin: 0.35rem 0 0;
+  font-size: 1.65rem;
+}
+
+.ember-baseline-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0.85rem 1.35rem;
+}
+
+.ember-score-wrap {
+  position: relative;
+  width: 10rem;
+  margin: 0 auto;
+}
+
+.is-ember .score-ring {
+  width: 9.6rem;
+  height: 9.6rem;
+  margin: 0 auto;
+}
+
+.is-ember .score-track {
+  stroke: #251721;
+}
+
+.is-ember .score-progress {
+  stroke: var(--ember-fire);
+  filter: none;
+}
+
+.is-ember .score-ring span {
+  color: var(--ember-muted);
+}
+
+.score-wind-line {
+  position: absolute;
+  z-index: 2;
+  top: 2.1rem;
+  right: -2.4rem;
+  width: 5rem;
+  height: 2rem;
+  border-top: 1px solid rgba(143, 199, 212, 0.2);
+  border-radius: 50%;
+}
+
+.score-leaf {
+  position: absolute;
+  z-index: 2;
+  top: 2.5rem;
+  right: -0.15rem;
+  width: 0.5rem;
+  height: 0.2rem;
+  border-radius: 100% 0 100% 0;
+  background: var(--ember-fire);
+  rotate: 25deg;
+}
+
+.ember-score-caption {
+  margin-top: 0.35rem;
+  text-align: center;
+}
+
+.ember-score-caption h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.ember-score-caption p {
+  margin: 0.2rem 0 0;
+  color: var(--ember-muted);
+  font-size: 0.72rem;
+}
+
+.ember-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 1rem;
+  border-top: 1px solid var(--ember-line);
+  border-bottom: 1px solid var(--ember-line);
+}
+
+.ember-metrics article {
+  display: flex;
+  min-height: 4rem;
+  flex-direction: column-reverse;
+  justify-content: center;
+  padding: 0.65rem;
+  border-right: 1px solid var(--ember-line);
+}
+
+.ember-metrics article:last-child {
+  border-right: 0;
+}
+
+.ember-metrics span {
+  margin-top: 0.15rem;
+  color: var(--ember-muted);
+  font-size: 0.62rem;
+}
+
+.ember-metrics strong {
+  font-family: "Newsreader Variable", Georgia, serif;
+  color: var(--ember-fire);
+  font-size: 1.35rem;
+  font-weight: 480;
+}
+
+.ember-metrics article:nth-child(2) strong {
+  color: var(--ember-wind);
+}
+
+.ember-insight {
+  display: grid;
+  flex: 1;
+  min-height: 7.5rem;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.85rem;
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--ember-line);
+  border-radius: 1rem;
+  background: var(--ember-surface);
+}
+
+.ember-insight > span {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ember-fire);
+  background: rgba(224, 167, 106, 0.08);
+}
+
+.ember-insight .icon {
+  width: 1rem;
+}
+
+.ember-insight b {
+  color: var(--ember-fire);
+  font-size: 0.66rem;
+  font-weight: 590;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ember-insight p {
+  margin: 0.35rem 0 0;
+  color: var(--ember-text);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.ember-today-header {
+  display: grid;
+  min-height: 5.8rem;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  border-bottom: 1px solid var(--ember-line);
+  background: var(--ember-surface);
+}
+
+.ember-today-header .ember-brand {
+  grid-column: 1 / -1;
+  margin-bottom: 0.5rem;
+}
+
+.ember-today-header > div:last-child {
+  grid-column: 1 / -1;
+}
+
+.ember-today-header span {
+  color: var(--ember-muted);
+  font-size: 0.68rem;
+}
+
+.ember-today-header h1 {
+  margin: 0.1rem 0 0;
+  font-size: 1.35rem;
+}
+
+.ember-today-main {
+  flex: 1;
+  min-height: 0;
+  padding: 0.95rem 1.25rem;
+}
+
+.weather-hero {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: 1.08fr 0.92fr;
+  border: 1px solid var(--ember-line);
+  border-radius: 1.15rem;
+  background: var(--ember-surface);
+}
+
+.weather-scene {
+  position: relative;
+  min-height: 14.5rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #290e1a 0%, #561725 73%, #1c0911 73%);
+}
+
+.weather-scene .ember-detailed-art {
+  object-position: 50% 58%;
+}
+
+.weather-moon {
+  top: 1.2rem;
+  right: 1.3rem;
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.weather-wind {
+  left: -4rem;
+  width: 15rem;
+}
+
+.weather-wind.one {
+  top: 4.2rem;
+}
+
+.weather-wind.two {
+  top: 6.8rem;
+  left: -1rem;
+}
+
+.weather-wind.three {
+  top: 8.3rem;
+  left: -5rem;
+}
+
+.weather-flame {
+  bottom: 1.35rem;
+  width: 1.45rem;
+  height: 5.4rem;
+  animation: ember-breathe 3.2s ease-in-out infinite;
+}
+
+.weather-log {
+  position: absolute;
+  z-index: 3;
+  bottom: 1.05rem;
+  left: 50%;
+  width: 3.2rem;
+  height: 0.38rem;
+  border-radius: 99px;
+  background: #0c0408;
+  transform-origin: 50% 50%;
+}
+
+.log-left {
+  transform: translateX(-60%) rotate(-27deg);
+}
+
+.log-right {
+  transform: translateX(-40%) rotate(27deg);
+}
+
+.weather-horizon {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1rem;
+  background: #14070d;
+}
+
+.weather-summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1rem 0.9rem 1.1rem;
+}
+
+.weather-summary > span {
+  color: var(--ember-wind);
+  font-size: 0.62rem;
+  font-weight: 590;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.weather-summary h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.55rem;
+}
+
+.weather-summary p {
+  margin: 0.3rem 0 0;
+  color: var(--ember-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.weather-readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--ember-line);
+  border-bottom: 1px solid var(--ember-line);
+}
+
+.weather-readouts article {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.65rem;
+  color: var(--ember-wind);
+}
+
+.weather-readouts article + article {
+  border-left: 1px solid var(--ember-line);
+  color: var(--ember-fire);
+}
+
+.weather-readouts .icon {
+  width: 1.15rem;
+}
+
+.weather-readouts span,
+.weather-readouts b {
+  display: block;
+}
+
+.weather-readouts span {
+  color: var(--ember-muted);
+  font-size: 0.62rem;
+}
+
+.weather-readouts b {
+  margin-top: 0.08rem;
+  color: var(--ember-text);
+  font-size: 0.78rem;
+  font-weight: 550;
+}
+
+.campfire-launch {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(224, 167, 106, 0.22);
+  border-radius: 1rem;
+  color: var(--ember-text);
+  background: var(--ember-raised);
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.campfire-launch:hover {
+  border-color: rgba(224, 167, 106, 0.42);
+  background: #211720;
+}
+
+.campfire-launch:focus-visible {
+  outline: 2px solid var(--ember-fire);
+  outline-offset: 3px;
+}
+
+.campfire-launch-icon {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ember-fire);
+  background: rgba(224, 167, 106, 0.08);
+}
+
+.campfire-launch-icon .icon {
+  width: 1.2rem;
+}
+
+.campfire-launch small,
+.campfire-launch b,
+.campfire-launch em {
+  display: block;
+}
+
+.campfire-launch small {
+  color: var(--ember-fire);
+  font-size: 0.6rem;
+  font-style: normal;
+  font-weight: 590;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.campfire-launch b {
+  margin-top: 0.18rem;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.campfire-launch em {
+  margin-top: 0.12rem;
+  color: var(--ember-muted);
+  font-size: 0.64rem;
+  font-style: normal;
+}
+
+.campfire-launch > .icon {
+  width: 1rem;
+  color: var(--ember-fire);
+}
+
+.ember-game {
+  background: #0a0715;
+}
+
+.ember-game-header {
+  display: grid;
+  min-height: 4.25rem;
+  grid-template-columns: 2.4rem 1fr 2.4rem;
+  align-items: center;
+  gap: 0.7rem;
+  padding:
+    calc(0.55rem + env(safe-area-inset-top))
+    0.9rem
+    0.55rem;
+  border-bottom: 1px solid var(--ember-line);
+  background: #110c14;
+}
+
+.ember-game-header > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.ember-game-header b {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.ember-game-header span,
+.ember-game-header small {
+  color: var(--ember-muted);
+  font-size: 0.58rem;
+  font-weight: 570;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ember-game-header small {
+  justify-self: end;
+  color: var(--ember-fire);
+}
+
+.ember-back {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border: 1px solid var(--ember-line);
+  border-radius: 50%;
+  color: var(--ember-text);
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+}
+
+.ember-back .icon {
+  width: 1rem;
+  transform: rotate(180deg);
+}
+
+.ember-game-frame {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: #0a0715;
+}
+
+.ember-nav {
+  border-color: var(--ember-line);
+  background: var(--ember-surface);
+}
+
+.ember-nav button {
+  color: #716773;
+}
+
+.ember-nav button.is-active {
+  color: var(--ember-fire);
+}
+
+.ember-nav button.is-active::after {
+  background: var(--ember-fire);
+}
+
+.is-ember-switcher button.is-active {
+  color: #21130c;
+  background: #e0a76a;
+}
+
+.demo-switcher .style-return {
+  width: 1.85rem;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
 @media (max-width: 520px) {
   body {
     background: var(--phone);
@@ -884,6 +1966,60 @@ button:focus-visible {
 
   .today-main {
     padding-top: 0.85rem;
+  }
+
+  .choice-header > span {
+    margin-top: 0.8rem;
+  }
+
+  .choice-header h1 {
+    font-size: 1.7rem;
+  }
+
+  .choice-main {
+    gap: 0.6rem;
+  }
+
+  .experience-card {
+    padding: 0.9rem;
+  }
+
+  .ember-sky {
+    height: 11.5rem;
+  }
+
+  .ember-connect-copy {
+    padding-block: 0.7rem;
+  }
+
+  .ember-connect-copy h1 {
+    font-size: 1.4rem;
+  }
+
+  .is-ember .score-ring {
+    width: 7.5rem;
+    height: 7.5rem;
+  }
+
+  .ember-score-wrap {
+    width: 8rem;
+  }
+
+  .ember-metrics {
+    margin-top: 0.65rem;
+  }
+
+  .ember-insight {
+    min-height: 6rem;
+    margin-top: 0.65rem;
+  }
+
+  .weather-scene {
+    min-height: 11.5rem;
+  }
+
+  .weather-hero {
+    grid-template-columns: 1fr 1fr;
   }
 }
 

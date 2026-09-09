@@ -1,0 +1,222 @@
+:root {
+  color-scheme: dark;
+  font-family: "Helvetica Neue", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --text: #f4eceb;
+  --dim: rgba(244, 236, 235, 0.62);
+  --wind: #8fd7f7;
+  --fire: #ffb14d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+.stage,
+.scene-frame {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  color: var(--text);
+  background: #0a0715;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stage {
+  position: relative;
+}
+
+.scene-frame {
+  position: relative;
+  overflow: hidden;
+}
+
+.scene-frame::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: min(13rem, 30vh);
+  background: linear-gradient(180deg, rgba(7, 4, 13, 0.58), transparent);
+  content: "";
+  pointer-events: none;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.control {
+  position: absolute;
+  z-index: 2;
+  top: max(1.25rem, env(safe-area-inset-top));
+  width: min(18rem, 38vw);
+  padding: 0.35rem 0.15rem;
+}
+
+.control.wind {
+  left: max(1.25rem, env(safe-area-inset-left));
+}
+
+.control.fire {
+  right: max(1.25rem, env(safe-area-inset-right));
+}
+
+.control-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.control-head label {
+  color: var(--dim);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.control-head output {
+  color: var(--wind);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+}
+
+.control.fire output {
+  color: var(--fire);
+}
+
+input[type="range"] {
+  --fill: 50%;
+  --accent: var(--wind);
+  width: 100%;
+  height: 1.6rem;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.control.fire input[type="range"] {
+  --accent: var(--fire);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0 var(--fill),
+    rgba(255, 255, 255, 0.2) var(--fill) 100%
+  );
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.44rem;
+  border: 2px solid rgba(255, 255, 255, 0.84);
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--accent);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+input[type="range"]::-moz-range-progress {
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.84);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+input[type="range"]:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 0.2rem;
+  border-radius: 999px;
+}
+
+.game-title {
+  position: absolute;
+  z-index: 2;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  left: 50%;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  opacity: 0.54;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.game-title span {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.9rem;
+}
+
+.game-title small {
+  color: var(--dim);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 560px) {
+  .control {
+    top: max(0.8rem, env(safe-area-inset-top));
+    width: calc(50vw - 1.35rem);
+  }
+
+  .control.wind {
+    left: max(0.8rem, env(safe-area-inset-left));
+  }
+
+  .control.fire {
+    right: max(0.8rem, env(safe-area-inset-right));
+  }
+
+  .control-head label {
+    font-size: 0.6rem;
+  }
+
+  .control-head output {
+    font-size: 0.68rem;
+  }
+
+  .game-title {
+    bottom: max(0.8rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  input[type="range"] {
+    scroll-behavior: auto;
+  }
+}
