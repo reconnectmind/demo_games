@@ -2331,7 +2331,7 @@ button:focus-visible {
 
 .ritual-fire-card {
   position: relative;
-  min-height: 19rem;
+  min-height: 16.8rem;
   margin-top: 1.15rem;
   overflow: hidden;
   color: #eee5d0;
@@ -2577,10 +2577,15 @@ button:focus-visible {
 .is-ritual::after {
   position: absolute;
   z-index: -1;
-  inset: 0.7rem;
-  border: 1px solid rgba(173, 64, 85, 0.1);
+  top: 6.8rem;
+  right: -4.5rem;
+  width: 24rem;
+  height: 8rem;
+  border-top: 1px solid rgba(173, 64, 85, 0.13);
+  border-radius: 50%;
   content: "";
   pointer-events: none;
+  transform: rotate(-7deg);
 }
 
 .is-ritual .status-bar {
@@ -2592,8 +2597,21 @@ button:focus-visible {
 }
 
 .ritual-header {
-  border-color: rgba(173, 64, 85, 0.24);
+  position: relative;
+  border: 0;
   background: rgba(10, 12, 20, 0.42);
+}
+
+.ritual-header::after {
+  position: absolute;
+  right: -8%;
+  bottom: -0.5rem;
+  width: 78%;
+  height: 1rem;
+  border-top: 1px solid rgba(173, 64, 85, 0.26);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-1.5deg);
 }
 
 .ritual-header > span {
@@ -2602,9 +2620,11 @@ button:focus-visible {
 
 .ritual-brand > span {
   border: 1px solid rgba(221, 208, 202, 0.55);
+  border-radius: 58% 42% 53% 47% / 43% 59% 41% 57%;
   color: #e8d9d2;
   background: #8f3047;
   box-shadow: inset 0 0 0 3px #8f3047, inset 0 0 0 4px rgba(232, 217, 210, 0.25);
+  transform: rotate(-4deg);
 }
 
 .ritual-brand b {
@@ -2778,15 +2798,30 @@ button:focus-visible {
 .ritual-device {
   position: relative;
   z-index: 4;
-  border-color: rgba(178, 120, 132, 0.25);
-  background: rgba(13, 15, 25, 0.72);
-  backdrop-filter: blur(0.55rem);
+  padding-inline: 0.25rem;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.ritual-device::before {
+  position: absolute;
+  top: -0.3rem;
+  left: -3%;
+  width: 86%;
+  height: 0.9rem;
+  border-top: 1px solid rgba(178, 120, 132, 0.3);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-1deg);
 }
 
 .ritual-device > span {
   border: 1px solid rgba(220, 194, 191, 0.35);
+  border-radius: 61% 39% 56% 44% / 46% 62% 38% 54%;
   color: #e2d3cd;
   background: #8f3047;
+  transform: rotate(-5deg);
 }
 
 .ritual-device b {
@@ -2806,6 +2841,7 @@ button:focus-visible {
 
 .ritual-button {
   border: 1px solid rgba(211, 158, 164, 0.38);
+  border-radius: 3rem 1.2rem 3.2rem 1rem / 1.15rem 2.4rem 1.1rem 2.5rem;
   color: #eadbd4;
   background:
     linear-gradient(90deg, rgba(173, 64, 85, 0.94), rgba(95, 37, 61, 0.94)),
@@ -2840,14 +2876,27 @@ button:focus-visible {
 .ritual-reading {
   position: relative;
   z-index: 2;
-  border-color: rgba(190, 122, 136, 0.48);
-  background: rgba(12, 14, 23, 0.76);
-  box-shadow: 0 1.4rem 2.8rem rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(0.45rem);
+  padding-block: 0.45rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.ritual-reading::before {
+  position: absolute;
+  top: 0;
+  left: -4%;
+  width: 93%;
+  height: 1.2rem;
+  border-top: 1px solid rgba(190, 122, 136, 0.5);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(0.8deg);
 }
 
 .ritual-reading-primary {
-  border-color: var(--ritual-line);
+  border: 0;
 }
 
 .ritual-reading span {
@@ -2864,21 +2913,55 @@ button:focus-visible {
 }
 
 .ritual-reading-secondary article + article {
-  border-color: var(--ritual-line);
+  position: relative;
+  border: 0;
+}
+
+.ritual-reading-secondary article + article::before {
+  position: absolute;
+  top: 0;
+  left: -8%;
+  width: 106%;
+  height: 0.8rem;
+  border-top: 1px solid rgba(196, 165, 170, 0.14);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-2deg);
 }
 
 .ritual-reading-secondary i {
-  background: rgba(218, 199, 196, 0.12);
+  height: 0.5rem;
+  overflow: visible;
+  border-top: 1px solid rgba(218, 199, 196, 0.15);
+  border-radius: 50%;
+  background: transparent;
+  transform: rotate(-2deg);
 }
 
 .ritual-reading-secondary em {
-  background: linear-gradient(90deg, #7e3148, #bd596a);
+  height: 0.38rem;
+  border-top: 1px solid #bd596a;
+  border-radius: 50%;
+  background: transparent;
+  transform: translateY(-1px) rotate(3deg);
 }
 
 .ritual-baseline blockquote {
   z-index: 2;
-  border-color: rgba(177, 109, 124, 0.24);
+  border: 0;
   color: #c0aeb0;
+}
+
+.ritual-baseline blockquote::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 68%;
+  height: 0.8rem;
+  border-top: 1px solid rgba(177, 109, 124, 0.26);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-1.5deg);
 }
 
 .ritual-today-main h1 {
@@ -2886,7 +2969,9 @@ button:focus-visible {
 }
 
 .ritual-fire-card {
-  border: 1px solid rgba(188, 90, 108, 0.35);
+  overflow: hidden;
+  border: 0;
+  border-radius: 3.8rem 1.25rem 4.4rem 1.4rem / 1.4rem 3.9rem 1.3rem 4.2rem;
   background: #0d1019;
   box-shadow: 0 1.6rem 3rem rgba(0, 0, 0, 0.24);
 }
@@ -2902,17 +2987,23 @@ button:focus-visible {
 }
 
 .ritual-fire-card::before {
-  top: 0.65rem;
-  left: 0.65rem;
-  border-top: 1px solid #b34b61;
-  border-left: 1px solid #b34b61;
+  top: 0.55rem;
+  left: 1.3rem;
+  width: 7.5rem;
+  height: 1.5rem;
+  border-top: 1px solid rgba(179, 75, 97, 0.72);
+  border-radius: 50%;
+  transform: rotate(3deg);
 }
 
 .ritual-fire-card::after {
-  right: 0.65rem;
-  bottom: 0.65rem;
-  border-right: 1px solid #b34b61;
-  border-bottom: 1px solid #b34b61;
+  right: 0.8rem;
+  bottom: 0.5rem;
+  width: 8.5rem;
+  height: 1.5rem;
+  border-bottom: 1px solid rgba(179, 75, 97, 0.72);
+  border-radius: 50%;
+  transform: rotate(-4deg);
 }
 
 .ritual-fire-card-shade {
@@ -2968,7 +3059,9 @@ button:focus-visible {
 
 .ritual-fire-card-copy em {
   border-color: rgba(208, 158, 164, 0.52);
+  border-radius: 57% 43% 61% 39% / 42% 58% 42% 58%;
   background: rgba(97, 31, 53, 0.45);
+  transform: rotate(5deg);
 }
 
 .ritual-today-reading {
@@ -2984,8 +3077,21 @@ button:focus-visible {
 }
 
 .ritual-nav {
-  border-color: rgba(173, 64, 85, 0.25);
+  position: relative;
+  border: 0;
   background: rgba(12, 14, 23, 0.98);
+}
+
+.ritual-nav::before {
+  position: absolute;
+  top: -0.45rem;
+  left: 7%;
+  width: 72%;
+  height: 0.9rem;
+  border-top: 1px solid rgba(173, 64, 85, 0.28);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(1deg);
 }
 
 .ritual-nav button {
@@ -2997,14 +3103,31 @@ button:focus-visible {
 }
 
 .ritual-nav button.is-active i {
-  background: #b8495f;
+  height: 0.55rem;
+  border-top: 1px solid #b8495f;
+  border-radius: 50%;
+  background: transparent;
+  transform: translateX(-50%) rotate(-4deg);
 }
 
 .ritual-game-header {
-  border-color: rgba(173, 64, 85, 0.3);
+  position: relative;
+  border: 0;
   background:
     linear-gradient(90deg, rgba(91, 28, 49, 0.22), transparent 38%),
     #0e111a;
+}
+
+.ritual-game-header::after {
+  position: absolute;
+  right: -3%;
+  bottom: -0.45rem;
+  width: 82%;
+  height: 0.9rem;
+  border-top: 1px solid rgba(173, 64, 85, 0.32);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(-1deg);
 }
 
 .ritual-game-header b {
@@ -3017,6 +3140,8 @@ button:focus-visible {
 
 .ritual-back {
   border-color: rgba(190, 115, 130, 0.34);
+  border-radius: 59% 41% 54% 46% / 43% 61% 39% 57%;
+  transform: rotate(-4deg);
 }
 
 .is-ritual-switcher button.is-active {

@@ -76,8 +76,23 @@ body {
   z-index: 2;
   top: max(1.4rem, env(safe-area-inset-top));
   width: min(16rem, 36vw);
-  padding-left: 0.55rem;
+  padding-left: 0.65rem;
+}
+
+.control::before {
+  position: absolute;
+  top: -0.15rem;
+  bottom: -0.3rem;
+  left: 0;
+  width: 0.8rem;
   border-left: 1px solid rgba(184, 73, 95, 0.5);
+  border-radius: 50%;
+  content: "";
+  transform: rotate(3deg);
+}
+
+.control.fire::before {
+  transform: rotate(-3deg);
 }
 
 .control.wind {
@@ -135,7 +150,9 @@ input[type="range"] {
 
 input[type="range"]::-webkit-slider-runnable-track {
   height: 1px;
+  border-radius: 50%;
   background: linear-gradient(90deg, var(--accent) 0 var(--fill), var(--line) var(--fill) 100%);
+  transform: rotate(-0.7deg);
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -143,7 +160,7 @@ input[type="range"]::-webkit-slider-thumb {
   height: 0.72rem;
   margin-top: -0.34rem;
   border: 1px solid var(--paper);
-  border-radius: 50%;
+  border-radius: 58% 42% 54% 46% / 43% 59% 41% 57%;
   appearance: none;
   -webkit-appearance: none;
   background: var(--accent);
@@ -152,6 +169,7 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-track {
   height: 1px;
   border: 0;
+  border-radius: 50%;
   background: var(--line);
 }
 
@@ -164,7 +182,7 @@ input[type="range"]::-moz-range-thumb {
   width: 0.72rem;
   height: 0.72rem;
   border: 1px solid var(--paper);
-  border-radius: 50%;
+  border-radius: 58% 42% 54% 46% / 43% 59% 41% 57%;
   background: var(--accent);
 }
 
@@ -189,8 +207,11 @@ input[type="range"]:focus-visible {
   width: 1px;
   height: 1.6rem;
   margin-bottom: 0.35rem;
-  background: linear-gradient(180deg, transparent, var(--flame));
+  border-left: 1px solid var(--flame);
+  border-radius: 50%;
+  background: transparent;
   content: "";
+  transform: rotate(7deg);
 }
 
 .game-title span {
