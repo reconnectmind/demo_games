@@ -1,0 +1,244 @@
+:root {
+  color-scheme: dark;
+  font-family: "Helvetica Neue", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --paper: #e5d9d2;
+  --muted: rgba(205, 190, 191, 0.58);
+  --line: rgba(201, 165, 174, 0.22);
+  --breeze: #7893a8;
+  --flame: #b8495f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+.stage,
+.scene-frame {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  color: var(--paper);
+  background: #0d101a;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stage,
+.scene-frame {
+  position: relative;
+}
+
+.scene-frame {
+  overflow: hidden;
+}
+
+.scene-frame::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: min(12rem, 28vh);
+  background:
+    linear-gradient(180deg, rgba(6, 7, 13, 0.7), transparent),
+    linear-gradient(90deg, rgba(99, 27, 51, 0.11), transparent 42%);
+  content: "";
+  pointer-events: none;
+}
+
+.scene-frame::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  opacity: 0.2;
+  background-image:
+    repeating-linear-gradient(92deg, transparent 0 9px, rgba(229, 217, 210, 0.025) 10px),
+    repeating-linear-gradient(4deg, transparent 0 14px, rgba(6, 7, 13, 0.055) 15px);
+  content: "";
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.control {
+  position: absolute;
+  z-index: 2;
+  top: max(1.4rem, env(safe-area-inset-top));
+  width: min(16rem, 36vw);
+  padding-left: 0.55rem;
+  border-left: 1px solid rgba(184, 73, 95, 0.5);
+}
+
+.control.wind {
+  left: max(1.4rem, env(safe-area-inset-left));
+}
+
+.control.fire {
+  right: max(1.4rem, env(safe-area-inset-right));
+}
+
+.control-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.control-head label,
+.control-head output {
+  font-size: 0.62rem;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.control-head label {
+  color: var(--muted);
+  font-weight: 560;
+}
+
+.control-head output {
+  color: var(--breeze);
+  font-variant-numeric: tabular-nums;
+}
+
+.control.fire output {
+  color: var(--flame);
+}
+
+input[type="range"] {
+  --fill: 50%;
+  --accent: var(--breeze);
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.control.fire input[type="range"] {
+  --accent: var(--flame);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent) 0 var(--fill), var(--line) var(--fill) 100%);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 0.72rem;
+  height: 0.72rem;
+  margin-top: -0.34rem;
+  border: 1px solid var(--paper);
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--accent);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 1px;
+  border: 0;
+  background: var(--line);
+}
+
+input[type="range"]::-moz-range-progress {
+  height: 1px;
+  background: var(--accent);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 1px solid var(--paper);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+input[type="range"]:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 0.18rem;
+}
+
+.game-title {
+  position: absolute;
+  z-index: 2;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 0.22rem;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.game-title::before {
+  width: 1px;
+  height: 1.6rem;
+  margin-bottom: 0.35rem;
+  background: linear-gradient(180deg, transparent, var(--flame));
+  content: "";
+}
+
+.game-title span {
+  font-family: Iowan Old Style, "Baskerville", "Times New Roman", serif;
+  font-size: 0.92rem;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 1.4rem #05060a;
+  white-space: nowrap;
+}
+
+.game-title small {
+  color: var(--muted);
+  font-size: 0.5rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.is-preview .control,
+.is-preview .game-title {
+  display: none;
+}
+
+.is-preview .scene-frame::before {
+  height: 28%;
+  opacity: 0.35;
+}
+
+@media (max-width: 560px) {
+  .control {
+    top: max(0.9rem, env(safe-area-inset-top));
+    width: calc(50vw - 1.45rem);
+  }
+
+  .control.wind {
+    left: max(0.9rem, env(safe-area-inset-left));
+  }
+
+  .control.fire {
+    right: max(0.9rem, env(safe-area-inset-right));
+  }
+
+  .control-head label,
+  .control-head output {
+    font-size: 0.55rem;
+  }
+
+  .game-title {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}

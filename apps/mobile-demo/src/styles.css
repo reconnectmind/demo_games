@@ -854,13 +854,14 @@ button:focus-visible {
   flex: 1;
   min-height: 0;
   gap: 0.8rem;
+  overflow-y: auto;
   padding: 0.65rem 1.25rem 1.25rem;
 }
 
 .experience-card {
   position: relative;
   display: flex;
-  min-height: 0;
+  min-height: 11.7rem;
   flex-direction: column;
   overflow: hidden;
   padding: 1.15rem;
@@ -1883,6 +1884,1146 @@ button:focus-visible {
   background: #e0a76a;
 }
 
+/* Ritual visual system */
+
+.experience-ritual {
+  border-color: rgba(238, 229, 208, 0.14);
+  color: #eee5d0;
+  background: #14202a;
+}
+
+.experience-ritual .experience-index,
+.experience-ritual .experience-action {
+  color: #df7459;
+}
+
+.experience-ritual .experience-title {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 470;
+  font-style: italic;
+}
+
+.experience-ritual .experience-copy {
+  color: rgba(238, 229, 208, 0.58);
+}
+
+.ritual-art {
+  overflow: hidden;
+  border: 1px solid rgba(238, 229, 208, 0.07);
+  border-radius: 50% 50% 0.8rem 0.8rem;
+  background: #263640;
+}
+
+.ritual-art::before {
+  position: absolute;
+  right: -1rem;
+  bottom: -0.8rem;
+  left: -1rem;
+  height: 2.2rem;
+  border-radius: 50% 50% 0 0;
+  background: #0d161d;
+  content: "";
+}
+
+.ritual-art-moon {
+  position: absolute;
+  top: 0.75rem;
+  right: 1rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #eee5d0;
+}
+
+.ritual-art-line {
+  position: absolute;
+  top: 2.7rem;
+  left: -0.8rem;
+  width: 5.4rem;
+  height: 1.8rem;
+  border-top: 1px solid rgba(153, 183, 177, 0.42);
+  border-radius: 50%;
+  transform: rotate(-8deg);
+}
+
+.ritual-art-fire {
+  position: absolute;
+  z-index: 2;
+  right: 2.6rem;
+  bottom: 0.8rem;
+  width: 1rem;
+  height: 2.7rem;
+  border-radius: 60% 40% 58% 42% / 76% 52% 48% 24%;
+  background: #df7459;
+  transform: rotate(4deg);
+  transform-origin: 50% 100%;
+  animation: detailed-flame-breathe 2.3s ease-in-out infinite alternate;
+}
+
+.is-ritual-phone {
+  border-color: rgba(29, 42, 42, 0.16);
+  background: #eee6d5;
+}
+
+.is-ritual {
+  --ritual-paper: #eee6d5;
+  --ritual-paper-dark: #e7ddc9;
+  --ritual-ink: #1e2928;
+  --ritual-muted: #70756e;
+  --ritual-line: rgba(30, 41, 40, 0.14);
+  --ritual-teal: #385652;
+  --ritual-fire: #d6644d;
+  isolation: isolate;
+  color: var(--ritual-ink);
+  background:
+    repeating-linear-gradient(96deg, transparent 0 13px, rgba(30, 41, 40, 0.012) 14px),
+    var(--ritual-paper);
+}
+
+.is-ritual .status-bar {
+  color: var(--ritual-ink);
+}
+
+.ritual-header {
+  display: flex;
+  min-height: 4.25rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1.4rem;
+  border-bottom: 1px solid var(--ritual-line);
+}
+
+.ritual-header > span {
+  color: var(--ritual-muted);
+  font-size: 0.58rem;
+  font-weight: 570;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.ritual-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.ritual-brand > span {
+  display: grid;
+  width: 1.85rem;
+  height: 1.85rem;
+  place-items: center;
+  color: var(--ritual-paper);
+  background: var(--ritual-fire);
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1rem;
+  font-style: italic;
+}
+
+.ritual-brand > div {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.ritual-brand b {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 0.88rem;
+  font-weight: 580;
+}
+
+.ritual-brand small {
+  color: var(--ritual-muted);
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ritual-arrival-main,
+.ritual-baseline-main,
+.ritual-today-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.8rem 1.45rem 1.15rem;
+}
+
+.ritual-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--ritual-fire);
+  font-size: 0.6rem;
+  font-weight: 620;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ritual-eyebrow::before {
+  width: 1.25rem;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.is-ritual h1 {
+  margin: 0.75rem 0 0;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 2.65rem;
+  font-weight: 430;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
+}
+
+.is-ritual h1 em {
+  color: var(--ritual-fire);
+  font-weight: inherit;
+}
+
+.ritual-lede {
+  max-width: 19rem;
+  margin: 0.9rem 0 0;
+  color: var(--ritual-muted);
+  font-size: 0.79rem;
+  line-height: 1.55;
+}
+
+.ritual-footer {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem 1.4rem calc(1rem + env(safe-area-inset-bottom));
+}
+
+.ritual-button {
+  display: flex;
+  min-height: 3.45rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.1rem;
+  border: 0;
+  color: var(--ritual-paper);
+  background: var(--ritual-teal);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 580;
+  cursor: pointer;
+}
+
+.ritual-button .icon {
+  width: 1rem;
+}
+
+.ritual-text-button {
+  border: 0;
+  color: var(--ritual-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.66rem;
+  cursor: pointer;
+}
+
+.ritual-signal {
+  position: relative;
+  display: grid;
+  width: 11.5rem;
+  height: 10.5rem;
+  margin: 1.1rem auto 0;
+  place-items: center;
+}
+
+.ritual-signal-orbit {
+  position: absolute;
+  width: 9.8rem;
+  height: 6.2rem;
+  border: 1px solid var(--ritual-line);
+  border-radius: 50%;
+  transform: rotate(-14deg);
+}
+
+.ritual-signal-orbit:nth-child(2) {
+  width: 7.4rem;
+  height: 9.5rem;
+  border-color: rgba(56, 86, 82, 0.22);
+  transform: rotate(39deg);
+}
+
+.ritual-signal-core {
+  display: grid;
+  position: relative;
+  width: 4.4rem;
+  height: 4.4rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ritual-paper);
+  background: var(--ritual-teal);
+}
+
+.ritual-signal-core .icon {
+  width: 1.15rem;
+}
+
+.ritual-signal-core i {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.45rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border: 1px solid var(--ritual-paper);
+  border-radius: 50%;
+  background: var(--ritual-fire);
+}
+
+.ritual-device {
+  display: grid;
+  grid-template-columns: 2.1rem 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--ritual-line);
+  border-bottom: 1px solid var(--ritual-line);
+}
+
+.ritual-device > span {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  color: var(--ritual-paper);
+  background: var(--ritual-fire);
+}
+
+.ritual-device .icon {
+  width: 1rem;
+}
+
+.ritual-device div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.ritual-device b {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 0.88rem;
+  font-weight: 570;
+}
+
+.ritual-device small,
+.ritual-device em {
+  color: var(--ritual-muted);
+  font-size: 0.6rem;
+  font-style: normal;
+}
+
+.ritual-baseline-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.ritual-reading {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  margin-top: 1.4rem;
+  border-top: 1px solid var(--ritual-ink);
+  border-bottom: 1px solid var(--ritual-ink);
+}
+
+.ritual-reading-primary {
+  display: flex;
+  min-height: 10.5rem;
+  flex-direction: column;
+  padding: 0.9rem 0.9rem 0.8rem 0;
+  border-right: 1px solid var(--ritual-line);
+}
+
+.ritual-reading span {
+  color: var(--ritual-muted);
+  font-size: 0.59rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ritual-reading-primary strong {
+  margin-top: auto;
+  color: var(--ritual-teal);
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 4.8rem;
+  font-weight: 420;
+  letter-spacing: -0.08em;
+  line-height: 0.78;
+}
+
+.ritual-reading-primary small {
+  margin-top: 0.65rem;
+  color: var(--ritual-muted);
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 0.68rem;
+  font-style: italic;
+}
+
+.ritual-reading-secondary {
+  display: grid;
+}
+
+.ritual-reading-secondary article {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: center;
+  gap: 0.55rem;
+  padding-left: 0.9rem;
+}
+
+.ritual-reading-secondary article + article {
+  border-top: 1px solid var(--ritual-line);
+}
+
+.ritual-reading-secondary b {
+  color: var(--ritual-teal);
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 540;
+}
+
+.ritual-reading-secondary i {
+  grid-column: 1 / -1;
+  height: 1px;
+  overflow: hidden;
+  background: var(--ritual-line);
+}
+
+.ritual-reading-secondary em {
+  display: block;
+  width: var(--measure);
+  height: 100%;
+  background: var(--ritual-fire);
+}
+
+.ritual-baseline blockquote {
+  position: relative;
+  margin: auto 0 0;
+  padding: 1.2rem 0 0 2rem;
+  border-top: 1px solid var(--ritual-line);
+  color: var(--ritual-teal);
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.ritual-baseline blockquote span {
+  position: absolute;
+  top: 0.75rem;
+  left: 0;
+  color: var(--ritual-fire);
+  font-size: 2.3rem;
+  line-height: 1;
+}
+
+.ritual-today-main {
+  display: flex;
+  flex-direction: column;
+  padding-top: 1.45rem;
+}
+
+.ritual-today-main h1 {
+  font-size: 2.45rem;
+}
+
+.ritual-fire-card {
+  position: relative;
+  min-height: 19rem;
+  margin-top: 1.15rem;
+  overflow: hidden;
+  color: #eee5d0;
+  background: #101722;
+}
+
+.ritual-fire-card iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+
+.ritual-fire-card-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 38%, rgba(7, 11, 15, 0.78) 100%),
+    linear-gradient(90deg, rgba(7, 11, 15, 0.15), transparent 60%);
+}
+
+.ritual-fire-card-action {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ritual-fire-card-copy {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.22rem 0.75rem;
+}
+
+.ritual-fire-card-copy small {
+  grid-column: 1 / -1;
+  color: rgba(238, 229, 208, 0.66);
+  font-size: 0.54rem;
+  font-weight: 580;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.ritual-fire-card-copy b {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 480;
+  font-style: italic;
+}
+
+.ritual-fire-card-copy em {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgba(238, 229, 208, 0.4);
+  border-radius: 50%;
+}
+
+.ritual-fire-card-copy .icon {
+  width: 0.9rem;
+}
+
+.ritual-today-reading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+  color: var(--ritual-muted);
+  font-size: 0.56rem;
+  text-transform: uppercase;
+}
+
+.ritual-today-reading span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.ritual-today-reading b {
+  color: var(--ritual-ink);
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 0.82rem;
+  font-weight: 570;
+  text-transform: none;
+}
+
+.ritual-today-reading i {
+  width: 1px;
+  height: 1.4rem;
+  background: var(--ritual-line);
+}
+
+.ritual-nav {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  min-height: 3.8rem;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--ritual-line);
+  background: var(--ritual-paper-dark);
+}
+
+.ritual-nav button {
+  position: relative;
+  border: 0;
+  color: var(--ritual-muted);
+  background: transparent;
+  font: inherit;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.ritual-nav button.is-active {
+  color: var(--ritual-ink);
+  font-style: italic;
+}
+
+.ritual-nav button.is-active i {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1.7rem;
+  height: 1px;
+  background: var(--ritual-fire);
+  transform: translateX(-50%);
+}
+
+.ritual-game {
+  background: #101722;
+}
+
+.ritual-game-header {
+  display: grid;
+  min-height: 4rem;
+  grid-template-columns: 2.3rem 1fr 2.3rem;
+  align-items: center;
+  gap: 0.7rem;
+  padding:
+    calc(0.5rem + env(safe-area-inset-top))
+    0.85rem
+    0.5rem;
+  border-bottom: 1px solid rgba(238, 229, 208, 0.14);
+  color: #eee5d0;
+  background: #101722;
+}
+
+.ritual-game-header > div {
+  display: grid;
+  justify-items: center;
+  gap: 0.05rem;
+}
+
+.ritual-game-header b {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 480;
+  font-style: italic;
+}
+
+.ritual-game-header span,
+.ritual-game-header small {
+  color: rgba(238, 229, 208, 0.55);
+  font-size: 0.48rem;
+  font-weight: 570;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.ritual-game-header small {
+  justify-self: end;
+  color: #d6644d;
+}
+
+.ritual-back {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid rgba(238, 229, 208, 0.18);
+  border-radius: 50%;
+  color: #eee5d0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ritual-back .icon {
+  width: 0.95rem;
+  transform: rotate(180deg);
+}
+
+.ritual-game-frame {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: #101722;
+}
+
+.is-ritual-switcher button.is-active {
+  color: #eee6d5;
+  background: #385652;
+}
+
+/* Botanical nocturne — original Japanese gothic / dreamlike nature direction */
+
+.is-ritual-phone {
+  border-color: rgba(153, 65, 89, 0.32);
+  background: #11131f;
+}
+
+.is-ritual {
+  --ritual-paper: #ddd0ca;
+  --ritual-paper-dark: #151725;
+  --ritual-ink: #e5d9d2;
+  --ritual-muted: #918d98;
+  --ritual-line: rgba(195, 172, 172, 0.16);
+  --ritual-teal: #26374d;
+  --ritual-fire: #ad4055;
+  position: relative;
+  color: var(--ritual-ink);
+  background:
+    radial-gradient(circle at 82% 14%, rgba(82, 108, 132, 0.15), transparent 28%),
+    radial-gradient(circle at 12% 78%, rgba(125, 44, 66, 0.1), transparent 34%),
+    repeating-linear-gradient(96deg, transparent 0 13px, rgba(229, 217, 210, 0.012) 14px),
+    #11131f;
+}
+
+.is-ritual::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0.7rem;
+  border: 1px solid rgba(173, 64, 85, 0.1);
+  content: "";
+  pointer-events: none;
+}
+
+.is-ritual .status-bar {
+  color: rgba(229, 217, 210, 0.78);
+}
+
+.is-ritual button:focus-visible {
+  outline-color: #bd5367;
+}
+
+.ritual-header {
+  border-color: rgba(173, 64, 85, 0.24);
+  background: rgba(10, 12, 20, 0.42);
+}
+
+.ritual-header > span {
+  color: #9c7e89;
+}
+
+.ritual-brand > span {
+  border: 1px solid rgba(221, 208, 202, 0.55);
+  color: #e8d9d2;
+  background: #8f3047;
+  box-shadow: inset 0 0 0 3px #8f3047, inset 0 0 0 4px rgba(232, 217, 210, 0.25);
+}
+
+.ritual-brand b {
+  color: #e5d9d2;
+}
+
+.ritual-brand small {
+  color: #817c88;
+}
+
+.ritual-arrival-main,
+.ritual-baseline-main,
+.ritual-today-main {
+  scrollbar-width: none;
+}
+
+.ritual-arrival-main::-webkit-scrollbar,
+.ritual-baseline-main::-webkit-scrollbar,
+.ritual-today-main::-webkit-scrollbar {
+  display: none;
+}
+
+.ritual-eyebrow {
+  color: #ba5266;
+}
+
+.is-ritual h1 {
+  position: relative;
+  z-index: 3;
+  color: #e6d8d1;
+  font-size: 2.75rem;
+  font-weight: 390;
+  letter-spacing: -0.035em;
+  text-shadow: 0 1px 0 #080a11;
+}
+
+.is-ritual h1 em {
+  color: #b8495f;
+  font-style: italic;
+}
+
+.ritual-lede {
+  position: relative;
+  z-index: 3;
+  color: #99939d;
+}
+
+.ritual-portrait-stage {
+  position: relative;
+  height: 19.4rem;
+  flex: 1;
+  min-height: 15rem;
+  margin: -1.6rem -1.45rem -0.5rem;
+  overflow: hidden;
+}
+
+.ritual-portrait-stage::before {
+  position: absolute;
+  right: 1.4rem;
+  bottom: 1.5rem;
+  width: 13.5rem;
+  height: 13.5rem;
+  border: 1px solid rgba(173, 64, 85, 0.2);
+  border-radius: 50%;
+  content: "";
+}
+
+.ritual-portrait-art {
+  position: absolute;
+  right: -0.55rem;
+  bottom: -2.3rem;
+  width: 19.5rem;
+  overflow: visible;
+  filter: drop-shadow(0 1.2rem 2.4rem rgba(0, 0, 0, 0.38));
+}
+
+.portrait-moon {
+  fill: rgba(127, 153, 172, 0.09);
+  stroke: rgba(178, 106, 123, 0.44);
+  stroke-width: 1;
+}
+
+.portrait-hair-mass {
+  fill: url("#ritual-hair");
+  stroke: #52677e;
+  stroke-width: 1;
+}
+
+.portrait-face,
+.portrait-neck {
+  fill: url("#ritual-skin");
+  stroke: #5d3546;
+  stroke-width: 1.2;
+}
+
+.portrait-fringe {
+  fill: #1a2130;
+  stroke: #51647b;
+  stroke-width: 1;
+}
+
+.portrait-eye,
+.portrait-brow,
+.portrait-lips {
+  fill: none;
+  stroke: #673448;
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+
+.portrait-strands path {
+  fill: none;
+  stroke: rgba(111, 139, 159, 0.66);
+  stroke-width: 1.1;
+}
+
+.portrait-vine path {
+  fill: none;
+  stroke: #7c4052;
+  stroke-width: 1.2;
+}
+
+.portrait-vine ellipse {
+  fill: #202d3d;
+  stroke: #806071;
+  stroke-width: 1;
+}
+
+.portrait-flowers ellipse {
+  fill: rgba(155, 49, 72, 0.66);
+  stroke: #c17883;
+  stroke-width: 0.8;
+}
+
+.portrait-flowers circle {
+  fill: #d1a06f;
+}
+
+.portrait-moth {
+  fill: rgba(19, 23, 36, 0.8);
+  stroke: #ba7883;
+  stroke-width: 1;
+}
+
+.portrait-thread {
+  fill: none;
+  stroke: rgba(186, 120, 131, 0.44);
+  stroke-dasharray: 2 5;
+}
+
+.ritual-signal-note {
+  position: absolute;
+  z-index: 3;
+  bottom: 2.1rem;
+  left: 1.45rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #a78c96;
+  font-size: 0.58rem;
+  font-weight: 570;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.ritual-signal-note .icon {
+  width: 0.95rem;
+  color: #b8495f;
+}
+
+.ritual-device {
+  position: relative;
+  z-index: 4;
+  border-color: rgba(178, 120, 132, 0.25);
+  background: rgba(13, 15, 25, 0.72);
+  backdrop-filter: blur(0.55rem);
+}
+
+.ritual-device > span {
+  border: 1px solid rgba(220, 194, 191, 0.35);
+  color: #e2d3cd;
+  background: #8f3047;
+}
+
+.ritual-device b {
+  color: #ddd0ca;
+}
+
+.ritual-device small,
+.ritual-device em {
+  color: #817d88;
+}
+
+.ritual-footer {
+  position: relative;
+  z-index: 5;
+  background: linear-gradient(180deg, rgba(17, 19, 31, 0.52), #11131f 28%);
+}
+
+.ritual-button {
+  border: 1px solid rgba(211, 158, 164, 0.38);
+  color: #eadbd4;
+  background:
+    linear-gradient(90deg, rgba(173, 64, 85, 0.94), rgba(95, 37, 61, 0.94)),
+    #752d43;
+}
+
+.ritual-text-button {
+  color: #76727e;
+}
+
+.ritual-baseline-main {
+  position: relative;
+}
+
+.ritual-baseline-portrait {
+  position: absolute;
+  z-index: 0;
+  top: 2.7rem;
+  right: -5.6rem;
+  width: 18rem;
+  height: 25rem;
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.ritual-baseline-portrait .ritual-portrait-art {
+  inset: 0;
+  width: 100%;
+  filter: saturate(0.7);
+}
+
+.ritual-reading {
+  position: relative;
+  z-index: 2;
+  border-color: rgba(190, 122, 136, 0.48);
+  background: rgba(12, 14, 23, 0.76);
+  box-shadow: 0 1.4rem 2.8rem rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(0.45rem);
+}
+
+.ritual-reading-primary {
+  border-color: var(--ritual-line);
+}
+
+.ritual-reading span {
+  color: #8d8791;
+}
+
+.ritual-reading-primary strong,
+.ritual-reading-secondary b {
+  color: #d6c6bf;
+}
+
+.ritual-reading-primary small {
+  color: #a66d7a;
+}
+
+.ritual-reading-secondary article + article {
+  border-color: var(--ritual-line);
+}
+
+.ritual-reading-secondary i {
+  background: rgba(218, 199, 196, 0.12);
+}
+
+.ritual-reading-secondary em {
+  background: linear-gradient(90deg, #7e3148, #bd596a);
+}
+
+.ritual-baseline blockquote {
+  z-index: 2;
+  border-color: rgba(177, 109, 124, 0.24);
+  color: #c0aeb0;
+}
+
+.ritual-today-main h1 {
+  font-size: 2.55rem;
+}
+
+.ritual-fire-card {
+  border: 1px solid rgba(188, 90, 108, 0.35);
+  background: #0d1019;
+  box-shadow: 0 1.6rem 3rem rgba(0, 0, 0, 0.24);
+}
+
+.ritual-fire-card::before,
+.ritual-fire-card::after {
+  position: absolute;
+  z-index: 3;
+  width: 2.4rem;
+  height: 2.4rem;
+  content: "";
+  pointer-events: none;
+}
+
+.ritual-fire-card::before {
+  top: 0.65rem;
+  left: 0.65rem;
+  border-top: 1px solid #b34b61;
+  border-left: 1px solid #b34b61;
+}
+
+.ritual-fire-card::after {
+  right: 0.65rem;
+  bottom: 0.65rem;
+  border-right: 1px solid #b34b61;
+  border-bottom: 1px solid #b34b61;
+}
+
+.ritual-fire-card-shade {
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(6, 8, 14, 0.02) 25%, rgba(8, 9, 16, 0.9) 100%),
+    linear-gradient(90deg, rgba(77, 24, 44, 0.15), transparent 55%);
+}
+
+.ritual-botanical-frame {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ritual-botanical-frame > path {
+  fill: none;
+  stroke: rgba(198, 132, 144, 0.52);
+  stroke-width: 1;
+}
+
+.ritual-botanical-frame > ellipse {
+  fill: rgba(26, 38, 53, 0.85);
+  stroke: rgba(155, 116, 133, 0.65);
+  stroke-width: 1;
+}
+
+.ritual-botanical-frame g circle:first-child {
+  fill: none;
+  stroke: rgba(173, 64, 85, 0.62);
+  stroke-dasharray: 2 3;
+}
+
+.ritual-botanical-frame g circle:last-child {
+  fill: #c88973;
+}
+
+.ritual-fire-card-copy {
+  text-shadow: 0 2px 1rem #05060a;
+}
+
+.ritual-fire-card-copy small {
+  color: #b5818c;
+}
+
+.ritual-fire-card-copy b {
+  color: #e5d4cd;
+}
+
+.ritual-fire-card-copy em {
+  border-color: rgba(208, 158, 164, 0.52);
+  background: rgba(97, 31, 53, 0.45);
+}
+
+.ritual-today-reading {
+  color: #777581;
+}
+
+.ritual-today-reading b {
+  color: #c9b8b4;
+}
+
+.ritual-today-reading i {
+  background: rgba(187, 130, 140, 0.18);
+}
+
+.ritual-nav {
+  border-color: rgba(173, 64, 85, 0.25);
+  background: rgba(12, 14, 23, 0.98);
+}
+
+.ritual-nav button {
+  color: #76727e;
+}
+
+.ritual-nav button.is-active {
+  color: #d7c6c1;
+}
+
+.ritual-nav button.is-active i {
+  background: #b8495f;
+}
+
+.ritual-game-header {
+  border-color: rgba(173, 64, 85, 0.3);
+  background:
+    linear-gradient(90deg, rgba(91, 28, 49, 0.22), transparent 38%),
+    #0e111a;
+}
+
+.ritual-game-header b {
+  color: #e3d3cc;
+}
+
+.ritual-game-header small {
+  color: #bd5367;
+}
+
+.ritual-back {
+  border-color: rgba(190, 115, 130, 0.34);
+}
+
+.is-ritual-switcher button.is-active {
+  color: #eadbd4;
+  background: #893047;
+}
+
 .demo-switcher .style-return {
   width: 1.85rem;
   flex: 0 0 auto;
@@ -2020,6 +3161,71 @@ button:focus-visible {
 
   .weather-hero {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .ritual-header {
+    min-height: 3.7rem;
+  }
+
+  .ritual-arrival-main,
+  .ritual-baseline-main,
+  .ritual-today-main {
+    padding-block: 1.05rem 0.8rem;
+  }
+
+  .is-ritual h1 {
+    margin-top: 0.55rem;
+    font-size: 2.15rem;
+  }
+
+  .ritual-lede {
+    margin-top: 0.65rem;
+  }
+
+  .ritual-signal {
+    width: 9rem;
+    height: 7.8rem;
+    margin-top: 0.6rem;
+    transform: scale(0.82);
+  }
+
+  .ritual-device {
+    padding-block: 0.6rem;
+  }
+
+  .ritual-footer {
+    padding-top: 0.55rem;
+  }
+
+  .ritual-button {
+    min-height: 3rem;
+  }
+
+  .ritual-reading {
+    margin-top: 0.9rem;
+  }
+
+  .ritual-reading-primary {
+    min-height: 8.3rem;
+  }
+
+  .ritual-reading-primary strong {
+    font-size: 3.9rem;
+  }
+
+  .ritual-baseline blockquote {
+    margin-top: 0.85rem;
+    padding-top: 0.8rem;
+    font-size: 0.88rem;
+  }
+
+  .ritual-today-main h1 {
+    font-size: 2rem;
+  }
+
+  .ritual-fire-card {
+    min-height: 14rem;
+    margin-top: 0.8rem;
   }
 }
 

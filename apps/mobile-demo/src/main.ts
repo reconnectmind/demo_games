@@ -10,7 +10,11 @@ type Screen =
   | "ember-connect"
   | "ember-baseline"
   | "ember-today"
-  | "ember-campfire";
+  | "ember-campfire"
+  | "ritual-connect"
+  | "ritual-baseline"
+  | "ritual-today"
+  | "ritual-campfire";
 type IconName =
   | "arrow"
   | "battery"
@@ -71,7 +75,7 @@ function startScreen(): string {
         ${logo()}
         <span>Experience study</span>
         <h1>Choose your atmosphere</h1>
-        <p>The same journey, shaped through two distinct visual languages.</p>
+        <p>The same journey, shaped through three distinct visual languages.</p>
       </header>
 
       <main class="choice-main">
@@ -96,6 +100,18 @@ function startScreen(): string {
             <i class="ember-flame"></i>
           </span>
           <span class="experience-action">Start ember ${icon("arrow")}</span>
+        </button>
+
+        <button class="experience-card experience-ritual" type="button" data-route="ritual-connect">
+          <span class="experience-index">03 · Ritual</span>
+          <span class="experience-title">Botanical nocturne</span>
+          <span class="experience-copy">A dreamlike night garden drawn around one living flame.</span>
+          <span class="experience-art ritual-art" aria-hidden="true">
+            <i class="ritual-art-moon"></i>
+            <i class="ritual-art-line"></i>
+            <i class="ritual-art-fire"></i>
+          </span>
+          <span class="experience-action">Enter ritual ${icon("arrow")}</span>
         </button>
       </main>
     </section>`;
@@ -430,6 +446,261 @@ function emberCampfireScreen(): string {
     </section>`;
 }
 
+function ritualBrand(): string {
+  return `
+    <div class="ritual-brand" aria-label="ReConnect Ritual">
+      <span>R</span>
+      <div><b>ReConnect</b><small>Evening ritual</small></div>
+    </div>`;
+}
+
+function ritualHeader(chapter: string): string {
+  return `
+    <header class="ritual-header">
+      ${ritualBrand()}
+      <span>${chapter}</span>
+    </header>`;
+}
+
+function ritualPortraitArt(): string {
+  return `
+    <svg class="ritual-portrait-art" viewBox="0 0 320 380" aria-hidden="true">
+      <defs>
+        <linearGradient id="ritual-hair" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#26374d" />
+          <stop offset="1" stop-color="#11131f" />
+        </linearGradient>
+        <linearGradient id="ritual-skin" x1="0" y1="0" x2="0.7" y2="1">
+          <stop offset="0" stop-color="#eadbd4" />
+          <stop offset="1" stop-color="#b99091" />
+        </linearGradient>
+      </defs>
+
+      <circle class="portrait-moon" cx="223" cy="105" r="76" />
+      <path class="portrait-hair-mass" d="M110 79C138 23 235 25 270 88c26 47 6 101 16 153 8 45-3 91-59 110-48 17-119-9-139-66-14-40 12-73 4-111-8-39-4-68 18-95Z" />
+      <path class="portrait-neck" d="M151 214c4 39-8 60-36 77 43 34 107 31 144-4-31-14-45-38-43-77Z" />
+      <path class="portrait-face" d="M131 78c-11 30-6 54-17 78l-17 19 18 7c4 27 18 54 43 59 23 4 46-18 61-46 13-25 20-74 2-104-16-27-68-39-90-13Z" />
+      <path class="portrait-fringe" d="M122 93c22-37 79-43 111-9 12 12 17 27 18 43-23-4-44-20-55-42-3 29-26 49-68 58 8-18 9-33-6-50Z" />
+      <path class="portrait-eye" d="M118 155c9 5 18 5 27-1" />
+      <path class="portrait-brow" d="M116 144c11-5 21-5 31-1" />
+      <path class="portrait-lips" d="M112 193c10 3 17 1 23-4" />
+
+      <g class="portrait-strands">
+        <path d="M221 74c69 50 30 145 56 213" />
+        <path d="M239 91c35 67-18 123 14 230" />
+        <path d="M198 58c66 76 5 147 30 272" />
+        <path d="M170 59c-53 70-56 150-27 248" />
+        <path d="M148 65c-73 94-33 182-56 248" />
+      </g>
+
+      <g class="portrait-vine">
+        <path d="M55 343c13-73 52-99 87-143 26-33 38-72 30-119" />
+        <path d="M276 343c-21-70-53-92-70-137-13-35-7-75 11-111" />
+        <path d="M18 262c50-5 82-28 109-68" />
+        <path d="M304 240c-50-12-72-37-85-78" />
+        <ellipse cx="80" cy="292" rx="7" ry="18" transform="rotate(38 80 292)" />
+        <ellipse cx="106" cy="246" rx="6" ry="16" transform="rotate(52 106 246)" />
+        <ellipse cx="53" cy="320" rx="6" ry="15" transform="rotate(-42 53 320)" />
+        <ellipse cx="246" cy="280" rx="7" ry="18" transform="rotate(-42 246 280)" />
+        <ellipse cx="223" cy="229" rx="6" ry="16" transform="rotate(-58 223 229)" />
+        <ellipse cx="270" cy="315" rx="6" ry="15" transform="rotate(38 270 315)" />
+      </g>
+
+      <g class="portrait-flowers">
+        <g transform="translate(67 223)">
+          <ellipse rx="7" ry="18" transform="rotate(0)" />
+          <ellipse rx="7" ry="18" transform="rotate(72)" />
+          <ellipse rx="7" ry="18" transform="rotate(144)" />
+          <ellipse rx="7" ry="18" transform="rotate(216)" />
+          <ellipse rx="7" ry="18" transform="rotate(288)" />
+          <circle r="5" />
+        </g>
+        <g transform="translate(248 188) scale(.72)">
+          <ellipse rx="7" ry="18" transform="rotate(0)" />
+          <ellipse rx="7" ry="18" transform="rotate(72)" />
+          <ellipse rx="7" ry="18" transform="rotate(144)" />
+          <ellipse rx="7" ry="18" transform="rotate(216)" />
+          <ellipse rx="7" ry="18" transform="rotate(288)" />
+          <circle r="5" />
+        </g>
+      </g>
+
+      <g class="portrait-moth" transform="translate(72 92) rotate(-18)">
+        <path d="M0 0C-27-22-38 12-7 19L0 8Z" />
+        <path d="M2 0C29-22 40 12 9 19L2 8Z" />
+        <path d="M1 2v26" />
+      </g>
+      <path class="portrait-thread" d="M70 119c-18 46 23 62-2 103" />
+    </svg>`;
+}
+
+function ritualBotanicalFrame(): string {
+  return `
+    <svg class="ritual-botanical-frame" viewBox="0 0 360 320" aria-hidden="true">
+      <path d="M-8 304C41 257 38 172 86 108 109 77 140 61 151 15" />
+      <path d="M367 282c-54-25-71-81-72-132-1-45-21-75-54-103" />
+      <ellipse cx="45" cy="246" rx="6" ry="18" transform="rotate(48 45 246)" />
+      <ellipse cx="68" cy="187" rx="6" ry="17" transform="rotate(37 68 187)" />
+      <ellipse cx="92" cy="127" rx="5" ry="15" transform="rotate(55 92 127)" />
+      <ellipse cx="310" cy="218" rx="6" ry="18" transform="rotate(-46 310 218)" />
+      <ellipse cx="294" cy="161" rx="5" ry="15" transform="rotate(-30 294 161)" />
+      <g transform="translate(53 214)">
+        <circle r="17" /><circle r="4" />
+      </g>
+      <g transform="translate(301 190)">
+        <circle r="12" /><circle r="3" />
+      </g>
+    </svg>`;
+}
+
+function ritualConnectScreen(): string {
+  return `
+    <section class="screen is-ritual ritual-connect" data-view="ritual-connect" tabindex="-1">
+      ${statusBar()}
+      ${ritualHeader("I · Night garden")}
+
+      <main class="ritual-arrival-main">
+        <div class="ritual-eyebrow">The threshold</div>
+        <h1>Listen for what<br /><em>remains.</em></h1>
+        <p class="ritual-lede">The headwear catches the faint current beneath the day’s noise.</p>
+
+        <div class="ritual-portrait-stage">
+          ${ritualPortraitArt()}
+          <span class="ritual-signal-note">${icon("signal")} Signal found · 4 ms</span>
+        </div>
+
+        <article class="ritual-device">
+          <span>${icon("check")}</span>
+          <div><b>Headwear is ready</b><small>Signal clear · room quiet</small></div>
+          <em>82%</em>
+        </article>
+      </main>
+
+      <footer class="ritual-footer">
+        <button class="ritual-button" type="button" data-route="ritual-baseline">
+          Cross the threshold ${icon("arrow")}
+        </button>
+        <button type="button" class="ritual-text-button" data-route="start">Choose another atmosphere</button>
+      </footer>
+    </section>`;
+}
+
+function ritualBaselineScreen(): string {
+  return `
+    <section class="screen is-ritual ritual-baseline" data-view="ritual-baseline" tabindex="-1">
+      ${statusBar()}
+      ${ritualHeader("II · Reflection")}
+
+      <main class="ritual-baseline-main">
+        <div class="ritual-eyebrow">Tonight’s reading</div>
+        <h1>Your weather<br />has roots.</h1>
+        <p class="ritual-lede">Alert at the edges. Warm at the centre. The signal gathers like rain before it falls.</p>
+        <div class="ritual-baseline-portrait">${ritualPortraitArt()}</div>
+
+        <section class="ritual-reading" aria-label="Tonight's reading">
+          <article class="ritual-reading-primary">
+            <span>Brain fuel</span>
+            <strong>74</strong>
+            <small>enough for a gentle close</small>
+          </article>
+          <div class="ritual-reading-secondary">
+            <article>
+              <span>Stress</span>
+              <b>28</b>
+              <i><em style="--measure: 28%"></em></i>
+            </article>
+            <article>
+              <span>Clarity</span>
+              <b>83</b>
+              <i><em style="--measure: 83%"></em></i>
+            </article>
+          </div>
+        </section>
+
+        <blockquote>
+          <span>“</span>
+          Keep one flame. Let the rest become night.
+        </blockquote>
+      </main>
+
+      <footer class="ritual-footer">
+        <button class="ritual-button" type="button" data-route="ritual-today">
+          See tonight ${icon("arrow")}
+        </button>
+      </footer>
+    </section>`;
+}
+
+function ritualNav(): string {
+  return `
+    <nav class="ritual-nav" aria-label="Ritual navigation">
+      <button class="is-active" type="button"><i></i>Today</button>
+      <button type="button" data-toast="A quiet record of your evenings will live here.">Notes</button>
+      <button type="button" data-route="start">Styles</button>
+    </nav>`;
+}
+
+function ritualTodayScreen(): string {
+  return `
+    <section class="screen is-ritual ritual-today" data-view="ritual-today" tabindex="-1">
+      ${statusBar()}
+      ${ritualHeader("III · Tuesday · 20:42")}
+
+      <main class="ritual-today-main">
+        <div class="ritual-eyebrow">For Alex, tonight</div>
+        <h1>Feed only the<br /><em>quiet fire.</em></h1>
+        <p class="ritual-lede">Wind carries what attention no longer needs. Ten minutes, without a goal.</p>
+
+        <div class="ritual-fire-card">
+          <iframe
+            src="./campfire-ritual/index.html?preview=1"
+            title="Animated preview of a small fire"
+            tabindex="-1"
+            aria-hidden="true"
+          ></iframe>
+          <span class="ritual-fire-card-shade"></span>
+          ${ritualBotanicalFrame()}
+          <button class="ritual-fire-card-action" type="button" data-route="ritual-campfire">
+            <span class="ritual-fire-card-copy">
+              <small>Recommended · 10 minutes</small>
+              <b>Begin the evening ritual</b>
+              <em>${icon("arrow")}</em>
+            </span>
+          </button>
+        </div>
+
+        <div class="ritual-today-reading" aria-label="Current state">
+          <span>Brain fuel <b>74</b></span>
+          <i></i>
+          <span>Stress <b>28</b></span>
+          <i></i>
+          <span>Best before <b>21:30</b></span>
+        </div>
+      </main>
+
+      ${ritualNav()}
+    </section>`;
+}
+
+function ritualCampfireScreen(): string {
+  return `
+    <section class="screen is-ritual ritual-game" data-view="ritual-campfire" tabindex="-1">
+      <header class="ritual-game-header">
+        <button class="ritual-back" type="button" data-route="ritual-today" aria-label="Back to Today">
+          ${icon("arrow")}
+        </button>
+        <div><b>A small fire</b><span>Evening ritual</span></div>
+        <small>10 min</small>
+      </header>
+      <iframe
+        class="ritual-game-frame"
+        src="./campfire-ritual/index.html"
+        title="A small fire evening ritual"
+        allow="fullscreen"
+      ></iframe>
+    </section>`;
+}
+
 const screens: Record<Screen, () => string> = {
   start: startScreen,
   connect: connectScreen,
@@ -439,6 +710,10 @@ const screens: Record<Screen, () => string> = {
   "ember-baseline": emberBaselineScreen,
   "ember-today": emberTodayScreen,
   "ember-campfire": emberCampfireScreen,
+  "ritual-connect": ritualConnectScreen,
+  "ritual-baseline": ritualBaselineScreen,
+  "ritual-today": ritualTodayScreen,
+  "ritual-campfire": ritualCampfireScreen,
 };
 
 function routeFromHash(): Screen {
@@ -447,15 +722,22 @@ function routeFromHash(): Screen {
 }
 
 function demoSwitcher(screen: Screen): string {
-  if (screen === "start" || screen === "ember-campfire") return "";
+  if (screen === "start" || screen.endsWith("-campfire")) return "";
   const ember = screen.startsWith("ember-");
-  const routes: readonly Screen[] = ember
-    ? ["ember-connect", "ember-baseline", "ember-today"]
-    : ["connect", "baseline", "today"];
-  const labels = ember ? ["Arrival", "Weather", "Today"] : ["Connect", "Baseline", "Today"];
+  const ritual = screen.startsWith("ritual-");
+  const routes: readonly Screen[] = ritual
+    ? ["ritual-connect", "ritual-baseline", "ritual-today"]
+    : ember
+      ? ["ember-connect", "ember-baseline", "ember-today"]
+      : ["connect", "baseline", "today"];
+  const labels = ritual
+    ? ["Arrival", "Check-in", "Tonight"]
+    : ember
+      ? ["Arrival", "Weather", "Today"]
+      : ["Connect", "Baseline", "Today"];
 
   return `
-    <nav class="demo-switcher${ember ? " is-ember-switcher" : ""}" aria-label="Demo screens">
+    <nav class="demo-switcher${ember ? " is-ember-switcher" : ""}${ritual ? " is-ritual-switcher" : ""}" aria-label="Demo screens">
       <button class="style-return" type="button" data-route="start" aria-label="Choose design style">×</button>
       ${routes
         .map(
@@ -474,10 +756,11 @@ function render(screen = routeFromHash()): void {
     .map((part) => `${part[0]!.toUpperCase()}${part.slice(1)}`)
     .join(" · ");
   const ember = screen.startsWith("ember-");
+  const ritual = screen.startsWith("ritual-");
   document.title = `ReConnect · ${title}`;
   app.innerHTML = `
     <main class="demo-stage">
-      <div class="phone${ember ? " is-ember-phone" : ""}" aria-live="polite">${screens[screen]()}</div>
+      <div class="phone${ember ? " is-ember-phone" : ""}${ritual ? " is-ritual-phone" : ""}" aria-live="polite">${screens[screen]()}</div>
       ${demoSwitcher(screen)}
     </main>
     <div class="toast" role="status" aria-live="polite"></div>`;
