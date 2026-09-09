@@ -9,6 +9,9 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace @gamespace/showcase",
+    "mobile:dev": "npm run dev --workspace @gamespace/mobile-demo",
+    "mobile:build": "npm run build --workspace @gamespace/mobile-demo",
+    "mobile:preview": "npm run preview --workspace @gamespace/mobile-demo",
     "experiment:dev": "npm run dev --workspace @gamespace/experiment",
     "experiment:build": "npm run build --workspace @gamespace/experiment",
     "experiment:build:windows": "npm run build:windows --workspace @gamespace/experiment",

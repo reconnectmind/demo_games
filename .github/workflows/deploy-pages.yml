@@ -41,6 +41,16 @@ jobs:
       - name: Build showcase
         run: npm run build
 
+      # Мобильное демо публикуется рядом, не меняя существующий адрес витрины.
+      - name: Build mobile demo
+        run: npm run mobile:build
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p pages-site/mobile-demo
+          cp -R apps/showcase/dist/. pages-site/
+          cp -R apps/mobile-demo/dist/. pages-site/mobile-demo/
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
@@ -49,7 +59,7 @@ jobs:
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/showcase/dist
+          path: pages-site
 
   deploy:
     needs: build
